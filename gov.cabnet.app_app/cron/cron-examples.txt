@@ -1,0 +1,2 @@
+* * * * * /usr/local/bin/php /home/USER/edxeix-bolt-bridge-starter/cli/process_jobs.php >> /home/USER/edxeix-bolt-bridge-starter/storage/logs/process_jobs.log 2>&1
+*/5 * * * * /usr/local/bin/php /home/USER/edxeix-bolt-bridge-starter/cli/sync_bolt.php >> /home/USER/edxeix-bolt-bridge-starter/storage/logs/sync_bolt.log 2>&1

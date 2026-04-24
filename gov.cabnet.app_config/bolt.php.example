@@ -1,0 +1,68 @@
+<?php
+
+/**
+ * gov.cabnet.app Bolt override config example.
+ *
+ * Server install:
+ *   cp bolt.php.example bolt.php
+ *   Fill real Bolt credentials and company IDs only on the server.
+ *
+ * Do NOT commit bolt.php. It is ignored by .gitignore.
+ */
+
+$db = [
+    'host'     => 'localhost',
+    'port'     => 3306,
+    'database' => 'REPLACE_WITH_DATABASE_NAME',
+    'username' => 'REPLACE_WITH_DATABASE_USER',
+    'password' => 'REPLACE_WITH_DATABASE_PASSWORD',
+    'charset'  => 'utf8mb4',
+];
+
+return [
+    'app' => [
+        'name'             => 'gov.cabnet.app',
+        'env'              => 'production',
+        'debug'            => false,
+        'base_url'         => 'https://gov.cabnet.app',
+        'timezone'         => 'Europe/Athens',
+        'internal_api_key' => 'REPLACE_WITH_LONG_RANDOM_INTERNAL_API_KEY',
+        'dry_run'          => true,
+    ],
+
+    'db'       => $db,
+    'database' => $db,
+
+    'bolt' => [
+        'token_url' => 'https://oidc.bolt.eu/token',
+        'client_id' => 'REPLACE_WITH_BOLT_CLIENT_ID',
+        'client_secret' => 'REPLACE_WITH_BOLT_CLIENT_SECRET',
+        'scope' => 'fleet-integration:api',
+        'api_base' => 'https://node.bolt.eu/fleet-integration-gateway',
+        'base_url' => 'https://node.bolt.eu/fleet-integration-gateway',
+        'company_id' => 0,
+        'company_ids' => [],
+        'endpoints' => [
+            'companies'    => '/fleetintegration/v1/getCompanies',
+            'drivers'      => '/fleetintegration/v1/getDrivers',
+            'vehicles'     => '/fleetintegration/v1/getVehicles',
+            'fleet_orders' => '/fleetintegration/v1/getFleetOrders',
+        ],
+        'companies_endpoint'    => '/fleetintegration/v1/getCompanies',
+        'drivers_endpoint'      => '/fleetintegration/v1/getDrivers',
+        'vehicles_endpoint'     => '/fleetintegration/v1/getVehicles',
+        'fleet_orders_endpoint' => '/fleetintegration/v1/getFleetOrders',
+        'trips_endpoint' => '/fleetintegration/v1/getFleetOrders',
+        'token_auth_mode' => 'basic',
+        'timeout' => 30,
+        'limit' => 100,
+    ],
+
+    'edxeix' => [
+        'lessor_id' => 'REPLACE_WITH_EDXEIX_LESSOR_ID',
+        'default_starting_point_id' => 0,
+        'future_start_guard_minutes' => 30,
+        'known_driver_ids' => [],
+        'known_vehicle_ids' => [],
+    ],
+];

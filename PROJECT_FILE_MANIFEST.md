@@ -1,0 +1,77 @@
+# Project File Manifest
+
+
+Generated from the sanitized package.
+
+
+- `.gitignore`
+- `CONTINUE_PROMPT.md`
+- `DEPLOYMENT.md`
+- `HANDOFF.md`
+- `PROJECT_FILE_MANIFEST.md`
+- `README.md`
+- `SANITIZATION_REPORT.md`
+- `SCOPE.md`
+- `SECURITY.md`
+- `docs/RECOMMENDATIONS.md`
+- `gov.cabnet.app_app/.gitignore`
+- `gov.cabnet.app_app/cli/import_session.php`
+- `gov.cabnet.app_app/cli/process_jobs.php`
+- `gov.cabnet.app_app/cli/sync_bolt.php`
+- `gov.cabnet.app_app/cron/cron-examples.txt`
+- `gov.cabnet.app_app/lib/bolt_sync_lib.php`
+- `gov.cabnet.app_app/src/Bolt/BoltApiClient.php`
+- `gov.cabnet.app_app/src/Bolt/BoltSyncService.php`
+- `gov.cabnet.app_app/src/Bolt/BoltTokenService.php`
+- `gov.cabnet.app_app/src/Config.php`
+- `gov.cabnet.app_app/src/Database.php`
+- `gov.cabnet.app_app/src/Domain/BookingNormalizer.php`
+- `gov.cabnet.app_app/src/Domain/MappingService.php`
+- `gov.cabnet.app_app/src/Domain/SubmissionService.php`
+- `gov.cabnet.app_app/src/Edxeix/EdxeixFormReader.php`
+- `gov.cabnet.app_app/src/Edxeix/EdxeixPayloadBuilder.php`
+- `gov.cabnet.app_app/src/Edxeix/EdxeixSubmitter.php`
+- `gov.cabnet.app_app/src/Edxeix/SessionStore.php`
+- `gov.cabnet.app_app/src/HttpClient.php`
+- `gov.cabnet.app_app/src/Logger.php`
+- `gov.cabnet.app_app/src/Repository/AttemptRepository.php`
+- `gov.cabnet.app_app/src/Repository/BookingRepository.php`
+- `gov.cabnet.app_app/src/Repository/JobRepository.php`
+- `gov.cabnet.app_app/src/Repository/MappingRepository.php`
+- `gov.cabnet.app_app/src/Repository/RawPayloadRepository.php`
+- `gov.cabnet.app_app/src/bootstrap.php`
+- `gov.cabnet.app_app/storage/artifacts/.gitkeep`
+- `gov.cabnet.app_app/storage/logs/.gitkeep`
+- `gov.cabnet.app_app/storage/runtime/.gitkeep`
+- `gov.cabnet.app_app/storage/runtime/edxeix_session.json.example`
+- `gov.cabnet.app_config/.gitignore`
+- `gov.cabnet.app_config/README.md`
+- `gov.cabnet.app_config/bolt.php.example`
+- `gov.cabnet.app_config/config.php.example`
+- `gov.cabnet.app_sql/2026_04_24_bolt_dedupe_cleanup_fix.sql`
+- `gov.cabnet.app_sql/2026_04_24_bolt_hash_insert_fix.sql`
+- `gov.cabnet.app_sql/2026_04_24_bolt_price_cleanup.sql`
+- `gov.cabnet.app_sql/2026_04_24_bolt_schema_compat_fix.sql`
+- `gov.cabnet.app_sql/2026_04_24_bolt_time_columns_fix.sql`
+- `gov.cabnet.app_sql/2026_04_24_bolt_uuid_sync_patch.sql`
+- `gov.cabnet.app_sql/2026_04_24_verified_edxeix_mappings.sql`
+- `gov.cabnet.app_sql/cabnet_gov_public_html_subdir_layout.sql`
+- `gov.cabnet.app_sql/cabnet_gov_starter.sql`
+- `gov.cabnet.app_sql/current_schema_sanitized.sql`
+- `gov.cabnet.app_sql/edxeix_bolt_bridge_starter.sql`
+- `public_html/gov.cabnet.app/.htaccess`
+- `public_html/gov.cabnet.app/bolt-api-smoke-test.php`
+- `public_html/gov.cabnet.app/bolt-fleet-orders-watch.php`
+- `public_html/gov.cabnet.app/bolt_edxeix_preflight.php`
+- `public_html/gov.cabnet.app/bolt_jobs_queue.php`
+- `public_html/gov.cabnet.app/bolt_readiness_audit.php`
+- `public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php`
+- `public_html/gov.cabnet.app/bolt_submission_worker.php`
+- `public_html/gov.cabnet.app/bolt_sync_orders.php`
+- `public_html/gov.cabnet.app/bolt_sync_reference.php`
+- `public_html/gov.cabnet.app/index.php`
+- `public_html/gov.cabnet.app/ops/bolt-live.php`
+- `public_html/gov.cabnet.app/ops/index.php`
+- `public_html/gov.cabnet.app/ops/jobs.php`
+- `public_html/gov.cabnet.app/ops/readiness.php`
+- `public_html/gov.cabnet.app/ops/submit.php`

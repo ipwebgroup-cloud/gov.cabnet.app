@@ -1,0 +1,41 @@
+# cPanel / PHP runtime secrets
+/gov.cabnet.app_config/config.php
+/gov.cabnet.app_config/bolt.php
+/gov.cabnet.app_config/database.php
+/gov.cabnet.app_config/app.php
+/gov.cabnet.app_config/edxeix.php
+/gov.cabnet.app_config/*.local.php
+
+# Runtime sessions, logs, artifacts
+/gov.cabnet.app_app/storage/logs/*
+!/gov.cabnet.app_app/storage/logs/.gitkeep
+/gov.cabnet.app_app/storage/runtime/*
+!/gov.cabnet.app_app/storage/runtime/*.example
+!/gov.cabnet.app_app/storage/runtime/.gitkeep
+/gov.cabnet.app_app/storage/artifacts/*
+!/gov.cabnet.app_app/storage/artifacts/.gitkeep
+
+# Backups, dumps, uploads, local exports
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.sql.gz
+*.sql.zip
+*_current_SQL*.sql
+*.bak
+*.backup
+*.orig
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Public temporary utility scripts should not be committed or kept deployed
+/public_html/gov.cabnet.app/bolt_cleanup_lab_jobs.php
+/public_html/gov.cabnet.app/bootstrap_path_check.php
+/public_html/gov.cabnet.app/bolt_lab_future_candidate.php
+/public_html/gov.cabnet.app/bolt_schema_fix.php
+/public_html/gov.cabnet.app/bolt_time_columns_fix.php
+/public_html/gov.cabnet.app/ops/index.html

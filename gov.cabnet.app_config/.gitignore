@@ -1,0 +1,7 @@
+# Real production configs stay on the server only.
+config.php
+bolt.php
+database.php
+app.php
+edxeix.php
+*.local.php

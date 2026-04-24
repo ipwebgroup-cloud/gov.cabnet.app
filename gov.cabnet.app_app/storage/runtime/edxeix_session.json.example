@@ -1,0 +1,5 @@
+{
+  "cookie_header": "REPLACE_WITH_EDXEIX_COOKIE_HEADER_ON_SERVER_ONLY",
+  "csrf_token": "REPLACE_WITH_EDXEIX_CSRF_TOKEN_ON_SERVER_ONLY",
+  "last_refreshed_at": "YYYY-MM-DDTHH:MM:SS+03:00"
+}
