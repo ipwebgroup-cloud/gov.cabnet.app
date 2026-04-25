@@ -103,3 +103,32 @@ Expected after enabling config:
 ## Notes
 
 `.user.ini` can be cached by PHP for a few minutes. If the guard does not activate immediately, wait 5 minutes or restart/reload PHP-FPM from WHM if appropriate.
+
+## Preconfigured IP-only config included in corrected patch
+
+The corrected package includes:
+
+```text
+gov.cabnet.app_config/ops.php
+```
+
+Upload it to:
+
+```text
+/home/cabnet/gov.cabnet.app_config/ops.php
+```
+
+It is configured for IP-only access using:
+
+```text
+2.87.234.195
+```
+
+This real config file is server-only and must not be committed to GitHub.
+
+If it was copied as `root`, repair ownership:
+
+```bash
+chown cabnet:cabnet /home/cabnet/gov.cabnet.app_config/ops.php
+chmod 640 /home/cabnet/gov.cabnet.app_config/ops.php
+```
