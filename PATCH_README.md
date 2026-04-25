@@ -1,41 +1,68 @@
-# Patch: Replace legacy ops index with safe landing page
+# Patch README — Final Handoff / Continue Prompt Refresh
+
+## Purpose
+
+Updates project continuity files so the next chat starts from the current validated baseline.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/index.php
-docs/SAFE_OPS_INDEX.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload path
+## Upload / commit paths
+
+Commit these files at the repository root:
 
 ```text
-public_html/gov.cabnet.app/ops/index.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/index.php
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
+
+Optional server copy if maintaining docs on the cPanel account root:
+
+```text
+HANDOFF.md → /home/cabnet/HANDOFF.md
+CONTINUE_PROMPT.md → /home/cabnet/CONTINUE_PROMPT.md
+PATCH_README.md → /home/cabnet/PATCH_README.md
 ```
 
 ## SQL
 
 No SQL required.
 
-## Verify
+## Verification
 
-Open:
+After committing, open the files in GitHub and confirm they mention:
 
 ```text
-https://gov.cabnet.app/ops/index.php
+READY_FOR_REAL_BOLT_FUTURE_TEST
+READY TO CREATE REAL FUTURE TEST RIDE
+real future candidates: 0
+live submission disabled
+Filippos mapped to EDXEIX 17585
+EMX6874 mapped to 13799
+EHA2545 mapped to 5949
+Georgios Zachariou left unmapped for now
+ops access guard active
+legacy /ops/index.php replaced by safe landing page
 ```
 
-Expected:
+## Git commit title
 
-- read-only Operations Console landing page loads
-- current safe workflow tools are linked
-- no POST forms are present
-- no manual booking/session/queue actions are present
+```text
+Refresh handoff for current Bolt EDXEIX baseline
+```
 
-## Safety
+## Git commit description
 
-No Bolt request, EDXEIX request, database write, queue creation, or live submission behavior is introduced.
+```text
+Updates HANDOFF.md and CONTINUE_PROMPT.md with the current validated gov.cabnet.app Bolt → EDXEIX bridge baseline.
+
+The refreshed continuity files document the clean readiness state, guarded operations pages, dry-run/LAB cleanup validation, access guard status, mapping dashboard/editor state, known EDXEIX driver references, current driver/vehicle mappings, and the remaining blocker that a real future Bolt ride cannot yet be created because Filippos must be available for the test.
+
+Live EDXEIX submission remains disabled and unauthorized.
+```
