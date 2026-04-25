@@ -1,73 +1,46 @@
-# Patch: Firefox EDXEIX Session Capture Extension
+# Patch: Firefox EDXEIX Capture Fixed URL + No Phrase
 
 ## What changed
 
-Added a guarded server endpoint:
+- Updated the Firefox extension to use the fixed EDXEIX submit URL automatically.
+- Removed the `SAVE EDXEIX SESSION SERVER SIDE` confirmation phrase from the extension workflow.
+- Updated the server capture endpoint so the extension only needs to send cookie/header and CSRF token.
+- Server-side live submission flags remain forced disabled.
+
+## Files included
 
 ```text
 public_html/gov.cabnet.app/ops/edxeix-session-capture.php
+tools/firefox-edxeix-session-capture/manifest.json
+tools/firefox-edxeix-session-capture/popup.html
+tools/firefox-edxeix-session-capture/popup.css
+tools/firefox-edxeix-session-capture/popup.js
+tools/firefox-edxeix-session-capture/README.md
+docs/EDXEIX_FIREFOX_EXTENSION_FIXED_URL_NO_PHRASE.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-Added a private Firefox extension:
-
-```text
-tools/firefox-edxeix-session-capture/
-```
-
-The extension captures the active EDXEIX form action URL, hidden `_token`, and cookies, then sends them to the server endpoint for server-only storage.
-
-## Safety
-
-This patch does not call Bolt, does not call EDXEIX, does not submit live forms, does not write to the database, does not create jobs, and does not enable live submission.
-
-The server endpoint forces:
-
-```text
-live_submit_enabled = false
-http_submit_enabled = false
-```
-
-## Upload paths
+## Upload path
 
 ```text
 public_html/gov.cabnet.app/ops/edxeix-session-capture.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-capture.php
 ```
 
-Commit the extension folder:
+## Firefox extension
+
+Reload temporary add-on from:
 
 ```text
-tools/firefox-edxeix-session-capture/
-```
-
-Commit docs:
-
-```text
-docs/EDXEIX_FIREFOX_SESSION_CAPTURE_EXTENSION.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
+tools/firefox-edxeix-session-capture/manifest.json
 ```
 
 ## SQL
 
 No SQL required.
 
-## Verification
+## Safety
 
-Open:
-
-```text
-https://gov.cabnet.app/ops/edxeix-session-capture.php
-```
-
-Expected GET output:
-
-```text
-read_only: true
-calls_edxeix: false
-writes_database: false
-prints_secrets: false
-```
-
-Then load the Firefox extension temporarily and test from the logged-in EDXEIX create form.
+No Bolt call, no EDXEIX call, no database write, no live submission, and no secret output are introduced.

@@ -11,26 +11,11 @@ The project is in safe production-prep state.
 - EDXEIX submit URL: configured server-side.
 - EDXEIX cookie/CSRF session: saved server-side and placeholder-free.
 - EDXEIX session page: has guarded server-side save form and fast paste auto-extract helper.
-- Private Firefox EDXEIX session capture extension: added under `tools/firefox-edxeix-session-capture/`.
-- Extension capture endpoint: added at `/ops/edxeix-session-capture.php`.
+- Firefox EDXEIX capture extension: installed in repo under `tools/firefox-edxeix-session-capture/`.
+- Firefox extension v0.1.1 uses fixed submit URL `https://edxeix.yme.gov.gr/dashboard/lease-agreement` and no longer requires the save confirmation phrase.
 - Real future Bolt candidates: 0.
 - Live-eligible rows: 0.
 - Live HTTP execution: no.
-
-## Firefox extension purpose
-
-The extension reduces manual EDXEIX session refresh errors.
-
-Operator workflow:
-
-1. Log in to EDXEIX.
-2. Open `/dashboard/lease-agreement/create`.
-3. Click the Firefox extension.
-4. Capture form action, hidden `_token`, and cookies.
-5. Type `SAVE EDXEIX SESSION SERVER SIDE`.
-6. Save to gov.cabnet.app server-only storage.
-
-The endpoint forces `live_submit_enabled=false` and `http_submit_enabled=false`.
 
 ## Current remaining blockers before real live EDXEIX submission
 
@@ -60,4 +45,3 @@ Leave Georgios Zachariou unmapped for now.
 - Do not commit real config, cookies, CSRF tokens, logs, sessions, or runtime files.
 - Keep `/home/cabnet/gov.cabnet.app_config/live_submit.php` server-only.
 - Keep `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json` server-only.
-- Keep the extension private and only install it for trusted operators.

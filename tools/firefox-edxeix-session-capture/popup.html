@@ -9,14 +9,14 @@
 <body>
   <main class="wrap">
     <h1>CABnet EDXEIX Capture</h1>
-    <p class="lead">Open the EDXEIX <strong>Ανάρτηση σύμβασης</strong> form, then capture and save the current session prerequisites.</p>
+    <p class="lead">Open the EDXEIX <strong>Ανάρτηση σύμβασης</strong> create form, then capture and save the current session prerequisites.</p>
 
     <section id="status" class="status neutral">Ready.</section>
 
     <section class="box">
       <h2>Detected values</h2>
-      <div class="row"><span>EDXEIX tab</span><strong id="tabState">not checked</strong></div>
-      <div class="row"><span>Form action</span><strong id="actionState">not captured</strong></div>
+      <div class="row"><span>EDXEIX create tab</span><strong id="tabState">not checked</strong></div>
+      <div class="row"><span>Submit URL</span><strong id="actionState">fixed</strong></div>
       <div class="row"><span>CSRF token</span><strong id="csrfState">not captured</strong></div>
       <div class="row"><span>Cookies</span><strong id="cookieState">not captured</strong></div>
       <div class="row"><span>Cookie header length</span><strong id="cookieLength">0</strong></div>
@@ -24,14 +24,14 @@
 
     <section class="box">
       <button id="captureBtn" type="button">1. Capture from EDXEIX tab</button>
-      <label for="confirmPhrase">2. Safety confirmation</label>
-      <input id="confirmPhrase" type="text" autocomplete="off" spellcheck="false" placeholder="SAVE EDXEIX SESSION SERVER SIDE">
-      <button id="saveBtn" class="danger" type="button" disabled>3. Save to gov.cabnet.app</button>
+      <button id="saveBtn" class="danger" type="button" disabled>2. Save to gov.cabnet.app</button>
+      <p class="hint">No confirmation phrase is required. The server still keeps live submission disabled.</p>
     </section>
 
     <section class="box small">
       <h2>Safety</h2>
       <ul>
+        <li>Fixed submit URL: <code>https://edxeix.yme.gov.gr/dashboard/lease-agreement</code></li>
         <li>No EDXEIX submission is performed.</li>
         <li>Cookie/CSRF values are never displayed in this popup.</li>
         <li>Server keeps live flags disabled.</li>

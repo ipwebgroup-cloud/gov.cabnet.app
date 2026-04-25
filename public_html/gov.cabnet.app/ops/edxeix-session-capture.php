@@ -2,12 +2,13 @@
 /**
  * gov.cabnet.app — EDXEIX Session Capture Endpoint
  *
- * Receives EDXEIX submit URL, Cookie header, and CSRF token from the private
- * Firefox extension and saves them to server-only files.
+ * Receives EDXEIX Cookie header and CSRF token from the private Firefox
+ * extension and saves them to server-only files.
  *
  * Safety:
  * - POST only for writes.
- * - Requires exact confirmation phrase.
+ * - Intended to be protected by the existing /ops guard.
+ * - Uses the fixed, known EDXEIX submit URL; operators do not type it.
  * - Validates EDXEIX host and placeholder values.
  * - Creates backups before overwriting server-only files.
  * - Forces live_submit_enabled and http_submit_enabled to false.
@@ -30,6 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php';
+
+const ESC_FIXED_EDXEIX_SUBMIT_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
+const ESC_FIXED_FORM_METHOD = 'POST';
 
 function esc_json(array $payload, int $status = 200): void
 {
@@ -76,26 +80,21 @@ function esc_secret_looks_placeholder(string $value): bool
     return false;
 }
 
-function esc_validate_submit_url(string $url): array
+function esc_validate_fixed_submit_url(): array
 {
-    $url = trim($url);
-    if ($url === '') {
-        return [false, 'edxeix_submit_url_missing'];
-    }
-
-    $parts = parse_url($url);
+    $parts = parse_url(ESC_FIXED_EDXEIX_SUBMIT_URL);
     $scheme = strtolower((string)($parts['scheme'] ?? ''));
     $host = strtolower((string)($parts['host'] ?? ''));
     $path = (string)($parts['path'] ?? '');
 
     if ($scheme !== 'https') {
-        return [false, 'edxeix_submit_url_must_use_https'];
+        return [false, 'fixed_submit_url_must_use_https'];
     }
     if ($host !== 'edxeix.yme.gov.gr') {
-        return [false, 'edxeix_submit_url_host_not_allowed'];
+        return [false, 'fixed_submit_url_host_not_allowed'];
     }
-    if (strpos($path, '/dashboard/lease-agreement') !== 0) {
-        return [false, 'edxeix_submit_url_path_not_allowed'];
+    if ($path !== '/dashboard/lease-agreement') {
+        return [false, 'fixed_submit_url_path_not_allowed'];
     }
 
     return [true, ''];
@@ -123,7 +122,7 @@ function esc_write_php_config(string $file, array $config): void
     $content = "<?php\n";
     $content .= "/**\n";
     $content .= " * gov.cabnet.app — server-only live submit config.\n";
-    $content .= " * Updated by guarded EDXEIX session capture endpoint.\n";
+    $content .= " * Updated by guarded EDXEIX Firefox session capture endpoint.\n";
     $content .= " * Do not commit this file.\n";
     $content .= " */\n\n";
     $content .= "return " . var_export($config, true) . ";\n";
@@ -161,28 +160,37 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         'calls_edxeix' => false,
         'writes_database' => false,
         'prints_secrets' => false,
-        'message' => 'POST EDXEIX submit_url, cookie_header, csrf_token, and confirm to save server-side prerequisites.',
+        'confirmation_phrase_required' => false,
+        'fixed_submit_url' => ESC_FIXED_EDXEIX_SUBMIT_URL,
+        'message' => 'POST cookie_header and csrf_token from the private Firefox extension to save server-side EDXEIX prerequisites.',
     ]);
 }
 
 $startedAt = date('Y-m-d H:i:s');
-$confirm = esc_input('confirm', 255);
-$expectedConfirm = 'SAVE EDXEIX SESSION SERVER SIDE';
-$submitUrl = esc_input('submit_url', 2000);
+$submitUrl = ESC_FIXED_EDXEIX_SUBMIT_URL;
+$formMethod = ESC_FIXED_FORM_METHOD;
 $cookieHeader = esc_input('cookie_header', 20000);
 $csrfToken = esc_input('csrf_token', 4000);
 $sourceUrl = esc_input('source_url', 2000);
 $extensionVersion = esc_input('extension_version', 50);
-$formMethod = strtoupper(esc_input('form_method', 20) ?: 'POST');
+$detectedFormAction = esc_input('detected_form_action', 2000);
 
 $errors = [];
-if ($confirm !== $expectedConfirm) {
-    $errors[] = 'confirmation_phrase_mismatch';
-}
-
-[$urlOk, $urlError] = esc_validate_submit_url($submitUrl);
+[$urlOk, $urlError] = esc_validate_fixed_submit_url();
 if (!$urlOk) {
     $errors[] = $urlError;
+}
+
+if ($sourceUrl !== '') {
+    $sourceParts = parse_url($sourceUrl);
+    $sourceHost = strtolower((string)($sourceParts['host'] ?? ''));
+    $sourcePath = (string)($sourceParts['path'] ?? '');
+    if ($sourceHost !== 'edxeix.yme.gov.gr') {
+        $errors[] = 'source_url_host_not_allowed';
+    }
+    if (strpos($sourcePath, '/dashboard/lease-agreement') !== 0) {
+        $errors[] = 'source_url_path_not_allowed';
+    }
 }
 
 if ($cookieHeader === '') {
@@ -201,10 +209,6 @@ if ($csrfToken === '') {
     $errors[] = 'csrf_token_too_short';
 }
 
-if (!in_array($formMethod, ['POST'], true)) {
-    $errors[] = 'form_method_not_allowed';
-}
-
 if ($errors) {
     esc_json([
         'ok' => false,
@@ -212,6 +216,8 @@ if ($errors) {
         'script' => 'ops/edxeix-session-capture.php',
         'generated_at' => $startedAt,
         'errors' => array_values(array_unique($errors)),
+        'fixed_submit_url_used' => $submitUrl,
+        'confirmation_phrase_required' => false,
         'secret_lengths' => [
             'cookie_header_length' => strlen($cookieHeader),
             'csrf_token_length' => strlen($csrfToken),
@@ -237,11 +243,11 @@ try {
     $newConfig['require_confirmation_phrase'] = true;
     $newConfig['confirmation_phrase'] = $newConfig['confirmation_phrase'] ?? 'I UNDERSTAND SUBMIT LIVE TO EDXEIX';
     $newConfig['edxeix_submit_url'] = $submitUrl;
-    $newConfig['edxeix_form_method'] = 'POST';
+    $newConfig['edxeix_form_method'] = $formMethod;
     $newConfig['edxeix_session_file'] = $sessionFile;
     $newConfig['write_audit_rows'] = true;
     $newConfig['last_session_capture_at'] = $startedAt;
-    $newConfig['last_session_capture_source'] = 'firefox_extension';
+    $newConfig['last_session_capture_source'] = 'firefox_extension_fixed_url_no_phrase';
 
     esc_write_php_config($configFile, $newConfig);
 
@@ -250,8 +256,10 @@ try {
         'csrf_token' => $csrfToken,
         'saved_at' => $startedAt,
         'updated_at' => $startedAt,
-        'source' => 'firefox_extension_capture',
+        'source' => 'firefox_extension_capture_fixed_url_no_phrase',
         'source_url' => $sourceUrl,
+        'detected_form_action' => $detectedFormAction,
+        'fixed_submit_url_used' => $submitUrl,
         'extension_version' => $extensionVersion,
         'note' => 'Server-only runtime session. Do not commit this file.',
     ]);
@@ -265,12 +273,14 @@ try {
         'calls_edxeix' => false,
         'writes_database' => false,
         'prints_secrets' => false,
+        'confirmation_phrase_required' => false,
         'live_flags_forced_disabled' => true,
         'config_file' => $configFile,
         'session_file' => $sessionFile,
         'config_backup_created' => $configBackup !== null,
         'session_backup_created' => $sessionBackup !== null,
         'submit_url_configured' => true,
+        'submit_url' => $submitUrl,
         'submit_url_host' => parse_url($submitUrl, PHP_URL_HOST) ?: '',
         'session_ready_indicators' => [
             'cookie_header_present' => true,
@@ -292,6 +302,7 @@ try {
         'error' => $e->getMessage(),
         'prints_secrets' => false,
         'calls_edxeix' => false,
+        'confirmation_phrase_required' => false,
         'live_flags_forced_disabled' => true,
     ], 500);
 }
