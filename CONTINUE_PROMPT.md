@@ -1,77 +1,46 @@
-# CONTINUE PROMPT — gov.cabnet.app Bolt → EDXEIX Bridge
+# Continue Prompt — gov.cabnet.app Bolt → EDXEIX Bridge
 
 You are continuing the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Treat the latest uploaded files in the new chat as the primary source of truth. Then inspect this file and `HANDOFF.md`.
+Treat latest uploaded files/screenshots/SQL output as source of truth, then HANDOFF.md and this file.
 
-## Project context
+## Project
 
 - Domain: https://gov.cabnet.app
 - Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload
-- No frameworks, Composer, Node, or heavy dependencies unless Andreas explicitly approves
-
-## Server layout
-
-```text
-/home/cabnet/public_html/gov.cabnet.app
-/home/cabnet/gov.cabnet.app_app
-/home/cabnet/gov.cabnet.app_config
-/home/cabnet/gov.cabnet.app_sql
-```
+- Expected paths:
+  - `/home/cabnet/public_html/gov.cabnet.app`
+  - `/home/cabnet/gov.cabnet.app_app`
+  - `/home/cabnet/gov.cabnet.app_config`
+  - `/home/cabnet/gov.cabnet.app_sql`
 
 ## Current state
 
-The system has:
+The app is safe, guarded, and production-prep ready, but live EDXEIX submission is not enabled.
 
-- Guided ops console
-- Novice help page
-- Readiness audit
-- Future test checklist
-- Mapping dashboard/editor
-- Sanitized mapping JSON
-- Known EDXEIX driver reference panel
-- LAB dry-run harness and cleanup
-- Ops access guard
-- Disabled live-submit gate
-- `edxeix_live_submission_audit` table
+Validated tools:
 
-Live EDXEIX submission is still disabled and intentionally blocked.
+- `/ops/index.php` guided operations console
+- `/ops/help.php` novice guide/glossary
+- `/ops/readiness.php` readiness audit
+- `/ops/future-test.php` real future Bolt test checklist
+- `/ops/mappings.php` mapping coverage/editor
+- `/ops/jobs.php` local queue viewer
+- `/ops/live-submit.php` disabled live-submit gate
 
-## Important pages
+Latest refinement: `/ops/live-submit.php` now distinguishes analyzed historical rows from real future candidates. It should not auto-select old blocked rows as candidates when no real future candidate exists.
 
-```text
-/ops/index.php
-/ops/help.php
-/ops/readiness.php
-/ops/future-test.php
-/ops/mappings.php
-/ops/jobs.php
-/ops/live-submit.php
-/bolt_readiness_audit.php
-/bolt_edxeix_preflight.php?limit=30
-```
+## Known mappings
 
-## Known good first-test mappings
+- Filippos Giannakopoulos → `17585`
+- EMX6874 → `13799`
+- EHA2545 → `5949`
 
-```text
-Filippos Giannakopoulos → EDXEIX driver ID 17585
-EMX6874 → EDXEIX vehicle ID 13799
-EHA2545 → EDXEIX vehicle ID 5949
-```
+Leave Georgios Zachariou unmapped for now.
 
-Do not map/use Georgios Zachariou yet.
+## Critical rule
 
-## Current blocker
+Do not implement or enable live EDXEIX HTTP submission unless Andreas explicitly approves the final live-submit transport patch and there is a real eligible future Bolt trip.
 
-The real Bolt → EDXEIX live path cannot be fully tested until Filippos is available and a real future Bolt ride can be created 40–60 minutes in the future.
-
-## Live-submit policy
-
-Do not add actual EDXEIX HTTP submission unless Andreas explicitly asks for the final live-submit transport patch.
-
-The current `/ops/live-submit.php` page is a disabled gate only. It should continue to show why live submission is blocked, what requirements are missing, and what must pass before the first live submit.
-
-## Safe next work if no real Bolt candidate exists
-
-Prefer documentation, GUI clarity, safety checks, runbooks, and production checklist refinements. Do not introduce live transport, auto-submit, or cron auto-staging without explicit approval.
+Default to read-only, dry-run, preflight, queue visibility, and guarded one-shot safety gates.

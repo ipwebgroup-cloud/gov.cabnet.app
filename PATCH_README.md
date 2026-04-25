@@ -1,39 +1,33 @@
-# Patch: Live Submit Gate Production Readiness Refinement
+# Patch: Live Submit Candidate Wording Fix
 
-## Purpose
+## Upload path
 
-Refines the disabled live EDXEIX submit gate so operators can clearly see:
-
-- why live submission is currently blocked
-- what requirements are still missing
-- what must pass before the first live EDXEIX submission
-- the safe runbook for production by the 1st
-
-## Files included
+Upload:
 
 ```text
 public_html/gov.cabnet.app/ops/live-submit.php
-docs/LIVE_SUBMIT_PRODUCTION_READINESS.md
-docs/PRODUCTION_BY_FIRST_CHECKLIST.md
+```
+
+to:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/live-submit.php
+```
+
+Commit docs/root files to GitHub:
+
+```text
+docs/LIVE_SUBMIT_CANDIDATE_WORDING_FIX.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload path
-
-```text
-public_html/gov.cabnet.app/ops/live-submit.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/live-submit.php
-```
-
-Commit the docs/root files to GitHub.
-
 ## SQL
 
-No SQL required for this patch. The live audit table was created in the previous patch.
+No SQL required.
 
-## Verification
+## Verify
 
 Open:
 
@@ -42,16 +36,17 @@ https://gov.cabnet.app/ops/live-submit.php
 https://gov.cabnet.app/ops/live-submit.php?format=json
 ```
 
-Expected:
+Expected while no real future Bolt trip exists:
 
 ```text
-LIVE HTTP TRANSPORT BLOCKED
-Live-ready rows: 0
-Why live submission is blocked now section visible
-First Live Submit Requirements section visible
+Analyzed recent rows: may be 4
+Real future candidates: 0
+Live-eligible rows: 0
+Selected booking: none
+selected_is_real_future_candidate: false
 No EDXEIX HTTP request performed
 ```
 
 ## Safety
 
-This patch does not call Bolt, does not call EDXEIX, does not write to the database on GET, and does not enable live HTTP transport.
+This patch does not enable live EDXEIX submission. Live HTTP transport remains blocked.

@@ -30,11 +30,6 @@ function ls_bool_badge(bool $value, string $yes = 'pass', string $no = 'blocked'
     return $value ? ls_badge($yes, 'good') : ls_badge($no, 'bad');
 }
 
-function ls_wait_badge(bool $value, string $yes = 'pass', string $no = 'waiting'): string
-{
-    return $value ? ls_badge($yes, 'good') : ls_badge($no, 'warn');
-}
-
 function ls_request_param(string $key, string $default = ''): string
 {
     $value = $_GET[$key] ?? $_POST[$key] ?? $default;
@@ -83,6 +78,9 @@ function ls_blocker_meaning(string $blocker): string
         'vehicle_not_mapped' => 'The Bolt vehicle does not have a confirmed EDXEIX vehicle ID.',
         'duplicate_successful_submission' => 'A prior successful live submission appears to exist for this booking/payload.',
         'http_transport_not_enabled_in_this_patch' => 'This preparatory patch intentionally cannot send the live HTTP request.',
+        'no_real_future_candidate' => 'No analyzed row currently qualifies as a real future Bolt candidate.',
+        'no_selected_real_future_candidate' => 'No real future Bolt candidate is selected for live review.',
+        'selected_row_not_real_future_candidate' => 'The selected analyzed row is not a real future candidate because it is blocked by technical safety checks.',
     ];
     return $map[$blocker] ?? 'Safety blocker reported by the live-submit gate.';
 }
@@ -93,14 +91,42 @@ function ls_status_row(string $label, bool $pass, string $detail, bool $waiting 
     return '<tr><td><strong>' . ls_h($label) . '</strong></td><td>' . $badge . '</td><td>' . ls_h($detail) . '</td></tr>';
 }
 
+function ls_is_real_future_candidate(?array $selected): bool
+{
+    if ($selected === null) {
+        return false;
+    }
+
+    $source = strtolower((string)($selected['source_system'] ?? ''));
+    if (strpos($source, 'bolt') === false) {
+        return false;
+    }
+
+    if (empty($selected['technical_payload_valid'])) {
+        return false;
+    }
+
+    $technicalBlockers = array_map('strval', $selected['technical_blockers'] ?? []);
+    $hardBlockers = ['started_at_not_30_min_future', 'terminal_order_status', 'lab_row_blocked', 'never_submit_live', 'driver_not_mapped', 'vehicle_not_mapped'];
+    return count(array_intersect($hardBlockers, $technicalBlockers)) === 0;
+}
+
 function ls_first_live_requirements(?array $selected, array $config): array
 {
+    $candidateReady = ls_is_real_future_candidate($selected);
     $sessionReady = $selected ? !empty($selected['session_state']['ready']) : false;
     $technicalValid = $selected ? !empty($selected['technical_payload_valid']) : false;
     $liveAllowed = $selected ? !empty($selected['live_submission_allowed']) : false;
 
+    $candidateDetail = 'No real future Bolt candidate selected yet.';
+    if ($selected && $candidateReady) {
+        $candidateDetail = 'Selected booking #' . (string)$selected['booking_id'] . ' is a real future technical candidate.';
+    } elseif ($selected) {
+        $candidateDetail = 'Selected booking #' . (string)$selected['booking_id'] . ' is only an analyzed row, not a real future candidate.';
+    }
+
     return [
-        ['label' => 'Real future Bolt candidate exists', 'pass' => $selected !== null && ($selected['source_system'] ?? '') === 'bolt', 'detail' => $selected ? 'Selected booking #' . (string)$selected['booking_id'] . '.' : 'No real candidate selected yet.', 'waiting' => true],
+        ['label' => 'Real future Bolt candidate exists', 'pass' => $candidateReady, 'detail' => $candidateDetail, 'waiting' => true],
         ['label' => 'Payload technically valid', 'pass' => $technicalValid, 'detail' => $technicalValid ? 'Preflight payload passes technical checks.' : 'Preflight blockers must be cleared.', 'waiting' => true],
         ['label' => 'EDXEIX session ready', 'pass' => $sessionReady, 'detail' => $sessionReady ? 'Saved cookie/CSRF appears available.' : 'Server-side EDXEIX session must be saved/confirmed.', 'waiting' => true],
         ['label' => 'EDXEIX submit URL configured', 'pass' => trim((string)($config['edxeix_submit_url'] ?? '')) !== '', 'detail' => 'The exact EDXEIX form action/submit URL must be configured server-side.', 'waiting' => true],
@@ -112,7 +138,7 @@ function ls_first_live_requirements(?array $selected, array $config): array
     ];
 }
 
-function ls_blocked_reasons(?array $selected, array $config): array
+function ls_blocked_reasons(?array $selected, array $config, int $realFutureCandidateCount): array
 {
     $reasons = [];
     if (empty($config['live_submit_enabled'])) {
@@ -124,9 +150,15 @@ function ls_blocked_reasons(?array $selected, array $config): array
     if (trim((string)($config['edxeix_submit_url'] ?? '')) === '') {
         $reasons[] = 'edxeix_submit_url_missing';
     }
+    if ($realFutureCandidateCount === 0) {
+        $reasons[] = 'no_real_future_candidate';
+    }
     if ($selected === null) {
         $reasons[] = 'no_selected_real_future_candidate';
     } else {
+        if (!ls_is_real_future_candidate($selected)) {
+            $reasons[] = 'selected_row_not_real_future_candidate';
+        }
         foreach (($selected['live_blockers'] ?? []) as $blocker) {
             $reasons[] = (string)$blocker;
         }
@@ -141,27 +173,31 @@ function ls_blocked_reasons(?array $selected, array $config): array
     return array_values(array_unique($reasons));
 }
 
-function ls_pick_default_selection(array $candidates): ?array
+function ls_pick_default_selection(array $analyzedRows): ?array
 {
-    foreach ($candidates as $candidate) {
+    foreach ($analyzedRows as $candidate) {
         if (!empty($candidate['live_submission_allowed'])) {
             return $candidate;
         }
     }
-    foreach ($candidates as $candidate) {
-        if (!empty($candidate['technical_payload_valid'])) {
+    foreach ($analyzedRows as $candidate) {
+        if (ls_is_real_future_candidate($candidate)) {
             return $candidate;
         }
     }
-    return $candidates[0] ?? null;
+
+    // Do not auto-select old finished/cancelled rows. They remain visible in
+    // Analyzed Recent Bookings, but they are not live candidates.
+    return null;
 }
 
 $error = null;
 $config = gov_live_load_config();
 $db = null;
-$candidates = [];
+$analyzedRows = [];
 $selected = null;
 $postResult = null;
+$explicitBookingSelected = false;
 
 try {
     $bridgeConfig = gov_bridge_load_config();
@@ -170,16 +206,17 @@ try {
     }
     $db = gov_bridge_db();
     $limit = gov_bridge_int_param('limit', 50, 1, 200);
-    $candidates = gov_live_analyzed_candidates($db, $limit);
+    $analyzedRows = gov_live_analyzed_candidates($db, $limit);
 
     $bookingId = ls_request_param('booking_id', '');
     if ($bookingId !== '') {
+        $explicitBookingSelected = true;
         $booking = gov_live_booking_by_id($db, $bookingId);
         if ($booking) {
             $selected = gov_live_analyze_booking($db, $booking, $config);
         }
     } else {
-        $selected = ls_pick_default_selection($candidates);
+        $selected = ls_pick_default_selection($analyzedRows);
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -191,6 +228,7 @@ try {
         }
         $postResult = gov_live_submit_if_allowed($db, $booking, $confirm);
         $selected = $postResult['analysis'] ?? gov_live_analyze_booking($db, $booking, $config);
+        $explicitBookingSelected = true;
     }
 } catch (Throwable $e) {
     $error = $e->getMessage();
@@ -200,9 +238,11 @@ $phrase = (string)($config['confirmation_phrase'] ?? 'I UNDERSTAND SUBMIT LIVE T
 $liveEnabled = !empty($config['live_submit_enabled']);
 $httpEnabled = !empty($config['http_submit_enabled']);
 $submitUrlConfigured = trim((string)($config['edxeix_submit_url'] ?? '')) !== '';
-$technicalReadyCount = count(array_filter($candidates, static fn(array $row): bool => !empty($row['technical_payload_valid'])));
-$liveReadyCount = count(array_filter($candidates, static fn(array $row): bool => !empty($row['live_submission_allowed'])));
-$blockedReasons = ls_blocked_reasons($selected, $config);
+$realFutureCandidateRows = array_values(array_filter($analyzedRows, static fn(array $row): bool => ls_is_real_future_candidate($row)));
+$realFutureCandidateCount = count($realFutureCandidateRows);
+$liveReadyCount = count(array_filter($analyzedRows, static fn(array $row): bool => !empty($row['live_submission_allowed'])));
+$selectedIsRealFutureCandidate = ls_is_real_future_candidate($selected);
+$blockedReasons = ls_blocked_reasons($selected, $config, $realFutureCandidateCount);
 $requirements = ls_first_live_requirements($selected, $config);
 
 if (ls_request_param('format', '') === 'json') {
@@ -216,9 +256,12 @@ if (ls_request_param('format', '') === 'json') {
         'writes_database_on_get' => false,
         'live_http_transport_enabled_in_this_patch' => false,
         'config_state' => ls_public_config_state($config),
-        'analyzed_rows' => count($candidates),
-        'technical_ready_rows' => $technicalReadyCount,
+        'analyzed_rows' => count($analyzedRows),
+        'real_future_candidate_rows' => $realFutureCandidateCount,
         'live_ready_rows' => $liveReadyCount,
+        'auto_selected_only_real_future_candidates' => true,
+        'explicit_booking_selected' => $explicitBookingSelected,
+        'selected_is_real_future_candidate' => $selectedIsRealFutureCandidate,
         'why_live_is_blocked' => $blockedReasons,
         'first_live_submit_requirements' => $requirements,
         'selected' => $selected ? [
@@ -291,12 +334,24 @@ if (ls_request_param('format', '') === 'json') {
             <a class="btn orange" href="/bolt_edxeix_preflight.php?limit=30">Open Preflight</a>
         </div>
         <div class="grid">
-            <div class="metric"><strong><?= count($candidates) ?></strong><span>Analyzed recent rows</span></div>
-            <div class="metric"><strong><?= $technicalReadyCount ?></strong><span>Technical-ready rows</span></div>
+            <div class="metric"><strong><?= count($analyzedRows) ?></strong><span>Analyzed recent rows</span></div>
+            <div class="metric"><strong><?= $realFutureCandidateCount ?></strong><span>Real future candidates</span></div>
             <div class="metric"><strong><?= $liveReadyCount ?></strong><span>Live-eligible rows</span></div>
             <div class="metric"><strong>no</strong><span>Live HTTP execution</span></div>
         </div>
     </section>
+
+    <?php if (!$selected && $realFutureCandidateCount === 0): ?>
+    <section class="callout good">
+        <strong>No live candidate is selected.</strong>
+        This is correct right now. Historical finished/cancelled Bolt rows remain visible below as analyzed rows, but they are not selected automatically and must never be submitted.
+    </section>
+    <?php elseif ($selected && !$selectedIsRealFutureCandidate): ?>
+    <section class="callout danger">
+        <strong>Selected row is not a real future candidate.</strong>
+        It is shown for review only because it was opened explicitly or has blockers. Do not treat this as live-ready.
+    </section>
+    <?php endif; ?>
 
     <section class="card warn">
         <h2>Why live submission is blocked now</h2>
@@ -364,7 +419,7 @@ if (ls_request_param('format', '') === 'json') {
                 <tr><td><strong>Server config live_submit_enabled</strong></td><td><?= ls_bool_badge($liveEnabled, 'enabled', 'disabled') ?></td><td>Must be true in server-only config for a future live patch.</td></tr>
                 <tr><td><strong>Server config http_submit_enabled</strong></td><td><?= ls_bool_badge($httpEnabled, 'enabled', 'disabled') ?></td><td>Must be true in server-only config for a future live patch.</td></tr>
                 <tr><td><strong>EDXEIX URL configured</strong></td><td><?= ls_bool_badge($submitUrlConfigured, 'configured', 'missing') ?></td><td>The exact EDXEIX submit URL is required later.</td></tr>
-                <tr><td><strong>EDXEIX session ready</strong></td><td><?= $selected ? ls_bool_badge(!empty($selected['session_state']['ready']), 'ready', 'not ready') : ls_badge('unknown', 'warn') ?></td><td>Saved server-side cookie/CSRF must be available. Secrets are never displayed.</td></tr>
+                <tr><td><strong>EDXEIX session ready</strong></td><td><?= $selected ? ls_bool_badge(!empty($selected['session_state']['ready']), 'ready', 'not ready') : ls_badge('not selected', 'warn') ?></td><td>Saved server-side cookie/CSRF must be available. Secrets are never displayed.</td></tr>
                 <tr><td><strong>HTTP transport in this patch</strong></td><td><?= ls_badge('blocked', 'bad') ?></td><td>This patch intentionally refuses live HTTP even if other gates are toggled.</td></tr>
             </tbody>
         </table></div>
@@ -374,7 +429,7 @@ if (ls_request_param('format', '') === 'json') {
         <div class="card">
             <h2>Selected Booking Review</h2>
             <?php if (!$selected): ?>
-                <p class="warnline"><strong>No booking selected.</strong> A real future Bolt candidate is needed before live submission can ever be considered.</p>
+                <p class="warnline"><strong>No booking selected.</strong> A technically valid real future Bolt candidate is needed before live submission can ever be considered.</p>
             <?php else: ?>
                 <ul class="list">
                     <li>Booking ID: <strong><?= ls_h($selected['booking_id']) ?></strong></li>
@@ -384,6 +439,7 @@ if (ls_request_param('format', '') === 'json') {
                     <li>Started at: <strong><?= ls_h($selected['started_at']) ?></strong></li>
                     <li>Driver: <strong><?= ls_h($selected['driver_name']) ?></strong></li>
                     <li>Plate: <strong><?= ls_h($selected['plate']) ?></strong></li>
+                    <li>Real future candidate: <?= ls_bool_badge($selectedIsRealFutureCandidate, 'yes', 'no') ?></li>
                     <li>Technical payload: <?= ls_bool_badge(!empty($selected['technical_payload_valid']), 'valid', 'blocked') ?></li>
                     <li>Live allowed: <?= ls_bool_badge(!empty($selected['live_submission_allowed']), 'allowed', 'blocked') ?></li>
                 </ul>
@@ -407,14 +463,15 @@ if (ls_request_param('format', '') === 'json') {
 
     <section class="card">
         <h2>Analyzed Recent Bookings</h2>
-        <p class="small">Rows listed here are analyzed for live-submission safety. Historical or terminal rows should remain blocked.</p>
-        <?php if (!$candidates): ?>
+        <p class="small">Rows listed here are analyzed for live-submission safety. Historical or terminal rows should remain blocked and are not selected automatically.</p>
+        <?php if (!$analyzedRows): ?>
             <p>No rows are currently available for analysis. This is expected until the real Bolt test ride exists.</p>
         <?php else: ?>
             <div class="table-wrap"><table>
-                <thead><tr><th>Booking</th><th>Order Ref</th><th>Source</th><th>Status</th><th>Started</th><th>Driver</th><th>Plate</th><th>Technical</th><th>Live</th><th>Open</th></tr></thead>
+                <thead><tr><th>Booking</th><th>Order Ref</th><th>Source</th><th>Status</th><th>Started</th><th>Driver</th><th>Plate</th><th>Real Future</th><th>Live</th><th>Open</th></tr></thead>
                 <tbody>
-                <?php foreach ($candidates as $row): ?>
+                <?php foreach ($analyzedRows as $row): ?>
+                    <?php $isFutureCandidate = ls_is_real_future_candidate($row); ?>
                     <tr>
                         <td><?= ls_h($row['booking_id']) ?></td>
                         <td><code><?= ls_h($row['order_reference']) ?></code></td>
@@ -423,7 +480,7 @@ if (ls_request_param('format', '') === 'json') {
                         <td><?= ls_h($row['started_at']) ?></td>
                         <td><?= ls_h($row['driver_name']) ?></td>
                         <td><?= ls_h($row['plate']) ?></td>
-                        <td><?= ls_bool_badge(!empty($row['technical_payload_valid']), 'valid', 'blocked') ?></td>
+                        <td><?= ls_bool_badge($isFutureCandidate, 'yes', 'no') ?></td>
                         <td><?= ls_bool_badge(!empty($row['live_submission_allowed']), 'allowed', 'blocked') ?></td>
                         <td><a class="btn dark" href="/ops/live-submit.php?booking_id=<?= urlencode((string)$row['booking_id']) ?>">Review</a></td>
                     </tr>
