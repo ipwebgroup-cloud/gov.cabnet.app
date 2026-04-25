@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CABnet EDXEIX Capture</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="wrap">
+    <h1>CABnet EDXEIX Capture</h1>
+    <p class="lead">Open the EDXEIX <strong>Ανάρτηση σύμβασης</strong> form, then capture and save the current session prerequisites.</p>
+
+    <section id="status" class="status neutral">Ready.</section>
+
+    <section class="box">
+      <h2>Detected values</h2>
+      <div class="row"><span>EDXEIX tab</span><strong id="tabState">not checked</strong></div>
+      <div class="row"><span>Form action</span><strong id="actionState">not captured</strong></div>
+      <div class="row"><span>CSRF token</span><strong id="csrfState">not captured</strong></div>
+      <div class="row"><span>Cookies</span><strong id="cookieState">not captured</strong></div>
+      <div class="row"><span>Cookie header length</span><strong id="cookieLength">0</strong></div>
+    </section>
+
+    <section class="box">
+      <button id="captureBtn" type="button">1. Capture from EDXEIX tab</button>
+      <label for="confirmPhrase">2. Safety confirmation</label>
+      <input id="confirmPhrase" type="text" autocomplete="off" spellcheck="false" placeholder="SAVE EDXEIX SESSION SERVER SIDE">
+      <button id="saveBtn" class="danger" type="button" disabled>3. Save to gov.cabnet.app</button>
+    </section>
+
+    <section class="box small">
+      <h2>Safety</h2>
+      <ul>
+        <li>No EDXEIX submission is performed.</li>
+        <li>Cookie/CSRF values are never displayed in this popup.</li>
+        <li>Server keeps live flags disabled.</li>
+      </ul>
+    </section>
+
+    <section class="box small">
+      <a id="openSessionPage" href="https://gov.cabnet.app/ops/edxeix-session.php" target="_blank" rel="noopener">Open EDXEIX Session page</a>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

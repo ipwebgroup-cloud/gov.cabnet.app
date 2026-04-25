@@ -1,35 +1,53 @@
-# Patch: EDXEIX Session Auto-Extract Helper
+# Patch: Firefox EDXEIX Session Capture Extension
 
 ## What changed
 
-Updates `/ops/edxeix-session.php` with a fast paste helper that can extract:
-
-- Cookie request header
-- EDXEIX form action / submit URL
-- hidden `_token` CSRF token
-
-from pasted EDXEIX Developer Tools text.
-
-The operator can paste the request headers and form HTML/snippet, press **Extract into fields**, review that fields were populated, type the safety phrase, and save server-side.
-
-## Files included
+Added a guarded server endpoint:
 
 ```text
-public_html/gov.cabnet.app/ops/edxeix-session.php
-docs/EDXEIX_SESSION_AUTO_EXTRACT_HELPER.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
+public_html/gov.cabnet.app/ops/edxeix-session-capture.php
+```
+
+Added a private Firefox extension:
+
+```text
+tools/firefox-edxeix-session-capture/
+```
+
+The extension captures the active EDXEIX form action URL, hidden `_token`, and cookies, then sends them to the server endpoint for server-only storage.
+
+## Safety
+
+This patch does not call Bolt, does not call EDXEIX, does not submit live forms, does not write to the database, does not create jobs, and does not enable live submission.
+
+The server endpoint forces:
+
+```text
+live_submit_enabled = false
+http_submit_enabled = false
 ```
 
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/edxeix-session.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
+public_html/gov.cabnet.app/ops/edxeix-session-capture.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-capture.php
 ```
 
-Commit docs at repository root.
+Commit the extension folder:
+
+```text
+tools/firefox-edxeix-session-capture/
+```
+
+Commit docs:
+
+```text
+docs/EDXEIX_FIREFOX_SESSION_CAPTURE_EXTENSION.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
 
 ## SQL
 
@@ -40,18 +58,16 @@ No SQL required.
 Open:
 
 ```text
-https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/edxeix-session.php?format=json
+https://gov.cabnet.app/ops/edxeix-session-capture.php
 ```
 
-Expected:
+Expected GET output:
 
-- Fast Paste + Auto-Extract Helper is visible.
-- Manual fields still exist.
-- Existing EDXEIX session readiness remains ready if already saved.
-- Live flags remain disabled.
-- No EDXEIX HTTP request is performed.
+```text
+read_only: true
+calls_edxeix: false
+writes_database: false
+prints_secrets: false
+```
 
-## Safety
-
-This patch does not call Bolt, does not call EDXEIX, does not write to database, does not enable live submission, and does not print saved cookie/CSRF values.
+Then load the Firefox extension temporarily and test from the logged-in EDXEIX create form.

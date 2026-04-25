@@ -1,0 +1,79 @@
+:root {
+  --bg: #f3f6fb;
+  --panel: #ffffff;
+  --ink: #07152f;
+  --muted: #4b5875;
+  --line: #d7e1ef;
+  --blue: #2563eb;
+  --green: #07875a;
+  --orange: #b85c00;
+  --red: #b42318;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  width: 390px;
+  min-height: 520px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+.wrap { padding: 14px; }
+h1 { font-size: 20px; margin: 0 0 6px; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+p, li { color: var(--muted); line-height: 1.35; }
+.lead { margin: 0 0 12px; }
+.box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 20px rgba(8,18,37,.05);
+}
+.status {
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 700;
+}
+.status.good { border-color: #bbf7d0; background: #ecfdf3; color: #166534; }
+.status.warn { border-color: #fed7aa; background: #fff7ed; color: #9a3412; }
+.status.bad { border-color: #fecaca; background: #fef3f2; color: #991b1b; }
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 7px 0;
+}
+.row:last-child { border-bottom: 0; }
+.row span { color: var(--muted); }
+.row strong { text-align: right; }
+button {
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 12px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  margin: 6px 0 10px;
+}
+button.danger { background: var(--red); }
+button[disabled] { opacity: .45; cursor: not-allowed; }
+label { display: block; font-size: 13px; font-weight: 800; margin: 4px 0 5px; }
+input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+a { color: var(--blue); font-weight: 800; }
+.small { font-size: 13px; }
+ul { margin: 7px 0 0; padding-left: 18px; }
