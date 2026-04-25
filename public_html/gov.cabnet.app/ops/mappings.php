@@ -4,9 +4,15 @@
  *
  * Read-only operations page for Bolt → EDXEIX driver/vehicle mapping coverage.
  * Does not call Bolt, does not call EDXEIX, and does not modify database rows.
+ *
+ * JSON safety:
+ * - raw_payload_json and any unknown/raw columns are not returned in ?format=json.
+ * - JSON output is intentionally limited to mapping-safe fields only.
  */
 
 declare(strict_types=1);
+
+ini_set('serialize_precision', '-1');
 
 require_once '/home/cabnet/gov.cabnet.app_app/lib/bolt_sync_lib.php';
 
@@ -100,7 +106,8 @@ function map_table_rows(mysqli $db, string $table, string $view, string $query, 
     $params = [];
 
     if ($edxeixCol !== null) {
-        $mappedExpr = '(' . gov_bridge_quote_identifier($edxeixCol) . ' IS NOT NULL AND ' . gov_bridge_quote_identifier($edxeixCol) . " <> '' AND " . gov_bridge_quote_identifier($edxeixCol) . ' <> 0)';
+        $q = gov_bridge_quote_identifier($edxeixCol);
+        $mappedExpr = '(' . $q . ' IS NOT NULL AND ' . $q . " <> '' AND " . $q . ' <> 0)';
         if ($view === 'mapped') {
             $where[] = $mappedExpr;
         } elseif ($view === 'unmapped') {
@@ -139,7 +146,7 @@ function map_table_stats(mysqli $db, string $table): array
         'unmapped' => 0,
         'active' => 0,
         'inactive' => 0,
-        'mapped_percent' => 0,
+        'mapped_percent' => 0.0,
     ];
 
     if (!gov_bridge_table_exists($db, $table)) {
@@ -152,9 +159,10 @@ function map_table_stats(mysqli $db, string $table): array
 
     $edxeixCol = map_edxeix_column_for_table($table, $columns);
     if ($edxeixCol !== null) {
+        $q = gov_bridge_quote_identifier($edxeixCol);
         $out['mapped'] = (int)(gov_bridge_fetch_one(
             $db,
-            'SELECT COUNT(*) AS c FROM ' . gov_bridge_quote_identifier($table) . ' WHERE ' . gov_bridge_quote_identifier($edxeixCol) . ' IS NOT NULL AND ' . gov_bridge_quote_identifier($edxeixCol) . " <> '' AND " . gov_bridge_quote_identifier($edxeixCol) . ' <> 0'
+            'SELECT COUNT(*) AS c FROM ' . gov_bridge_quote_identifier($table) . ' WHERE ' . $q . ' IS NOT NULL AND ' . $q . " <> '' AND " . $q . ' <> 0'
         )['c'] ?? 0);
     }
 
@@ -164,8 +172,60 @@ function map_table_stats(mysqli $db, string $table): array
     }
 
     $out['unmapped'] = max(0, $out['total'] - $out['mapped']);
-    $out['mapped_percent'] = $out['total'] > 0 ? round(($out['mapped'] / $out['total']) * 100, 1) : 0;
+    $out['mapped_percent'] = $out['total'] > 0 ? round(($out['mapped'] / $out['total']) * 100, 1) : 0.0;
     return $out;
+}
+
+function map_is_mapped(array $row, array $keys): bool
+{
+    $value = map_value($row, $keys, '');
+    return $value !== '' && $value !== '0' && $value !== 0;
+}
+
+function map_driver_json_row(array $row): array
+{
+    $mapped = map_is_mapped($row, ['edxeix_driver_id', 'driver_id']);
+    return [
+        'id' => map_value($row, ['id'], ''),
+        'source_system' => map_value($row, ['source_system', 'source_type', 'source'], ''),
+        'external_driver_id' => map_value($row, ['external_driver_id', 'driver_external_id', 'driver_uuid'], ''),
+        'external_driver_name' => map_value($row, ['external_driver_name', 'driver_name'], ''),
+        'driver_phone' => map_value($row, ['driver_phone', 'phone'], ''),
+        'edxeix_driver_id' => map_value($row, ['edxeix_driver_id', 'driver_id'], ''),
+        'active_vehicle_uuid' => map_value($row, ['active_vehicle_uuid'], ''),
+        'active_vehicle_plate' => map_value($row, ['active_vehicle_plate'], ''),
+        'is_active' => (string)map_value($row, ['is_active'], '1') !== '0',
+        'is_mapped' => $mapped,
+        'mapping_status' => $mapped ? 'mapped' : 'unmapped',
+        'last_seen_at' => map_value($row, ['last_seen_at', 'updated_at', 'created_at'], ''),
+    ];
+}
+
+function map_vehicle_json_row(array $row): array
+{
+    $mapped = map_is_mapped($row, ['edxeix_vehicle_id', 'vehicle_id']);
+    return [
+        'id' => map_value($row, ['id'], ''),
+        'source_system' => map_value($row, ['source_system', 'source_type', 'source'], ''),
+        'external_vehicle_id' => map_value($row, ['external_vehicle_id', 'vehicle_external_id', 'vehicle_uuid'], ''),
+        'plate' => map_value($row, ['plate', 'vehicle_plate'], ''),
+        'external_vehicle_name' => map_value($row, ['external_vehicle_name', 'vehicle_name'], ''),
+        'vehicle_model' => map_value($row, ['vehicle_model', 'model'], ''),
+        'edxeix_vehicle_id' => map_value($row, ['edxeix_vehicle_id', 'vehicle_id'], ''),
+        'is_active' => (string)map_value($row, ['is_active'], '1') !== '0',
+        'is_mapped' => $mapped,
+        'mapping_status' => $mapped ? 'mapped' : 'unmapped',
+        'last_seen_at' => map_value($row, ['last_seen_at', 'updated_at', 'created_at'], ''),
+    ];
+}
+
+function map_json_rows(array $rows, string $type): array
+{
+    $safe = [];
+    foreach ($rows as $row) {
+        $safe[] = $type === 'driver' ? map_driver_json_row($row) : map_vehicle_json_row($row);
+    }
+    return $safe;
 }
 
 function map_badge(string $text, string $type = 'neutral'): string
@@ -176,12 +236,6 @@ function map_badge(string $text, string $type = 'neutral'): string
 function map_yes_badge(bool $mapped): string
 {
     return $mapped ? map_badge('mapped', 'good') : map_badge('unmapped', 'bad');
-}
-
-function map_is_mapped(array $row, array $keys): bool
-{
-    $value = map_value($row, $keys, '');
-    return $value !== '' && $value !== '0' && $value !== 0;
 }
 
 $state = [
@@ -235,15 +289,17 @@ if (map_request_param('format', '') === 'json') {
         'script' => 'ops/mappings.php',
         'generated_at' => $state['generated_at'],
         'read_only' => true,
+        'json_sanitized' => true,
+        'raw_payload_json_included' => false,
         'view' => $state['view'],
         'query' => $state['query'],
         'limit' => $state['limit'],
         'driver_stats' => $state['driver_stats'],
         'vehicle_stats' => $state['vehicle_stats'],
-        'drivers' => $state['drivers'],
-        'vehicles' => $state['vehicles'],
+        'drivers' => map_json_rows($state['drivers'], 'driver'),
+        'vehicles' => map_json_rows($state['vehicles'], 'vehicle'),
         'error' => $state['error'],
-        'note' => 'Read-only mapping coverage report. No Bolt request, EDXEIX request, or database write was performed.',
+        'note' => 'Read-only sanitized mapping coverage report. raw_payload_json is intentionally excluded. No Bolt request, EDXEIX request, or database write was performed.',
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     exit;
 }
@@ -311,7 +367,7 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
 <main class="wrap">
     <section class="card hero">
         <h1>Bolt → EDXEIX Mapping Coverage</h1>
-        <p>Read-only mapping dashboard. This page does not call Bolt, does not call EDXEIX, and does not modify database rows.</p>
+        <p>Read-only mapping dashboard. This page does not call Bolt, does not call EDXEIX, and does not modify database rows. JSON output is sanitized and excludes raw payloads.</p>
         <?php if (!$state['ok']): ?>
             <p class="error">Error: <?= map_h($state['error']) ?></p>
         <?php endif; ?>
@@ -325,7 +381,7 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
             <a href="/ops/mappings.php?view=unmapped" class="orange">Show Unmapped</a>
             <a href="/ops/mappings.php?view=mapped" class="green">Show Mapped</a>
             <a href="/ops/mappings.php" class="dark">Show All</a>
-            <a href="/ops/mappings.php?<?= map_h($queryString) ?>&format=json" class="dark">Open JSON</a>
+            <a href="/ops/mappings.php?<?= map_h($queryString) ?>&format=json" class="dark">Open Sanitized JSON</a>
         </div>
     </section>
 
@@ -374,7 +430,7 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
                         <td><strong><?= map_h(map_value($row, ['edxeix_driver_id', 'driver_id'], '')) ?></strong></td>
                         <td><code><?= map_h(map_value($row, ['active_vehicle_uuid'], '')) ?></code></td>
                         <td><?= map_h(map_value($row, ['active_vehicle_plate'], '')) ?></td>
-                        <td><?= map_value($row, ['is_active'], '1') === '0' ? map_badge('inactive', 'warn') : map_badge('active', 'good') ?></td>
+                        <td><?= (string)map_value($row, ['is_active'], '1') === '0' ? map_badge('inactive', 'warn') : map_badge('active', 'good') ?></td>
                         <td><?= map_h(map_value($row, ['last_seen_at', 'updated_at', 'created_at'], '')) ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -402,7 +458,7 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
                         <td><?= map_h(map_value($row, ['external_vehicle_name', 'vehicle_name'], '')) ?></td>
                         <td><?= map_h(map_value($row, ['vehicle_model', 'model'], '')) ?></td>
                         <td><strong><?= map_h(map_value($row, ['edxeix_vehicle_id', 'vehicle_id'], '')) ?></strong></td>
-                        <td><?= map_value($row, ['is_active'], '1') === '0' ? map_badge('inactive', 'warn') : map_badge('active', 'good') ?></td>
+                        <td><?= (string)map_value($row, ['is_active'], '1') === '0' ? map_badge('inactive', 'warn') : map_badge('active', 'good') ?></td>
                         <td><?= map_h(map_value($row, ['last_seen_at', 'updated_at', 'created_at'], '')) ?></td>
                     </tr>
                 <?php endforeach; ?>

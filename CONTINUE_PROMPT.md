@@ -12,25 +12,22 @@ Current integration goal:
 Build and harden a safe Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness workflow.
 
 Important safety rule:
-No live EDXEIX submission has been performed or approved. Do not create automatic live submission behavior. Keep all work read-only, dry-run, preflight, queue, local-only, or guarded admin-only unless explicitly asked for a live submit patch after a real eligible future Bolt trip exists.
+No live EDXEIX submission has been performed or approved. Do not create automatic live submission behavior. Keep all work read-only, dry-run, preflight, queue, cleanup, access-guarded, or local-only unless explicitly asked for a live submit patch after a real eligible future Bolt trip exists.
 
 Validated status:
 1. Bolt API connection works.
 2. Bolt reference sync works.
 3. Bolt order sync works.
-4. Schema compatibility issues for dedupe/defaults/price/null ended_at were resolved.
-5. Operations pages exist: /ops/bolt-live.php, /ops/jobs.php, /ops/readiness.php.
-6. JSON/report endpoints exist: /bolt_sync_reference.php, /bolt_sync_orders.php, /bolt_edxeix_preflight.php, /bolt_jobs_queue.php, /bolt_stage_edxeix_jobs.php, /bolt_readiness_audit.php.
-7. Dry-run future booking harness exists at /ops/test-booking.php and was validated end-to-end.
-8. LAB/test safety output distinguishes technical validity from live submission eligibility.
-9. LAB cleanup tool exists at /ops/cleanup-lab.php and cleanup returned the system to a clean state.
-10. Ops access guard is active through .user.ini and server-only /home/cabnet/gov.cabnet.app_config/ops.php.
-11. Readiness reached READY_FOR_REAL_BOLT_FUTURE_TEST after cleanup and guard verification.
-12. Mapping coverage remains partial: latest known readiness showed 1/2 drivers and 2/15 vehicles mapped.
-13. Mapping coverage dashboard has been added at /ops/mappings.php.
+4. Dry-run future booking harness was validated end-to-end.
+5. LAB cleanup tool removed test booking/job/attempt rows successfully.
+6. Ops access guard is installed and active.
+7. Readiness reached READY_FOR_REAL_BOLT_FUTURE_TEST after cleanup.
+8. Mapping dashboard exists at /ops/mappings.php.
+9. Current mapping coverage observed: 1/2 drivers mapped and 2/15 vehicles mapped.
+10. Mapping JSON output has been sanitized to exclude raw_payload_json.
 
 Next live test blocker:
-A real Bolt ride must be scheduled at least 40–60 minutes in the future before a true live-safe EDXEIX candidate can exist.
+A real Bolt ride must be scheduled at least 40–60 minutes in the future before a true live-safe EDXEIX candidate can exist. Live submission remains disabled.
 
 When continuing:
 1. Ask for latest project files or specific file contents if needed.
@@ -39,4 +36,3 @@ When continuing:
 4. Include exact cPanel upload paths.
 5. Include suggested Git commit title and description.
 6. Keep live submission disabled unless explicitly requested.
-7. Ensure deployment patch zip roots mirror live/repository structure directly, without wrapper folders.
