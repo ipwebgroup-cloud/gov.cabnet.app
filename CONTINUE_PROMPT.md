@@ -1,31 +1,23 @@
 # CONTINUE PROMPT — gov.cabnet.app Bolt → EDXEIX Bridge
 
-You are Sophion assisting Andreas with the `gov.cabnet.app` Bolt → EDXEIX bridge project.
+You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from the latest committed state of:
+Continue from this exact baseline.
 
-```text
-https://github.com/ipwebgroup-cloud/gov.cabnet.app
-```
+## Critical instruction
 
-Use this source-of-truth order:
+Do **not** enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
 
-1. Latest files, screenshots, SQL output, live audit output, or pasted code in the current chat.
-2. `HANDOFF.md` and this `CONTINUE_PROMPT.md`.
-3. `README.md`, `SCOPE.md`, `DEPLOYMENT.md`, `SECURITY.md`, `docs/`, `PROJECT_FILE_MANIFEST.md`.
-4. GitHub repo.
-5. Prior memory only as background.
+The current next safe workstream is the **Bolt API Visibility Diagnostic** and any follow-up analysis from its recorded sanitized snapshots.
 
-## Project constraints
+## Project identity
 
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload.
+- Domain: `https://gov.cabnet.app`
+- GitHub repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
 - Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
-- Preserve current routes, filenames, includes, DB compatibility, and cPanel layout.
-- Prefer small production-safe patches.
-- Always inspect first, patch second.
-- When creating a patch zip, include only changed/added files and do not wrap files in an extra package folder. Zip root must mirror live/repo structure directly.
 
-Expected server layout:
+Expected cPanel/server layout:
 
 ```text
 /home/cabnet/public_html/gov.cabnet.app
@@ -34,120 +26,181 @@ Expected server layout:
 /home/cabnet/gov.cabnet.app_sql
 ```
 
-## Current confirmed baseline
+## Source-of-truth order
 
-The project is in safe pre-live state.
+1. Latest uploaded files, pasted code, screenshots, SQL output, SSH output, JSON output, or live audit output in the current chat.
+2. `HANDOFF.md` and `CONTINUE_PROMPT.md`.
+3. `README.md`, `SCOPE.md`, `DEPLOYMENT.md`, `SECURITY.md`, `docs/`, and `PROJECT_FILE_MANIFEST.md`.
+4. GitHub repo.
+5. Prior memory/context only as background, never as proof of current code state.
 
-EDXEIX prerequisites are ready:
+## Safety rules
 
-```text
-Submit URL configured: yes
-Submit URL: https://edxeix.yme.gov.gr/dashboard/lease-agreement
-EDXEIX session file exists/readable/valid: yes
-Cookie present: yes
-CSRF present: yes
-Placeholder values detected: no
-Session source: firefox_extension_capture_fixed_url_no_phrase
-```
+- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
+- Do not enable live EDXEIX submission unless Andreas explicitly asks.
+- Live submission must remain blocked unless there is a real eligible future Bolt trip, preflight passes, and the trip is sufficiently in the future.
+- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
+- Never request or expose real API keys, DB passwords, tokens, cookies, session files, or private credentials.
+- Config examples may be committed; real config files must remain server-only and ignored by Git.
+- Sanitize downloadable zips. Exclude secrets, logs, sessions, raw data dumps, cache files, and unsafe temporary public diagnostics.
+- Patch zips must not include a wrapper folder. Zip root must mirror repository/live structure directly.
 
-Live submission remains blocked:
+## Current project state
 
-```text
-live_submit_enabled: false
-http_submit_enabled: false
-Live HTTP transport: not enabled/implemented in current patch
-Real future Bolt candidates: 0
-Live-eligible rows: 0
-```
+The project is at a **pre-live blocked baseline**.
 
-The normal EDXEIX session refresh workflow is now the private Firefox extension:
+Working/confirmed:
 
-```text
-tools/firefox-edxeix-session-capture/
-```
+- Ops console exists and is guarded at `https://gov.cabnet.app/ops/`.
+- Ops guard is active through `.user.ini` and `/home/cabnet/gov.cabnet.app_app/lib/ops_guard.php`.
+- EDXEIX session capture via Firefox extension works.
+- EDXEIX cookie/CSRF session file is saved server-side and never printed.
+- EDXEIX session readiness previously showed ready.
+- Live submit gate exists at `https://gov.cabnet.app/ops/live-submit.php`.
+- Live HTTP transport remains intentionally blocked.
+- `live_submit_enabled` is false.
+- `http_submit_enabled` is false.
+- No live EDXEIX submission has been performed.
 
-Operator flow:
-
-```text
-1. Log in to EDXEIX.
-2. Open https://edxeix.yme.gov.gr/dashboard/lease-agreement/create.
-3. Click CABnet EDXEIX Capture Firefox extension.
-4. Capture from EDXEIX tab.
-5. Save to gov.cabnet.app.
-6. Verify /ops/edxeix-session.php and /ops/live-submit.php.
-```
-
-`/ops/edxeix-session.php` is now diagnostic/read-only for operators except the browser-confirmed `Clear Saved EDXEIX Session` button. Manual Cookie/CSRF form fields were removed.
-
-## Critical safety posture
-
-Do not enable live EDXEIX submission unless Andreas explicitly asks for the final live-submit update.
-
-Never submit:
+Known driver IDs:
 
 ```text
-historical rows
-finished rows
-cancelled rows
-terminal rows
-expired rows
-past rows
-invalid rows
-LAB/local/test rows
-rows without real future guard pass
+1658  — ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ
+17585 — ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ
+6026  — ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ
 ```
 
-Never request or expose real credentials, cookies, CSRF tokens, API keys, DB passwords, or session file content. Config examples can be committed; real config/session files must remain server-only and ignored by Git.
-
-## Current ops URLs
+Known first-test mapping:
 
 ```text
-https://gov.cabnet.app/ops/
-https://gov.cabnet.app/ops/readiness.php
-https://gov.cabnet.app/ops/future-test.php
-https://gov.cabnet.app/ops/mappings.php
-https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/edxeix-session-capture.php
-https://gov.cabnet.app/ops/live-submit.php
+Filippos Giannakopoulos
+Bolt UUID: 57256761-d21b-4940-a3ca-bdcec5ef6af1
+EDXEIX driver ID: 17585
+
+EMX6874
+EDXEIX vehicle ID: 13799
+
+EHA2545
+EDXEIX vehicle ID: 5949
 ```
 
-## Current known mapping note
+Leave Georgios Zachariou unmapped unless his exact EDXEIX driver ID is independently confirmed.
 
-Known EDXEIX driver references:
+## Important 2026-04-25 Bolt test result
+
+A real Bolt rider-app test with Filippos and EMX6874 showed:
 
 ```text
-1658  — ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ      — reference only
-17585 — ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ — mapped to Filippos
-6026  — ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ       — reference only
+Ride accepted / assigned: orders_seen: 0
+Passenger picked up / waiting: orders_seen: 0
+Trip started: orders_seen: 0
+Trip completed: orders_seen: 1
 ```
 
-Leave Georgios Zachariou unmapped for now unless his exact EDXEIX driver ID is independently confirmed.
+After completion:
 
-## Next step if Filippos is available
+```text
+orders_seen: 1
+action: inserted
+id: 11
+external_order_id: MjI3Mi0yNDgwMjc1MjQ5LTMyMzIxMTY1OTI
+edxeix_ready: 1
+```
 
-1. Refresh EDXEIX session using Firefox extension.
-2. Schedule/create a real Bolt future ride with Filippos and a mapped vehicle, at least 40–60 minutes in the future.
-3. Open `/ops/future-test.php`.
-4. Confirm one real future candidate appears.
-5. Open Preflight JSON and Live Submit Gate.
-6. Confirm candidate is technically valid and only final live-transport/config blockers remain.
-7. Stop and ask Andreas for explicit approval before any final live HTTP transport patch.
+Conclusion: the current Bolt Fleet orders endpoint did not expose the active trip before completion during that test.
 
-## Next safe step if Filippos is not available
+## New patch to deploy/analyze
 
-Do not change live transport. Continue only with safe documentation, UX, operator checklists, or audit clarity.
+Patch name:
 
-Preferred next task: create/update a printable operator procedure for the final real Bolt → EDXEIX test day.
+```text
+Bolt API Visibility Diagnostic
+```
 
-## Required deliverables for any patch
+Files:
 
-For every patch/update provide:
+```text
+gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
+public_html/gov.cabnet.app/ops/bolt-api-visibility.php
+public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php
+docs/BOLT_API_VISIBILITY_DIAGNOSTIC.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
 
-1. What changed.
-2. Files included.
-3. Exact upload paths.
-4. Any SQL to run.
-5. Verification URLs or commands.
-6. Expected result.
-7. Git commit title.
-8. Git commit description.
+New URLs:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility.php
+https://gov.cabnet.app/ops/bolt-api-visibility-run.php
+```
+
+The diagnostic:
+
+- calls the existing Bolt order sync path in dry-run mode only;
+- does not submit to EDXEIX;
+- does not stage jobs;
+- prints sanitized summaries only;
+- optionally records sanitized private JSONL timeline rows to:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/bolt-api-visibility/YYYY-MM-DD.jsonl
+```
+
+## First verification after upload
+
+Open:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility.php
+```
+
+Run:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=0&hours_back=24&sample_limit=20
+```
+
+Expected:
+
+- Page loads in guarded ops area.
+- It shows `EDXEIX LIVE SUBMIT OFF`, `BOLT DRY-RUN PROBE`, and `SANITIZED SUMMARY ONLY`.
+- It displays `orders_seen` without enabling live submission.
+
+## Recommended next live test
+
+When Filippos and EMX6874 are available, use:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=1&hours_back=24&sample_limit=20&watch_driver_uuid=57256761-d21b-4940-a3ca-bdcec5ef6af1&watch_vehicle_plate=EMX6874&label=filippos-emx6874-probe
+```
+
+Or auto-refresh every 20 seconds:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=1&hours_back=24&sample_limit=20&watch_driver_uuid=57256761-d21b-4940-a3ca-bdcec5ef6af1&watch_vehicle_plate=EMX6874&label=filippos-emx6874-probe&refresh=20
+```
+
+Capture one recorded snapshot at each stage:
+
+1. accepted/assigned
+2. pickup/waiting
+3. trip started
+4. completed
+
+Then analyze whether the endpoint still returns `orders_seen: 0` until completion.
+
+## Commit metadata
+
+Title:
+
+```text
+Add Bolt API visibility diagnostic
+```
+
+Description:
+
+```text
+Adds a guarded, read-only Bolt API visibility diagnostic for the gov.cabnet.app Bolt → EDXEIX bridge. The new ops page and JSON endpoint probe the existing Bolt order sync path in dry-run mode only, summarize sanitized visibility snapshots, optionally record a private JSONL timeline, and provide a repeatable workflow for confirming whether active Bolt trips are visible before completion. No EDXEIX live submission, EDXEIX HTTP transport, queue staging, SQL changes, secrets, raw payloads, cookies, or session data are introduced.
+```

@@ -1,90 +1,104 @@
-# Patch README — Final Pre-Live Handoff Refresh
+# Patch README — Bolt API Visibility Diagnostic
 
-This patch refreshes continuity documentation only.
+## What changed
+
+Adds a safe, guarded Bolt API visibility diagnostic for observing whether the current Bolt Fleet orders endpoint exposes an active trip before completion.
+
+The patch does **not** enable live EDXEIX submission and does **not** call EDXEIX.
 
 ## Files included
 
 ```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-docs/CURRENT_FINAL_PRE_LIVE_BASELINE.md
-PATCH_README.md
-```
-
-## What changed
-
-Updated project handoff and continuation files to record the current final pre-live baseline:
-
-```text
-EDXEIX submit URL configured
-EDXEIX server-side cookie/CSRF session ready
-Firefox extension capture workflow working
-Manual session input UI removed
-Clear Saved EDXEIX Session installed
-Live EDXEIX HTTP transport still intentionally blocked
-No real future Bolt candidate yet
-Final live-submit transport patch still not installed
-```
-
-## Upload / commit paths
-
-Repository root:
-
-```text
+gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
+public_html/gov.cabnet.app/ops/bolt-api-visibility.php
+public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php
+docs/BOLT_API_VISIBILITY_DIAGNOSTIC.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
-docs/CURRENT_FINAL_PRE_LIVE_BASELINE.md
 ```
 
-Optional server reference copy:
+## Exact upload paths
+
+Upload each file to the matching server path:
 
 ```text
-/home/cabnet/HANDOFF.md
-/home/cabnet/CONTINUE_PROMPT.md
-/home/cabnet/PATCH_README.md
-/home/cabnet/docs/CURRENT_FINAL_PRE_LIVE_BASELINE.md
+gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
+→ /home/cabnet/gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
+
+public_html/gov.cabnet.app/ops/bolt-api-visibility.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/bolt-api-visibility.php
+
+public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php
+
+docs/BOLT_API_VISIBILITY_DIAGNOSTIC.md
+→ repository docs/BOLT_API_VISIBILITY_DIAGNOSTIC.md
+
+HANDOFF.md
+→ repository/server project root HANDOFF.md
+
+CONTINUE_PROMPT.md
+→ repository/server project root CONTINUE_PROMPT.md
 ```
 
-## SQL
+## SQL to run
 
-No SQL required.
-
-## Runtime changes
-
-None.
+No SQL changes are required.
 
 ## Verification URLs
 
-No runtime code changed. Current expected pages remain:
+Open:
 
 ```text
-https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/live-submit.php
-https://gov.cabnet.app/ops/future-test.php
+https://gov.cabnet.app/ops/bolt-api-visibility.php
 ```
 
-Expected state:
+Run one safe snapshot:
 
 ```text
-EDXEIX session ready: yes
-EDXEIX submit URL configured: yes
-Real future candidates: 0
-Live HTTP execution: no
+https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=0&hours_back=24&sample_limit=20
+```
+
+Run one recorded Filippos/EMX6874 snapshot:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=1&hours_back=24&sample_limit=20&watch_driver_uuid=57256761-d21b-4940-a3ca-bdcec5ef6af1&watch_vehicle_plate=EMX6874&label=filippos-emx6874-probe
+```
+
+JSON endpoint:
+
+```text
+https://gov.cabnet.app/ops/bolt-api-visibility-run.php?record=0&hours_back=24&sample_limit=20
+```
+
+## Expected result
+
+The page loads inside the guarded ops area and shows:
+
+- `EDXEIX LIVE SUBMIT OFF`
+- `BOLT DRY-RUN PROBE`
+- `SANITIZED SUMMARY ONLY`
+- current `orders_seen`
+- sanitized order samples if the current Bolt endpoint exposes any orders
+- today's private sanitized timeline when `record=1` is used
+
+## Private artifact path
+
+Recorded snapshots are appended to:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/bolt-api-visibility/YYYY-MM-DD.jsonl
 ```
 
 ## Git commit title
 
 ```text
-Refresh final pre-live handoff baseline
+Add Bolt API visibility diagnostic
 ```
 
 ## Git commit description
 
 ```text
-Refreshes HANDOFF.md, CONTINUE_PROMPT.md, and documentation with the current gov.cabnet.app Bolt → EDXEIX bridge pre-live baseline.
-
-The updated handoff records that the Firefox EDXEIX session capture extension is working, EDXEIX submit URL and cookie/CSRF prerequisites are ready, manual session input has been removed, and Clear Saved EDXEIX Session is available.
-
-Live EDXEIX HTTP transport remains intentionally blocked and no live submission behavior is introduced. The next major dependency remains creating a real future Bolt ride with Filippos and a mapped vehicle before any final one-shot live-submit transport patch can be considered.
+Adds a guarded, read-only Bolt API visibility diagnostic for the gov.cabnet.app Bolt → EDXEIX bridge. The new ops page and JSON endpoint probe the existing Bolt order sync path in dry-run mode only, summarize sanitized visibility snapshots, optionally record a private JSONL timeline, and provide a repeatable workflow for confirming whether active Bolt trips are visible before completion. No EDXEIX live submission, EDXEIX HTTP transport, queue staging, SQL changes, secrets, raw payloads, cookies, or session data are introduced.
 ```
