@@ -48,14 +48,42 @@ function ls_json_response(array $payload): void
     exit;
 }
 
+function ls_secret_looks_placeholder(string $value): bool
+{
+    $value = trim($value);
+    if ($value === '') {
+        return false;
+    }
+    if (function_exists('gov_live_secret_looks_placeholder')) {
+        return (bool)gov_live_secret_looks_placeholder($value);
+    }
+    $upper = strtoupper($value);
+    $markers = [
+        'PASTE', 'REPLACE', 'EXAMPLE', 'DUMMY', 'DEMO', 'TODO', 'SERVER_ONLY',
+        'DO_NOT_COMMIT', 'COOKIE_HEADER', 'CSRF_TOKEN', 'PLACEHOLDER', 'YYYY-MM-DD', 'HH:MM:SS',
+    ];
+    foreach ($markers as $marker) {
+        if (strpos($upper, $marker) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function ls_public_config_state(array $config): array
 {
+    $submitUrl = trim((string)($config['edxeix_submit_url'] ?? ''));
+    $sessionFile = (string)($config['edxeix_session_file'] ?? '/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json');
     return [
         'config_file' => gov_live_config_path(),
         'config_file_exists' => is_file(gov_live_config_path()),
+        'config_file_readable' => is_readable(gov_live_config_path()),
         'live_submit_enabled' => !empty($config['live_submit_enabled']),
         'http_submit_enabled' => !empty($config['http_submit_enabled']),
-        'edxeix_submit_url_configured' => trim((string)($config['edxeix_submit_url'] ?? '')) !== '',
+        'edxeix_submit_url_configured' => $submitUrl !== '',
+        'edxeix_submit_url_host' => $submitUrl !== '' ? (parse_url($submitUrl, PHP_URL_HOST) ?: '') : '',
+        'edxeix_form_method' => (string)($config['edxeix_form_method'] ?? 'POST'),
+        'edxeix_session_file' => $sessionFile,
         'confirmation_phrase_required' => !empty($config['require_confirmation_phrase']),
         'allowed_booking_id' => $config['allowed_booking_id'] ?? null,
         'allowed_order_reference' => $config['allowed_order_reference'] ?? null,
@@ -63,12 +91,95 @@ function ls_public_config_state(array $config): array
     ];
 }
 
+function ls_read_global_session_state(array $config): array
+{
+    $file = (string)($config['edxeix_session_file'] ?? '/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json');
+    $state = [
+        'file_configured' => $file !== '',
+        'file_exists' => false,
+        'file_readable' => false,
+        'json_valid' => false,
+        'cookie_raw_present' => false,
+        'csrf_raw_present' => false,
+        'cookie_present' => false,
+        'csrf_present' => false,
+        'cookie_placeholder_detected' => false,
+        'csrf_placeholder_detected' => false,
+        'timestamp_placeholder_detected' => false,
+        'placeholder_detected' => false,
+        'cookie_length' => 0,
+        'csrf_length' => 0,
+        'updated_at' => null,
+        'saved_at' => null,
+        'age_minutes' => null,
+        'ready' => false,
+        'error' => null,
+    ];
+
+    if ($file === '') {
+        $state['error'] = 'session_file_not_configured';
+        return $state;
+    }
+
+    $state['file_exists'] = is_file($file);
+    $state['file_readable'] = $state['file_exists'] && is_readable($file);
+    if (!$state['file_readable']) {
+        $state['error'] = $state['file_exists'] ? 'session_file_not_readable' : 'session_file_missing';
+        return $state;
+    }
+
+    $raw = file_get_contents($file);
+    $decoded = json_decode((string)$raw, true);
+    if (!is_array($decoded)) {
+        $state['error'] = 'session_json_invalid';
+        return $state;
+    }
+
+    $cookie = trim((string)($decoded['cookie_header'] ?? ''));
+    $csrf = trim((string)($decoded['csrf_token'] ?? ''));
+    $updatedAt = $decoded['updated_at'] ?? $decoded['saved_at'] ?? null;
+
+    $cookiePlaceholder = ls_secret_looks_placeholder($cookie);
+    $csrfPlaceholder = ls_secret_looks_placeholder($csrf);
+    $timestampPlaceholder = is_string($updatedAt) && ls_secret_looks_placeholder($updatedAt);
+
+    $state['json_valid'] = true;
+    $state['cookie_raw_present'] = $cookie !== '';
+    $state['csrf_raw_present'] = $csrf !== '';
+    $state['cookie_placeholder_detected'] = $cookiePlaceholder;
+    $state['csrf_placeholder_detected'] = $csrfPlaceholder;
+    $state['timestamp_placeholder_detected'] = $timestampPlaceholder;
+    $state['placeholder_detected'] = $cookiePlaceholder || $csrfPlaceholder || $timestampPlaceholder;
+    $state['cookie_present'] = $cookie !== '' && !$cookiePlaceholder;
+    $state['csrf_present'] = $csrf !== '' && !$csrfPlaceholder;
+    $state['cookie_length'] = strlen($cookie);
+    $state['csrf_length'] = strlen($csrf);
+    $state['updated_at'] = $decoded['updated_at'] ?? null;
+    $state['saved_at'] = $decoded['saved_at'] ?? null;
+
+    if (is_string($updatedAt) && $updatedAt !== '') {
+        $ts = strtotime($updatedAt);
+        if ($ts !== false) {
+            $state['age_minutes'] = max(0, (int)floor((time() - $ts) / 60));
+        }
+    }
+
+    $state['ready'] = $state['json_valid'] && $state['cookie_present'] && $state['csrf_present'] && !$state['placeholder_detected'];
+    if ($state['placeholder_detected']) {
+        $state['error'] = 'placeholder_session_values_detected';
+    } elseif (!$state['cookie_present'] || !$state['csrf_present']) {
+        $state['error'] = 'missing_cookie_or_csrf';
+    }
+
+    return $state;
+}
+
 function ls_blocker_meaning(string $blocker): string
 {
     $map = [
         'live_submit_config_disabled' => 'Server-only live_submit_enabled is false. This is expected until the final approved live run.',
         'http_submit_config_disabled' => 'Server-only http_submit_enabled is false. This prevents accidental HTTP transport.',
-        'edxeix_session_not_ready' => 'The saved EDXEIX cookie/CSRF session is missing or incomplete.',
+        'edxeix_session_not_ready' => 'The saved EDXEIX cookie/CSRF session is missing, incomplete, or still a placeholder.',
         'edxeix_submit_url_missing' => 'The exact EDXEIX submit endpoint/action URL has not been configured.',
         'started_at_not_30_min_future' => 'The ride is not far enough in the future for safe review.',
         'terminal_order_status' => 'The Bolt order is finished/cancelled/terminal and must never be submitted.',
@@ -77,6 +188,8 @@ function ls_blocker_meaning(string $blocker): string
         'driver_not_mapped' => 'The Bolt driver does not have a confirmed EDXEIX driver ID.',
         'vehicle_not_mapped' => 'The Bolt vehicle does not have a confirmed EDXEIX vehicle ID.',
         'duplicate_successful_submission' => 'A prior successful live submission appears to exist for this booking/payload.',
+        'duplicate_live_audit_success_detected' => 'A prior successful live audit row appears to exist for this booking/payload.',
+        'duplicate_submission_attempt_success_detected' => 'A prior successful submission attempt appears to exist for this booking/payload.',
         'http_transport_not_enabled_in_this_patch' => 'This preparatory patch intentionally cannot send the live HTTP request.',
         'no_real_future_candidate' => 'No analyzed row currently qualifies as a real future Bolt candidate.',
         'no_selected_real_future_candidate' => 'No real future Bolt candidate is selected for live review.',
@@ -96,25 +209,43 @@ function ls_is_real_future_candidate(?array $selected): bool
     if ($selected === null) {
         return false;
     }
-
     $source = strtolower((string)($selected['source_system'] ?? ''));
     if (strpos($source, 'bolt') === false) {
         return false;
     }
-
+    if (!empty($selected['is_lab_or_test'])) {
+        return false;
+    }
     if (empty($selected['technical_payload_valid'])) {
         return false;
     }
-
-    $technicalBlockers = array_map('strval', $selected['technical_blockers'] ?? []);
-    $hardBlockers = ['started_at_not_30_min_future', 'terminal_order_status', 'lab_row_blocked', 'never_submit_live', 'driver_not_mapped', 'vehicle_not_mapped'];
-    return count(array_intersect($hardBlockers, $technicalBlockers)) === 0;
+    if (empty($selected['future_guard_passed']) || !empty($selected['terminal_status'])) {
+        return false;
+    }
+    if (empty($selected['mapping_ready'])) {
+        return false;
+    }
+    return true;
 }
 
-function ls_first_live_requirements(?array $selected, array $config): array
+function ls_duplicate_clear(?array $selected): bool
+{
+    if ($selected === null) {
+        return false;
+    }
+    $blockers = array_map('strval', array_merge($selected['live_blockers'] ?? [], $selected['technical_blockers'] ?? []));
+    $duplicates = [
+        'duplicate_successful_submission',
+        'duplicate_live_audit_success_detected',
+        'duplicate_submission_attempt_success_detected',
+    ];
+    return count(array_intersect($duplicates, $blockers)) === 0;
+}
+
+function ls_first_live_requirements(?array $selected, array $config, array $globalSession): array
 {
     $candidateReady = ls_is_real_future_candidate($selected);
-    $sessionReady = $selected ? !empty($selected['session_state']['ready']) : false;
+    $sessionReady = !empty($globalSession['ready']);
     $technicalValid = $selected ? !empty($selected['technical_payload_valid']) : false;
     $liveAllowed = $selected ? !empty($selected['live_submission_allowed']) : false;
 
@@ -125,12 +256,16 @@ function ls_first_live_requirements(?array $selected, array $config): array
         $candidateDetail = 'Selected booking #' . (string)$selected['booking_id'] . ' is only an analyzed row, not a real future candidate.';
     }
 
+    $sessionDetail = $sessionReady
+        ? 'Server-side EDXEIX cookie/CSRF session is saved and placeholder-free.'
+        : 'Server-side EDXEIX session must be saved/confirmed.';
+
     return [
         ['label' => 'Real future Bolt candidate exists', 'pass' => $candidateReady, 'detail' => $candidateDetail, 'waiting' => true],
         ['label' => 'Payload technically valid', 'pass' => $technicalValid, 'detail' => $technicalValid ? 'Preflight payload passes technical checks.' : 'Preflight blockers must be cleared.', 'waiting' => true],
-        ['label' => 'EDXEIX session ready', 'pass' => $sessionReady, 'detail' => $sessionReady ? 'Saved cookie/CSRF appears available.' : 'Server-side EDXEIX session must be saved/confirmed.', 'waiting' => true],
+        ['label' => 'EDXEIX session ready', 'pass' => $sessionReady, 'detail' => $sessionDetail, 'waiting' => !$sessionReady],
         ['label' => 'EDXEIX submit URL configured', 'pass' => trim((string)($config['edxeix_submit_url'] ?? '')) !== '', 'detail' => 'The exact EDXEIX form action/submit URL must be configured server-side.', 'waiting' => true],
-        ['label' => 'Duplicate protection clear', 'pass' => $selected !== null && empty(array_intersect(['duplicate_successful_submission'], $selected['live_blockers'] ?? [])), 'detail' => 'No successful live submission should already exist for the booking/payload.', 'waiting' => true],
+        ['label' => 'Duplicate protection clear', 'pass' => ls_duplicate_clear($selected), 'detail' => 'No successful live submission should already exist for the booking/payload.', 'waiting' => true],
         ['label' => 'Server live flag enabled', 'pass' => !empty($config['live_submit_enabled']), 'detail' => 'Must be enabled only for the approved one-shot live test.', 'waiting' => true],
         ['label' => 'Server HTTP flag enabled', 'pass' => !empty($config['http_submit_enabled']), 'detail' => 'Must be enabled only after final approval.', 'waiting' => true],
         ['label' => 'HTTP transport implemented', 'pass' => false, 'detail' => 'Still intentionally blocked in this preparatory patch.', 'waiting' => false],
@@ -138,7 +273,7 @@ function ls_first_live_requirements(?array $selected, array $config): array
     ];
 }
 
-function ls_blocked_reasons(?array $selected, array $config, int $realFutureCandidateCount): array
+function ls_blocked_reasons(?array $selected, array $config, array $globalSession, int $realFutureCandidateCount): array
 {
     $reasons = [];
     if (empty($config['live_submit_enabled'])) {
@@ -149,6 +284,9 @@ function ls_blocked_reasons(?array $selected, array $config, int $realFutureCand
     }
     if (trim((string)($config['edxeix_submit_url'] ?? '')) === '') {
         $reasons[] = 'edxeix_submit_url_missing';
+    }
+    if (empty($globalSession['ready'])) {
+        $reasons[] = 'edxeix_session_not_ready';
     }
     if ($realFutureCandidateCount === 0) {
         $reasons[] = 'no_real_future_candidate';
@@ -164,9 +302,6 @@ function ls_blocked_reasons(?array $selected, array $config, int $realFutureCand
         }
         foreach (($selected['technical_blockers'] ?? []) as $blocker) {
             $reasons[] = (string)$blocker;
-        }
-        if (empty($selected['session_state']['ready'])) {
-            $reasons[] = 'edxeix_session_not_ready';
         }
     }
     $reasons[] = 'http_transport_not_enabled_in_this_patch';
@@ -185,25 +320,66 @@ function ls_pick_default_selection(array $analyzedRows): ?array
             return $candidate;
         }
     }
-
-    // Do not auto-select old finished/cancelled rows. They remain visible in
-    // Analyzed Recent Bookings, but they are not live candidates.
     return null;
 }
 
+function ls_public_selected(?array $selected): ?array
+{
+    if (!$selected) {
+        return null;
+    }
+    return [
+        'booking_id' => $selected['booking_id'] ?? '',
+        'order_reference' => $selected['order_reference'] ?? '',
+        'source_system' => $selected['source_system'] ?? '',
+        'status' => $selected['status'] ?? '',
+        'started_at' => $selected['started_at'] ?? '',
+        'driver_name' => $selected['driver_name'] ?? '',
+        'plate' => $selected['plate'] ?? '',
+        'mapping_ready' => !empty($selected['mapping_ready']),
+        'future_guard_passed' => !empty($selected['future_guard_passed']),
+        'terminal_status' => !empty($selected['terminal_status']),
+        'technical_payload_valid' => !empty($selected['technical_payload_valid']),
+        'live_submission_allowed' => !empty($selected['live_submission_allowed']),
+        'technical_blockers' => $selected['technical_blockers'] ?? [],
+        'live_blockers' => $selected['live_blockers'] ?? [],
+        'payload_hash' => $selected['payload_hash'] ?? '',
+    ];
+}
+
+function ls_safe_payload_preview(?array $selected): array
+{
+    if (!$selected || !is_array($selected['edxeix_payload_preview'] ?? null)) {
+        return [];
+    }
+    $payload = $selected['edxeix_payload_preview'];
+    foreach (['_token', 'csrf', 'csrf_token', 'cookie', 'cookie_header'] as $secretKey) {
+        if (array_key_exists($secretKey, $payload)) {
+            $payload[$secretKey] = '[redacted/loaded server-side only]';
+        }
+    }
+    return $payload;
+}
+
 $error = null;
-$config = gov_live_load_config();
+$config = [];
+$configState = [];
+$globalSession = [];
 $db = null;
 $analyzedRows = [];
 $selected = null;
 $postResult = null;
 $explicitBookingSelected = false;
+$limit = 50;
 
 try {
     $bridgeConfig = gov_bridge_load_config();
     if (!empty($bridgeConfig['app']['timezone'])) {
         date_default_timezone_set((string)$bridgeConfig['app']['timezone']);
     }
+    $config = gov_live_load_config();
+    $configState = ls_public_config_state($config);
+    $globalSession = ls_read_global_session_state($config);
     $db = gov_bridge_db();
     $limit = gov_bridge_int_param('limit', 50, 1, 200);
     $analyzedRows = gov_live_analyzed_candidates($db, $limit);
@@ -220,20 +396,24 @@ try {
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $postBookingId = ls_request_param('booking_id', '');
-        $confirm = ls_request_param('confirm', '');
-        $booking = gov_live_booking_by_id($db, $postBookingId);
-        if (!$booking) {
-            throw new RuntimeException('Selected booking was not found.');
-        }
-        $postResult = gov_live_submit_if_allowed($db, $booking, $confirm);
-        $selected = $postResult['analysis'] ?? gov_live_analyze_booking($db, $booking, $config);
-        $explicitBookingSelected = true;
+        $postResult = [
+            'ok' => false,
+            'submitted' => false,
+            'blocked' => true,
+            'response' => [
+                'status' => 0,
+                'success' => false,
+                'body' => 'Live HTTP transport is disabled in this preparatory patch. No EDXEIX request was performed.',
+            ],
+        ];
     }
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }
 
+$config = $config ?: gov_live_load_config();
+$configState = $configState ?: ls_public_config_state($config);
+$globalSession = $globalSession ?: ls_read_global_session_state($config);
 $phrase = (string)($config['confirmation_phrase'] ?? 'I UNDERSTAND SUBMIT LIVE TO EDXEIX');
 $liveEnabled = !empty($config['live_submit_enabled']);
 $httpEnabled = !empty($config['http_submit_enabled']);
@@ -242,8 +422,8 @@ $realFutureCandidateRows = array_values(array_filter($analyzedRows, static fn(ar
 $realFutureCandidateCount = count($realFutureCandidateRows);
 $liveReadyCount = count(array_filter($analyzedRows, static fn(array $row): bool => !empty($row['live_submission_allowed'])));
 $selectedIsRealFutureCandidate = ls_is_real_future_candidate($selected);
-$blockedReasons = ls_blocked_reasons($selected, $config, $realFutureCandidateCount);
-$requirements = ls_first_live_requirements($selected, $config);
+$blockedReasons = ls_blocked_reasons($selected, $config, $globalSession, $realFutureCandidateCount);
+$requirements = ls_first_live_requirements($selected, $config, $globalSession);
 
 if (ls_request_param('format', '') === 'json') {
     ls_json_response([
@@ -255,7 +435,8 @@ if (ls_request_param('format', '') === 'json') {
         'calls_edxeix' => false,
         'writes_database_on_get' => false,
         'live_http_transport_enabled_in_this_patch' => false,
-        'config_state' => ls_public_config_state($config),
+        'config_state' => $configState,
+        'global_session_state' => $globalSession,
         'analyzed_rows' => count($analyzedRows),
         'real_future_candidate_rows' => $realFutureCandidateCount,
         'live_ready_rows' => $liveReadyCount,
@@ -264,20 +445,7 @@ if (ls_request_param('format', '') === 'json') {
         'selected_is_real_future_candidate' => $selectedIsRealFutureCandidate,
         'why_live_is_blocked' => $blockedReasons,
         'first_live_submit_requirements' => $requirements,
-        'selected' => $selected ? [
-            'booking_id' => $selected['booking_id'],
-            'order_reference' => $selected['order_reference'],
-            'source_system' => $selected['source_system'],
-            'status' => $selected['status'],
-            'started_at' => $selected['started_at'],
-            'driver_name' => $selected['driver_name'],
-            'plate' => $selected['plate'],
-            'technical_payload_valid' => $selected['technical_payload_valid'],
-            'live_submission_allowed' => $selected['live_submission_allowed'],
-            'technical_blockers' => $selected['technical_blockers'],
-            'live_blockers' => $selected['live_blockers'],
-            'payload_hash' => $selected['payload_hash'],
-        ] : null,
+        'selected' => ls_public_selected($selected),
         'post_result' => $postResult,
         'error' => $error,
         'note' => 'Production readiness refinement only. No EDXEIX HTTP request is performed by this patch.',
@@ -305,6 +473,7 @@ if (ls_request_param('format', '') === 'json') {
     <a href="/ops/mappings.php">Mappings</a>
     <a href="/ops/jobs.php">Jobs</a>
     <a href="/ops/live-submit.php">Live Submit Gate</a>
+    <a href="/ops/edxeix-session.php">EDXEIX Session</a>
     <a href="/ops/help.php">Help</a>
 </nav>
 
@@ -321,7 +490,8 @@ if (ls_request_param('format', '') === 'json') {
             <?= ls_badge('LIVE HTTP TRANSPORT BLOCKED', 'bad') ?>
             <?= $liveEnabled ? ls_badge('CONFIG LIVE ENABLED', 'warn') : ls_badge('CONFIG LIVE DISABLED', 'good') ?>
             <?= $httpEnabled ? ls_badge('HTTP CONFIG ENABLED', 'warn') : ls_badge('HTTP CONFIG DISABLED', 'good') ?>
-            <?= $submitUrlConfigured ? ls_badge('EDXEIX URL CONFIGURED', 'warn') : ls_badge('EDXEIX URL MISSING', 'bad') ?>
+            <?= $submitUrlConfigured ? ls_badge('EDXEIX URL CONFIGURED', 'good') : ls_badge('EDXEIX URL MISSING', 'bad') ?>
+            <?= !empty($globalSession['ready']) ? ls_badge('EDXEIX SESSION READY', 'good') : ls_badge('EDXEIX SESSION NOT READY', 'bad') ?>
             <?= ls_badge('OPS GUARDED', 'good') ?>
         </div>
         <?php if ($error): ?><p class="badline"><strong>Error:</strong> <?= ls_h($error) ?></p><?php endif; ?>
@@ -330,6 +500,7 @@ if (ls_request_param('format', '') === 'json') {
         <?php endif; ?>
         <div class="actions">
             <a class="btn" href="/ops/live-submit.php?format=json">Open Gate JSON</a>
+            <a class="btn dark" href="/ops/edxeix-session.php">Open EDXEIX Session</a>
             <a class="btn dark" href="/ops/future-test.php">Open Future Test</a>
             <a class="btn orange" href="/bolt_edxeix_preflight.php?limit=30">Open Preflight</a>
         </div>
@@ -355,7 +526,7 @@ if (ls_request_param('format', '') === 'json') {
 
     <section class="card warn">
         <h2>Why live submission is blocked now</h2>
-        <p class="small">These are the current blocker reasons. Some are expected until the final approved live-submit patch and real future Bolt candidate exist.</p>
+        <p class="small">These are the current blocker reasons. EDXEIX session/config can be ready while live submission still remains blocked until a real future Bolt candidate and final transport patch exist.</p>
         <div class="table-wrap"><table>
             <thead><tr><th>Blocker</th><th>Meaning</th></tr></thead>
             <tbody>
@@ -368,13 +539,28 @@ if (ls_request_param('format', '') === 'json') {
 
     <section class="card safe">
         <h2>First Live Submit Requirements</h2>
-        <p class="small">All items must pass before the first approved live EDXEIX submission. The final HTTP transport item intentionally cannot pass in this preparatory patch.</p>
+        <p class="small">Global EDXEIX prerequisites can pass before a Bolt candidate exists. Candidate-specific items stay waiting until the real future Bolt ride appears.</p>
         <div class="table-wrap"><table>
             <thead><tr><th>Requirement</th><th>Status</th><th>Detail</th></tr></thead>
             <tbody>
             <?php foreach ($requirements as $row): ?>
                 <?= ls_status_row($row['label'], (bool)$row['pass'], (string)$row['detail'], (bool)$row['waiting']) ?>
             <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="card safe">
+        <h2>Current Safety Gates</h2>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Gate</th><th>Status</th><th>Meaning</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Server config live_submit_enabled</strong></td><td><?= ls_bool_badge($liveEnabled, 'enabled', 'disabled') ?></td><td>Must be true in server-only config for a future live patch.</td></tr>
+                <tr><td><strong>Server config http_submit_enabled</strong></td><td><?= ls_bool_badge($httpEnabled, 'enabled', 'disabled') ?></td><td>Must be true in server-only config for a future live patch.</td></tr>
+                <tr><td><strong>EDXEIX URL configured</strong></td><td><?= ls_bool_badge($submitUrlConfigured, 'configured', 'missing') ?></td><td>Host: <?= ls_h($configState['edxeix_submit_url_host'] ?: 'not configured') ?></td></tr>
+                <tr><td><strong>EDXEIX session ready</strong></td><td><?= ls_bool_badge(!empty($globalSession['ready']), 'ready', 'not ready') ?></td><td>Global server-side cookie/CSRF readiness. Secrets are never displayed.</td></tr>
+                <tr><td><strong>Real future Bolt candidate</strong></td><td><?= ls_bool_badge($realFutureCandidateCount > 0, 'available', 'waiting') ?></td><td>Requires a valid future Bolt row with mapping and future guard passing.</td></tr>
+                <tr><td><strong>HTTP transport in this patch</strong></td><td><?= ls_badge('blocked', 'bad') ?></td><td>This patch intentionally refuses live HTTP even if other gates are toggled.</td></tr>
             </tbody>
         </table></div>
     </section>
@@ -402,27 +588,12 @@ if (ls_request_param('format', '') === 'json') {
         <div class="card">
             <h2>Final live phase later</h2>
             <ul class="list">
-                <li>Configure exact EDXEIX submit URL.</li>
-                <li>Confirm server-side EDXEIX session.</li>
                 <li>Enable one booking/order lock in config.</li>
                 <li>Apply final HTTP transport patch.</li>
+                <li>Enable live flags only for the approved one-shot test.</li>
                 <li>Submit once, audit, then disable again.</li>
             </ul>
         </div>
-    </section>
-
-    <section class="card safe">
-        <h2>Current Safety Gates</h2>
-        <div class="table-wrap"><table>
-            <thead><tr><th>Gate</th><th>Status</th><th>Meaning</th></tr></thead>
-            <tbody>
-                <tr><td><strong>Server config live_submit_enabled</strong></td><td><?= ls_bool_badge($liveEnabled, 'enabled', 'disabled') ?></td><td>Must be true in server-only config for a future live patch.</td></tr>
-                <tr><td><strong>Server config http_submit_enabled</strong></td><td><?= ls_bool_badge($httpEnabled, 'enabled', 'disabled') ?></td><td>Must be true in server-only config for a future live patch.</td></tr>
-                <tr><td><strong>EDXEIX URL configured</strong></td><td><?= ls_bool_badge($submitUrlConfigured, 'configured', 'missing') ?></td><td>The exact EDXEIX submit URL is required later.</td></tr>
-                <tr><td><strong>EDXEIX session ready</strong></td><td><?= $selected ? ls_bool_badge(!empty($selected['session_state']['ready']), 'ready', 'not ready') : ls_badge('not selected', 'warn') ?></td><td>Saved server-side cookie/CSRF must be available. Secrets are never displayed.</td></tr>
-                <tr><td><strong>HTTP transport in this patch</strong></td><td><?= ls_badge('blocked', 'bad') ?></td><td>This patch intentionally refuses live HTTP even if other gates are toggled.</td></tr>
-            </tbody>
-        </table></div>
     </section>
 
     <section class="two">
@@ -482,7 +653,7 @@ if (ls_request_param('format', '') === 'json') {
                         <td><?= ls_h($row['plate']) ?></td>
                         <td><?= ls_bool_badge($isFutureCandidate, 'yes', 'no') ?></td>
                         <td><?= ls_bool_badge(!empty($row['live_submission_allowed']), 'allowed', 'blocked') ?></td>
-                        <td><a class="btn dark" href="/ops/live-submit.php?booking_id=<?= urlencode((string)$row['booking_id']) ?>">Review</a></td>
+                        <td><a class="btn dark" href="/ops/live-submit.php?booking_id=<?= urlencode((string)$row['booking_id']) ?>">Open</a></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -490,11 +661,11 @@ if (ls_request_param('format', '') === 'json') {
         <?php endif; ?>
     </section>
 
-    <?php if ($selected && !empty($selected['edxeix_payload_preview'])): ?>
+    <?php if ($selected): ?>
     <section class="card">
-        <h2>EDXEIX Payload Preview</h2>
-        <p class="small">Secrets such as cookies and CSRF tokens are not shown here. The payload is for review only.</p>
-        <pre><?= ls_h(json_encode($selected['edxeix_payload_preview'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
+        <h2>Sanitized Payload Preview</h2>
+        <p class="small">Secret/session fields are redacted or loaded server-side only. Review values, but do not submit from this patch.</p>
+        <pre><?= ls_h(json_encode(ls_safe_payload_preview($selected), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
     </section>
     <?php endif; ?>
 </main>

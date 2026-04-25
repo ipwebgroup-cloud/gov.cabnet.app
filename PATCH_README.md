@@ -1,24 +1,24 @@
-# Patch: EDXEIX Session Guarded Web Form
-
-## What changed
-
-Updated `/ops/edxeix-session.php` to add a guarded web form for saving EDXEIX submit URL, cookie header, and CSRF token to server-only files.
+# Patch: Live Submit Global Session Status
 
 ## Files included
 
-```text
-public_html/gov.cabnet.app/ops/edxeix-session.php
-docs/EDXEIX_SESSION_WEB_FORM.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+- `public_html/gov.cabnet.app/ops/live-submit.php`
+- `docs/LIVE_SUBMIT_GLOBAL_SESSION_STATUS.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
 ## Upload path
 
+Upload:
+
 ```text
-public_html/gov.cabnet.app/ops/edxeix-session.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
+public_html/gov.cabnet.app/ops/live-submit.php
+```
+
+to:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/live-submit.php
 ```
 
 ## SQL
@@ -30,18 +30,18 @@ No SQL required.
 Open:
 
 ```text
-https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/edxeix-session.php?format=json
+https://gov.cabnet.app/ops/live-submit.php
+https://gov.cabnet.app/ops/live-submit.php?format=json
 ```
 
-Expected:
+Expected after EDXEIX session/save URL has been prepared:
 
-- form is visible,
-- no secret values are displayed,
-- GET makes no writes,
-- POST saves server-only files only after exact confirmation phrase,
-- live submit flags remain disabled.
+```text
+EDXEIX SESSION READY badge visible
+EDXEIX session ready requirement: pass
+EDXEIX submit URL configured: pass
+Real future Bolt candidate exists: waiting
+Live HTTP execution: no
+```
 
-## Safety
-
-This patch does not call Bolt, call EDXEIX, write to the database, create jobs, expose secrets, or enable live submission.
+Live submission remains blocked.

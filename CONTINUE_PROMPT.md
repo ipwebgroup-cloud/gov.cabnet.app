@@ -1,41 +1,28 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge.
+You are Sophion continuing the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Current baseline:
+Latest state:
 
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload.
-- Live EDXEIX submission remains blocked.
+- Live domain: https://gov.cabnet.app
+- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
 - Ops guard is active.
-- `/ops/edxeix-session.php` now has a guarded web form for two authorized operators to save EDXEIX submit URL, Cookie header, and CSRF token to server-only files.
-- The form never displays secret values back and forces live/http flags disabled.
-- Real config/session files are server-only and ignored by Git.
+- `/ops/index.php` is a safe guided console.
+- `/ops/readiness.php`, `/ops/future-test.php`, `/ops/mappings.php`, `/ops/jobs.php`, `/ops/edxeix-session.php`, and `/ops/live-submit.php` are installed.
+- EDXEIX session helper can save submit URL, Cookie header, and CSRF token server-side without displaying secrets.
+- `/ops/live-submit.php` now reports global EDXEIX session readiness separately from selected booking readiness.
+- Live EDXEIX HTTP transport is still blocked and no live submission can occur.
 
-Server paths:
+Current production blockers:
 
-```text
-/home/cabnet/public_html/gov.cabnet.app
-/home/cabnet/gov.cabnet.app_app
-/home/cabnet/gov.cabnet.app_config
-/home/cabnet/gov.cabnet.app_sql
-```
+1. Need one real future Bolt ride using Filippos and a mapped vehicle.
+2. Need preflight to pass for that real future row.
+3. Need final HTTP transport patch after explicit approval.
+4. Need one-shot config enablement only for the approved live test.
 
-Current remaining blockers:
+Known first test mappings:
 
-1. Real future Bolt candidate does not exist yet.
-2. Final live HTTP transport patch is not installed.
-3. Live flags must remain disabled until the approved one-shot live test.
+- Filippos Giannakopoulos → driver 17585
+- EMX6874 → vehicle 13799
+- EHA2545 → vehicle 5949
 
-Known mappings:
-
-```text
-Filippos Giannakopoulos → 17585
-EMX6874 → 13799
-EHA2545 → 5949
-```
-
-Georgios Zachariou remains intentionally unmapped.
-
-Next safest actions:
-
-- Verify `/ops/edxeix-session.php` web form saves server-only values correctly without printing secrets.
-- Confirm `/ops/live-submit.php?format=json` still shows `live_http_transport_enabled_in_this_patch: false`.
-- Do not implement or enable live EDXEIX HTTP transport until Andreas explicitly approves after a real future Bolt candidate exists.
+Never submit LAB rows, cancelled/finished/terminal/past rows, or unmapped driver/vehicle rows. Do not expose secrets.
