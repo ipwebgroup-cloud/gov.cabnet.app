@@ -1,77 +1,89 @@
-# Patch: LAB/Test Safety Output Clarification
-
-## What changed
-
-This patch clarifies the output of the Bolt → EDXEIX dry-run/preflight flow so LAB/test bookings no longer appear live-safe just because their payload is technically valid.
+# Patch: Add LAB Dry-Run Cleanup Tool
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
-public_html/gov.cabnet.app/bolt_submission_worker.php
-gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
-docs/LAB_TEST_SAFETY_OUTPUT.md
+public_html/gov.cabnet.app/ops/cleanup-lab.php
+gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
+docs/LAB_DRY_RUN_CLEANUP.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-→ /home/cabnet/public_html/gov.cabnet.app/bolt_edxeix_preflight.php
+public_html/gov.cabnet.app/ops/cleanup-lab.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/cleanup-lab.php
 
-public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
-→ /home/cabnet/public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
-
-public_html/gov.cabnet.app/bolt_submission_worker.php
-→ /home/cabnet/public_html/gov.cabnet.app/bolt_submission_worker.php
-
-gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
-
-docs/LAB_TEST_SAFETY_OUTPUT.md
-→ docs/LAB_TEST_SAFETY_OUTPUT.md in GitHub
-
-HANDOFF.md
-→ HANDOFF.md in GitHub
-
-CONTINUE_PROMPT.md
-→ CONTINUE_PROMPT.md in GitHub
+gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
 ```
 
-## Optional SQL
+For GitHub, also commit:
 
-Run this only if you want the existing local LAB attempt row to be classified as dry-run in readiness:
+```text
+docs/LAB_DRY_RUN_CLEANUP.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
+
+## SQL
+
+No required migration.
+
+Optional read-only preview command:
 
 ```bash
-mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
+mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
 ```
 
-The SQL updates only attempts linked to LAB/test/never-live normalized bookings.
+## Verification
 
-## Verify
+Open:
 
 ```text
-https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&allow_lab=1
-https://gov.cabnet.app/bolt_submission_worker.php?limit=30&allow_lab=1
-https://gov.cabnet.app/bolt_submission_worker.php?limit=30&record=1&allow_lab=1
-https://gov.cabnet.app/ops/jobs.php
+https://gov.cabnet.app/ops/cleanup-lab.php
+```
+
+Expected before cleanup:
+
+```text
+LAB/test normalized bookings: 1
+Linked local jobs: 1
+Linked attempts: 1
+Unsafe/unclassified attempts: 0
+```
+
+To delete, type exactly:
+
+```text
+DELETE LOCAL LAB DRY RUN DATA
+```
+
+Expected after cleanup:
+
+```text
+LAB/test normalized bookings: 0
+Linked local jobs: 0
+Linked attempts: 0
+Unsafe/unclassified attempts: 0
+```
+
+Then verify:
+
+```text
 https://gov.cabnet.app/ops/readiness.php
+https://gov.cabnet.app/ops/jobs.php
 ```
 
-## Expected result
+## Safety
 
-LAB/test rows should show:
-
-```text
-technical_payload_valid: true
-dry_run_allowed or dry_run_stage_allowed: true when allow_lab=1
-live_submission_allowed: false
-submission_safe: false
-```
-
-The worker should still state that no EDXEIX submission was performed.
+- No Bolt call.
+- No EDXEIX call.
+- No live submission.
+- No GET deletion.
+- Exact POST confirmation required.
+- Refuses cleanup if linked attempts are not clearly dry-run/no-live.
