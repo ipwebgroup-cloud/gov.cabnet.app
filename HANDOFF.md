@@ -1,98 +1,116 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-## Project
+## Current baseline
 
-- Domain: `https://gov.cabnet.app`
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Public webroot: `/home/cabnet/public_html/gov.cabnet.app`
-- Private app folder: `/home/cabnet/gov.cabnet.app_app`
-- Private config folder: `/home/cabnet/gov.cabnet.app_config`
-- SQL folder: `/home/cabnet/gov.cabnet.app_sql`
+Project: `gov.cabnet.app` Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness workflow.
 
-## Source of truth
+Stack:
 
-Use the latest uploaded/server files first, then this handoff, then README/docs/GitHub.
+- Plain PHP
+- mysqli/MariaDB
+- cPanel/manual upload workflow
+- No frameworks, Composer, Node, or heavy dependencies
 
-## Current validated state
+Expected server layout:
 
-- Bolt API connection works.
-- Bolt reference sync works.
-- Bolt order sync works.
-- Normalized booking import works.
-- EDXEIX preflight payload preview works.
-- Local dry-run staging works.
-- Dry-run worker/local audit works.
-- LAB future-booking test harness was validated end-to-end.
-- LAB cleanup tool was validated and test data was removed.
-- Ops access guard is installed and active through `.user.ini`.
-- `/ops/index.php` is a safe guided landing page.
-- `/ops/help.php` provides novice operator guidance.
-- `/ops/future-test.php` shows real future-test readiness and progress rail.
-- `/ops/mappings.php` is guarded, sanitized, and can update only EDXEIX mapping IDs with audit logging.
-- `/ops/live-submit.php` has been added as a disabled live-submit safety gate scaffold.
+```text
+/home/cabnet/public_html/gov.cabnet.app
+/home/cabnet/gov.cabnet.app_app
+/home/cabnet/gov.cabnet.app_config
+/home/cabnet/gov.cabnet.app_sql
+```
+
+## Safety state
+
+Live EDXEIX submission is still disabled and intentionally blocked.
+
+Current live-submit gate state:
+
+```text
+/ops/live-submit.php installed
+edxeix_live_submission_audit table installed
+live_submit_enabled: false
+http_submit_enabled: false
+live_http_transport_enabled_in_this_patch: false
+No EDXEIX HTTP request is performed
+```
+
+## Verified operational pages
+
+```text
+/ops/index.php          Guided safe operations console
+/ops/help.php           Novice help/glossary/runbook
+/ops/readiness.php      Main readiness audit
+/ops/future-test.php    Real future Bolt test checklist
+/ops/mappings.php       Mapping dashboard/editor
+/ops/jobs.php           Local queue/attempt viewer
+/ops/bolt-live.php      Bolt-side operational view
+/ops/test-booking.php   LAB/local dry-run booking harness
+/ops/cleanup-lab.php    LAB cleanup tool
+/ops/live-submit.php    Disabled live-submit production gate
+```
 
 ## Current readiness posture
 
-- Readiness: `READY_FOR_REAL_BOLT_FUTURE_TEST`
-- Future test: `READY TO CREATE REAL FUTURE TEST RIDE`
-- Real future candidates: `0`
-- LAB rows/jobs/attempts: expected `0`
-- Live EDXEIX attempts: expected `0`
-- Live EDXEIX HTTP submission: **disabled and intentionally blocked**
+Before the next real Bolt test, expected state is:
+
+```text
+READY_FOR_REAL_BOLT_FUTURE_TEST
+READY TO CREATE REAL FUTURE TEST RIDE
+Real future candidates: 0
+LAB rows/jobs/attempts: 0
+Local jobs: 0
+Live attempts: 0
+```
 
 ## Known mappings
 
-Drivers:
+Use for first real test:
 
-- Filippos Giannakopoulos → EDXEIX driver ID `17585`
-
-Vehicles:
-
-- EMX6874 → EDXEIX vehicle ID `13799`
-- EHA2545 → EDXEIX vehicle ID `5949`
+```text
+Filippos Giannakopoulos → EDXEIX driver ID 17585
+EMX6874 → EDXEIX vehicle ID 13799
+EHA2545 → EDXEIX vehicle ID 5949
+```
 
 Reference-only EDXEIX driver IDs:
 
-- `1658` — ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ
-- `17585` — ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ
-- `6026` — ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ
+```text
+1658  — ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ
+17585 — ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ
+6026  — ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ
+```
 
-Leave Georgios Zachariou unmapped until his exact EDXEIX driver ID is independently confirmed.
+Leave unmapped for now:
 
-## Live submit gate scaffold
+```text
+Georgios Zachariou / +306944787864 / XRO7604
+```
 
-Added:
+## Current blocker for live EDXEIX submission
 
-- `gov.cabnet.app_app/lib/edxeix_live_submit_gate.php`
-- `public_html/gov.cabnet.app/ops/live-submit.php`
-- `gov.cabnet.app_config_examples/live_submit.example.php`
-- `gov.cabnet.app_sql/2026_04_25_live_submission_audit.sql`
+No real future Bolt candidate exists yet. Andreas cannot create the test until Filippos is available/present.
 
-The gate analyzes candidates and checks safety requirements but still blocks live HTTP transport in this patch.
+Additional live blockers intentionally remain:
 
-The real server config must be copied manually to:
+- EDXEIX session readiness still needs confirmation.
+- Exact EDXEIX submit URL/form action still needs confirmation/configuration.
+- Final live HTTP transport patch has not been added.
+- Server-only live config remains disabled.
 
-`/home/cabnet/gov.cabnet.app_config/live_submit.php`
+## Next safe step
 
-It is ignored by Git and must not be committed.
+When Filippos is available:
 
-## What must not happen yet
+1. Create/schedule one real Bolt ride 40–60 minutes in the future.
+2. Use Filippos plus EMX6874 or EHA2545.
+3. Run Bolt sync.
+4. Open `/ops/future-test.php`.
+5. Open `/bolt_edxeix_preflight.php?limit=30`.
+6. Stage/record dry-run only.
+7. Confirm live attempts remain `0`.
+8. Only then consider the final live HTTP transport patch.
 
-Do not enable live EDXEIX submission yet. Do not add automatic live worker behavior yet. Do not submit historical, cancelled, terminal, expired, invalid, past, LAB, test, or unmapped Bolt rows.
+## Hard safety rule
 
-## Remaining blocker before real live submission
-
-A real future Bolt ride must be created with Filippos present and using a mapped vehicle:
-
-- Driver: Filippos Giannakopoulos / EDXEIX `17585`
-- Vehicle: EMX6874 / EDXEIX `13799`, or EHA2545 / EDXEIX `5949`
-- Ride start: 40–60 minutes in the future
-
-After that, run:
-
-1. `/bolt_sync_orders.php`
-2. `/ops/future-test.php`
-3. `/bolt_edxeix_preflight.php?limit=30`
-4. `/ops/live-submit.php`
-
-Only after successful preflight and explicit Andreas approval should a separate live HTTP execution patch be created.
+Do not enable or implement live EDXEIX submission unless Andreas explicitly asks for the final live-submit transport patch and a real eligible future Bolt booking exists.

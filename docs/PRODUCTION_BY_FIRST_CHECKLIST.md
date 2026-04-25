@@ -1,58 +1,59 @@
-# Production by the 1st — Remaining Checklist
+# Production by the 1st — Safe Remaining Checklist
 
-The app is close to production readiness for the Bolt → EDXEIX bridge, but live submission still requires one real future Bolt test and a separate execution patch.
+This checklist focuses on what can be completed safely before the first real Bolt future ride and final EDXEIX live submission.
 
-## Already complete
+## Already completed
 
-- Bolt API sync works.
-- Reference sync works.
-- Order sync works.
-- Normalized bookings exist.
-- EDXEIX payload preview/preflight exists.
-- Local queue staging exists.
-- Dry-run worker exists.
-- LAB test harness validated.
-- LAB cleanup validated.
-- Access guard installed.
+- Ops access guard installed and verified.
+- Readiness dashboard installed.
+- Future test checklist installed.
 - Mapping dashboard/editor installed.
 - Mapping JSON sanitized.
-- Guided novice operations console added.
-- Safe `/ops/index.php` route restored as landing page.
-- Live-submit gate scaffold added and disabled.
+- Known EDXEIX driver reference panel installed.
+- LAB dry-run booking harness installed and validated.
+- LAB cleanup tool installed and validated.
+- Safe `/ops/index.php` landing page installed.
+- Novice help/guided dashboard installed.
+- Disabled live-submit gate installed.
+- `edxeix_live_submission_audit` table installed.
 
-## Current known mappings
+## Current required live-test inputs
 
-- Filippos Giannakopoulos → EDXEIX driver `17585`
-- EMX6874 → EDXEIX vehicle `13799`
-- EHA2545 → EDXEIX vehicle `5949`
+Known safe driver:
 
-Leave Georgios Zachariou unmapped for now.
+```text
+Filippos Giannakopoulos → EDXEIX 17585
+```
 
-## Before the first live EDXEIX submit
+Known safe vehicles:
 
-Required:
+```text
+EMX6874 → EDXEIX 13799
+EHA2545 → EDXEIX 5949
+```
 
-1. Filippos is present/available.
-2. A real Bolt ride is created 40–60 minutes in the future.
-3. Ride uses Filippos plus EMX6874 or EHA2545.
-4. `/bolt_sync_orders.php` imports the ride.
-5. `/ops/future-test.php` shows a real future candidate.
-6. `/bolt_edxeix_preflight.php?limit=30` shows a valid payload.
-7. `/ops/live-submit.php` shows technical payload valid.
-8. EDXEIX session/cookie/CSRF status is confirmed.
-9. Exact EDXEIX submit URL is confirmed.
-10. Andreas explicitly approves the final live HTTP execution patch.
+Leave unmapped:
 
-## What is still intentionally blocked
+```text
+Georgios Zachariou / +306944787864 / XRO7604
+```
 
-- Automatic live submission.
-- Live EDXEIX HTTP POST.
-- Live worker execution.
-- Any LAB/test row live submission.
-- Any unmapped or terminal/past/cancelled trip submission.
+## Remaining before first EDXEIX live submission
 
-## Recommended next safe patch after real future candidate exists
+- Confirm a real future Bolt ride can be created with Filippos and a mapped vehicle.
+- Confirm when the ride appears through the Bolt API after sync.
+- Confirm `/ops/future-test.php` detects the candidate.
+- Confirm `/bolt_edxeix_preflight.php?limit=30` builds the correct payload.
+- Confirm EDXEIX session is ready server-side.
+- Confirm the exact EDXEIX submit URL/form action.
+- Apply final live HTTP transport patch only after explicit approval.
+- Submit one controlled future booking only.
+- Disable live-submit config immediately after the first controlled test.
 
-Add the actual EDXEIX HTTP submit transport behind the existing live gate.
+## Do not do yet
 
-This should be one-shot, manually triggered, fully audited, and immediately disabled after the first successful controlled submission.
+- Do not enable live EDXEIX HTTP transport.
+- Do not map Georgios without confirmed EDXEIX ID.
+- Do not auto-stage or auto-submit from cron.
+- Do not submit historical or completed Bolt rides.
+- Do not expose cookies, tokens, API keys, or database credentials.
