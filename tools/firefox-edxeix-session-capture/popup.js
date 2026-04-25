@@ -2,10 +2,11 @@
   'use strict';
 
   const api = typeof browser !== 'undefined' ? browser : chrome;
-  const VERSION = '0.1.1';
+  const VERSION = '0.1.2';
   const GOV_CAPTURE_ENDPOINT = 'https://gov.cabnet.app/ops/edxeix-session-capture.php';
-  const EDXEIX_CREATE_PATH = '/dashboard/lease-agreement/create';
-  const EDXEIX_FIXED_SUBMIT_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
+  const GOV_SESSION_URL = 'https://gov.cabnet.app/ops/edxeix-session.php';
+  const GOV_LIVE_GATE_URL = 'https://gov.cabnet.app/ops/live-submit.php';
+  const FIXED_SUBMIT_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
   const EDXEIX_URL_FOR_COOKIES = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
 
   let captured = null;
@@ -14,6 +15,8 @@
   const status = el('status');
   const captureBtn = el('captureBtn');
   const saveBtn = el('saveBtn');
+  const openSessionBtn = el('openSessionBtn');
+  const openLiveGateBtn = el('openLiveGateBtn');
 
   function setStatus(message, type = 'neutral') {
     status.textContent = message;
@@ -24,10 +27,23 @@
     el(id).textContent = String(text);
   }
 
-  function validCreateTabUrl(url) {
+  function validTabUrl(url) {
     try {
       const u = new URL(url);
-      return u.protocol === 'https:' && u.hostname === 'edxeix.yme.gov.gr' && u.pathname === EDXEIX_CREATE_PATH;
+      return u.protocol === 'https:'
+        && u.hostname === 'edxeix.yme.gov.gr'
+        && u.pathname.indexOf('/dashboard/lease-agreement') === 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isCreateFormUrl(url) {
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:'
+        && u.hostname === 'edxeix.yme.gov.gr'
+        && u.pathname === '/dashboard/lease-agreement/create';
     } catch (_) {
       return false;
     }
@@ -64,13 +80,14 @@
 
   async function captureFromPage(tabId) {
     const code = `(() => {
-      const form = document.querySelector('form.js-confirmation') || document.querySelector('form[method="post"], form[method="POST"]') || null;
-      const tokenInput = form ? form.querySelector('input[name="_token"]') : document.querySelector('input[name="_token"]');
+      const tokenInput = document.querySelector('input[name="_token"]');
+      const forms = Array.from(document.querySelectorAll('form'));
+      const preferred = forms.find((form) => String(form.action || '').includes('/dashboard/lease-agreement')) || forms[0] || null;
       return {
         page_url: location.href,
         title: document.title,
-        detected_form_action: form ? String(form.action || '') : '',
-        detected_form_method: form ? String(form.method || 'POST').toUpperCase() : 'POST',
+        detected_form_action: preferred ? String(preferred.action || '') : '',
+        detected_form_method: preferred ? String(preferred.method || 'POST').toUpperCase() : 'POST',
         csrf_token: tokenInput ? String(tokenInput.value || '') : '',
         visible_cookie_length: String(document.cookie || '').length
       };
@@ -88,23 +105,24 @@
   }
 
   function updateDetectedState(data) {
-    setText('tabState', data && data.page_url ? 'ok' : 'missing');
+    setText('tabState', data && data.page_url ? (isCreateFormUrl(data.page_url) ? 'ok' : 'lease page') : 'missing');
     setText('actionState', 'fixed');
     setText('csrfState', data && data.csrf_token ? `${data.csrf_token.length} chars` : 'missing');
     setText('cookieState', data && data.cookie_count ? `${data.cookie_count} cookies` : 'missing');
     setText('cookieLength', data && data.cookie_header ? `${data.cookie_header.length}` : '0');
+    setText('versionState', VERSION);
     saveBtn.disabled = !(data && data.csrf_token && data.cookie_header);
   }
 
   async function doCapture() {
-    setStatus('Capturing from active EDXEIX create form...', 'warn');
+    setStatus('Capturing from active EDXEIX tab...', 'warn');
     saveBtn.disabled = true;
     captured = null;
 
     const tab = await getActiveTab();
-    if (!tab || !validCreateTabUrl(tab.url || '')) {
+    if (!tab || !validTabUrl(tab.url || '')) {
       updateDetectedState(null);
-      setStatus('Open + Ανάρτηση σύμβασης first: /dashboard/lease-agreement/create', 'bad');
+      setStatus('Open the EDXEIX lease-agreement create form first, then click this extension.', 'bad');
       return;
     }
 
@@ -113,8 +131,9 @@
 
     const data = {
       page_url: page ? page.page_url : (tab.url || ''),
-      fixed_submit_url: EDXEIX_FIXED_SUBMIT_URL,
+      fixed_submit_url: FIXED_SUBMIT_URL,
       detected_form_action: page ? page.detected_form_action : '',
+      detected_form_method: page ? page.detected_form_method : 'POST',
       form_method: 'POST',
       csrf_token: page ? page.csrf_token : '',
       cookie_header: cookieData.header,
@@ -124,6 +143,7 @@
     updateDetectedState(data);
 
     const warnings = [];
+    if (!isCreateFormUrl(data.page_url)) warnings.push('not on /create form');
     if (!data.csrf_token || looksPlaceholder(data.csrf_token)) warnings.push('CSRF token missing/placeholder');
     if (!data.cookie_header || looksPlaceholder(data.cookie_header)) warnings.push('cookie header missing/placeholder');
 
@@ -146,6 +166,7 @@
     saveBtn.disabled = true;
 
     const body = new URLSearchParams();
+    body.set('form_method', 'POST');
     body.set('cookie_header', captured.cookie_header || '');
     body.set('csrf_token', captured.csrf_token || '');
     body.set('source_url', captured.page_url || '');
@@ -175,17 +196,24 @@
       return;
     }
 
-    setStatus('Saved. Live flags remain disabled. Open gov session page to verify.', 'good');
+    setStatus('Saved. Live flags remain disabled. Click a verification button below.', 'good');
+  }
+
+  async function openTab(url) {
+    await api.tabs.create({ url });
   }
 
   async function init() {
+    setText('versionState', VERSION);
     const tab = await getActiveTab();
-    setText('tabState', tab && validCreateTabUrl(tab.url || '') ? 'EDXEIX create tab detected' : 'open EDXEIX create form');
+    setText('tabState', tab && validTabUrl(tab.url || '') ? (isCreateFormUrl(tab.url || '') ? 'EDXEIX create tab detected' : 'EDXEIX lease tab detected') : 'open EDXEIX form');
     setText('actionState', 'fixed');
   }
 
   captureBtn.addEventListener('click', () => { doCapture().catch((err) => setStatus(`Capture failed: ${err.message || err}`, 'bad')); });
   saveBtn.addEventListener('click', () => { doSave().catch((err) => setStatus(`Save failed: ${err.message || err}`, 'bad')); });
+  openSessionBtn.addEventListener('click', () => { openTab(GOV_SESSION_URL).catch((err) => setStatus(`Could not open session page: ${err.message || err}`, 'bad')); });
+  openLiveGateBtn.addEventListener('click', () => { openTab(GOV_LIVE_GATE_URL).catch((err) => setStatus(`Could not open live gate: ${err.message || err}`, 'bad')); });
 
   init().catch(() => {});
 })();

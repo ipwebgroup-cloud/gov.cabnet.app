@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "CABnet EDXEIX Session Capture",
-  "version": "0.1.1",
-  "description": "Private helper for authorized CABnet operators to capture the active EDXEIX CSRF token and cookies and send them to gov.cabnet.app server-side storage using the fixed EDXEIX submit URL.",
+  "version": "0.1.2",
+  "description": "Private helper for authorized CABnet operators to capture the active EDXEIX form action, CSRF token, and cookies and send them to gov.cabnet.app server-side storage.",
   "browser_specific_settings": {
     "gecko": {
       "id": "edxeix-session-capture@gov.cabnet.app",

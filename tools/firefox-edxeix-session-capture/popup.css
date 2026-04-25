@@ -8,12 +8,13 @@
   --green: #07875a;
   --orange: #b85c00;
   --red: #b42318;
+  --slate: #2f3b52;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
   width: 390px;
-  min-height: 500px;
+  min-height: 560px;
   font-family: Arial, Helvetica, sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -65,9 +66,10 @@ button {
   margin: 6px 0 10px;
 }
 button.danger { background: var(--red); }
+button.secondary { background: var(--slate); }
 button[disabled] { opacity: .45; cursor: not-allowed; }
 a { color: var(--blue); font-weight: 800; }
-.small { font-size: 13px; }
+.small, .hint { font-size: 13px; }
+.hint { margin: 0 0 4px; }
 ul { margin: 7px 0 0; padding-left: 18px; }
-code { background: #eef2ff; border-radius: 5px; padding: 2px 5px; word-break: break-all; }
-.hint { font-size: 12px; margin: 0; color: var(--muted); }
+.verify button { margin-bottom: 8px; }

@@ -11,8 +11,8 @@ The project is in safe production-prep state.
 - EDXEIX submit URL: configured server-side.
 - EDXEIX cookie/CSRF session: saved server-side and placeholder-free.
 - EDXEIX session page: has guarded server-side save form and fast paste auto-extract helper.
-- Firefox EDXEIX capture extension: installed in repo under `tools/firefox-edxeix-session-capture/`.
-- Firefox extension v0.1.1 uses fixed submit URL `https://edxeix.yme.gov.gr/dashboard/lease-agreement` and no longer requires the save confirmation phrase.
+- Private Firefox EDXEIX Session Capture extension: installed in repo under `tools/firefox-edxeix-session-capture/`.
+- Firefox extension version: `0.1.2`, with fixed submit URL, no confirmation phrase, and explicit verification buttons.
 - Real future Bolt candidates: 0.
 - Live-eligible rows: 0.
 - Live HTTP execution: no.
@@ -37,6 +37,16 @@ Vehicles:
 - EHA2545 → EDXEIX vehicle ID `5949`
 
 Leave Georgios Zachariou unmapped for now.
+
+## Firefox extension workflow
+
+1. Log in to EDXEIX.
+2. Open `https://edxeix.yme.gov.gr/dashboard/lease-agreement/create`.
+3. Click the CABnet EDXEIX Capture extension.
+4. Click `Capture from EDXEIX tab`.
+5. Click `Save to gov.cabnet.app`.
+6. Click `Open EDXEIX Session page` and verify the session is ready.
+7. Click `Open Live Submit Gate` and verify live HTTP execution remains blocked.
 
 ## Safety rules
 

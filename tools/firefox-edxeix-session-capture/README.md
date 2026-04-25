@@ -1,30 +1,49 @@
 # CABnet EDXEIX Session Capture Firefox Extension
 
-Private helper for authorized CABnet operators.
+Private Firefox WebExtension for authorized CABnet operators.
 
-## What changed in v0.1.1
+## Purpose
 
-- The EDXEIX submit URL is fixed automatically:
-  `https://edxeix.yme.gov.gr/dashboard/lease-agreement`
-- The safety confirmation phrase was removed from the extension workflow.
-- The operator now only clicks:
-  1. Capture from EDXEIX tab
-  2. Save to gov.cabnet.app
+Capture the current EDXEIX lease-agreement create form session prerequisites with fewer manual steps:
+
+- hidden `_token` CSRF value
+- EDXEIX cookies via the Firefox cookies API
+- fixed submit URL: `https://edxeix.yme.gov.gr/dashboard/lease-agreement`
+
+The extension posts these values to:
+
+`https://gov.cabnet.app/ops/edxeix-session-capture.php`
+
+The server saves them into server-only runtime/config files and keeps live submission disabled.
+
+## Install for testing
+
+1. Open Firefox.
+2. Go to `about:debugging`.
+3. Click **This Firefox**.
+4. Click **Load Temporary Add-on...**.
+5. Select `manifest.json` from this folder.
+
+If the files are updated, click **Reload** on the temporary extension.
 
 ## Operator workflow
 
 1. Log in to EDXEIX.
-2. Open `https://edxeix.yme.gov.gr/dashboard/lease-agreement/create` by clicking `+ Ανάρτηση σύμβασης`.
-3. Click the Firefox extension icon.
-4. Click **1. Capture from EDXEIX tab**.
-5. Confirm that CSRF token and cookies are detected by length/count only.
-6. Click **2. Save to gov.cabnet.app**.
-7. Verify `https://gov.cabnet.app/ops/edxeix-session.php`.
+2. Open `https://edxeix.yme.gov.gr/dashboard/lease-agreement/create`.
+3. Click the CABnet EDXEIX Capture extension.
+4. Click **Capture from EDXEIX tab**.
+5. Click **Save to gov.cabnet.app**.
+6. Click **Open EDXEIX Session page** to verify.
+7. Optionally click **Open Live Submit Gate**.
 
 ## Safety
 
-- The extension does not submit any EDXEIX form.
-- The extension does not enable live EDXEIX submission.
-- Cookie/CSRF values are not displayed in the popup.
-- The server endpoint forces `live_submit_enabled = false` and `http_submit_enabled = false`.
-- The server endpoint uses the fixed submit URL and validates it server-side.
+- No EDXEIX submission is performed.
+- No Bolt request is performed.
+- The extension does not display cookie or CSRF values.
+- Server-side live flags remain disabled.
+- Final live HTTP transport remains blocked unless separately approved and patched.
+
+## Version
+
+0.1.2

@@ -20,6 +20,7 @@
       <div class="row"><span>CSRF token</span><strong id="csrfState">not captured</strong></div>
       <div class="row"><span>Cookies</span><strong id="cookieState">not captured</strong></div>
       <div class="row"><span>Cookie header length</span><strong id="cookieLength">0</strong></div>
+      <div class="row"><span>Extension version</span><strong id="versionState">0.1.2</strong></div>
     </section>
 
     <section class="box">
@@ -28,18 +29,20 @@
       <p class="hint">No confirmation phrase is required. The server still keeps live submission disabled.</p>
     </section>
 
+    <section class="box verify">
+      <h2>Verify after saving</h2>
+      <button id="openSessionBtn" class="secondary" type="button">Open EDXEIX Session page</button>
+      <button id="openLiveGateBtn" class="secondary" type="button">Open Live Submit Gate</button>
+      <p class="hint">These buttons open normal gov.cabnet.app tabs. They do not send data or enable live submission.</p>
+    </section>
+
     <section class="box small">
       <h2>Safety</h2>
       <ul>
-        <li>Fixed submit URL: <code>https://edxeix.yme.gov.gr/dashboard/lease-agreement</code></li>
         <li>No EDXEIX submission is performed.</li>
         <li>Cookie/CSRF values are never displayed in this popup.</li>
         <li>Server keeps live flags disabled.</li>
       </ul>
-    </section>
-
-    <section class="box small">
-      <a id="openSessionPage" href="https://gov.cabnet.app/ops/edxeix-session.php" target="_blank" rel="noopener">Open EDXEIX Session page</a>
     </section>
   </main>
   <script src="popup.js"></script>

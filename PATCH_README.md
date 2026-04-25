@@ -1,41 +1,41 @@
-# Patch: Firefox EDXEIX Capture Fixed URL + No Phrase
+# Patch: Firefox extension verification buttons
 
-## What changed
+## Summary
 
-- Updated the Firefox extension to use the fixed EDXEIX submit URL automatically.
-- Removed the `SAVE EDXEIX SESSION SERVER SIDE` confirmation phrase from the extension workflow.
-- Updated the server capture endpoint so the extension only needs to send cookie/header and CSRF token.
-- Server-side live submission flags remain forced disabled.
+Updates the private CABnet EDXEIX Session Capture Firefox extension to version `0.1.2`.
+
+The extension now has explicit buttons to open:
+
+- `https://gov.cabnet.app/ops/edxeix-session.php`
+- `https://gov.cabnet.app/ops/live-submit.php`
+
+This replaces relying on a normal popup link that may not appear to do anything in Firefox.
 
 ## Files included
 
-```text
-public_html/gov.cabnet.app/ops/edxeix-session-capture.php
-tools/firefox-edxeix-session-capture/manifest.json
-tools/firefox-edxeix-session-capture/popup.html
-tools/firefox-edxeix-session-capture/popup.css
-tools/firefox-edxeix-session-capture/popup.js
-tools/firefox-edxeix-session-capture/README.md
-docs/EDXEIX_FIREFOX_EXTENSION_FIXED_URL_NO_PHRASE.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+- `tools/firefox-edxeix-session-capture/manifest.json`
+- `tools/firefox-edxeix-session-capture/popup.html`
+- `tools/firefox-edxeix-session-capture/popup.css`
+- `tools/firefox-edxeix-session-capture/popup.js`
+- `tools/firefox-edxeix-session-capture/README.md`
+- `docs/EDXEIX_FIREFOX_EXTENSION_VERIFY_BUTTONS.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
 
-## Upload path
+## Upload / install
 
-```text
-public_html/gov.cabnet.app/ops/edxeix-session-capture.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-capture.php
-```
+No server runtime file changed in this patch.
 
-## Firefox extension
+Replace the local extension files under:
 
-Reload temporary add-on from:
+`tools/firefox-edxeix-session-capture/`
 
-```text
-tools/firefox-edxeix-session-capture/manifest.json
-```
+Then in Firefox:
+
+`about:debugging → This Firefox → Reload`
+
+or remove and load the temporary add-on again using `manifest.json`.
 
 ## SQL
 
@@ -43,4 +43,4 @@ No SQL required.
 
 ## Safety
 
-No Bolt call, no EDXEIX call, no database write, no live submission, and no secret output are introduced.
+No Bolt request, EDXEIX request, database write, live HTTP transport, secret output, or live submission behavior is introduced.
