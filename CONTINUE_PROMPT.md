@@ -1,56 +1,59 @@
-# Continue Prompt — gov.cabnet.app Bolt → EDXEIX Bridge
+You are continuing development of the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-You are continuing the gov.cabnet.app Bolt → EDXEIX bridge project.
+Project:
+- Domain: https://gov.cabnet.app
+- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload.
+- Do not introduce frameworks, Composer, Node, or heavy dependencies.
 
-## Project identity
+Source-of-truth order:
+1. Latest uploaded files / pasted code / screenshots / live audit output in the current chat.
+2. HANDOFF.md and CONTINUE_PROMPT.md.
+3. README/SCOPE/DEPLOYMENT/SECURITY/docs.
+4. GitHub repo.
 
-- Domain: `https://gov.cabnet.app`
-- Repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload
-- No frameworks, Composer, Node, or heavy dependencies unless Andreas explicitly approves.
-
-## Current state
-
-The system is prepared for a real future Bolt preflight test but live EDXEIX submission is still disabled.
-
-Validated pages/tools:
-
-```text
-/ops/index.php              Guided operations console
-/ops/help.php               Novice operator guide
-/ops/readiness.php          Readiness audit
-/ops/future-test.php        Future Bolt test checklist
-/ops/mappings.php           Mapping dashboard/editor
-/ops/jobs.php               Jobs/attempts viewer
-/ops/live-submit.php        Disabled live-submit gate
-/ops/edxeix-session.php     EDXEIX session/readiness helper
-```
+Current validated state:
+- Ops access guard is active.
+- `/ops/index.php` is a safe guided operations dashboard.
+- `/ops/help.php` is a novice help page and now includes EDXEIX session preparation steps.
+- `/ops/readiness.php` and `/ops/future-test.php` are the main readiness checks.
+- `/ops/mappings.php` contains the mapping dashboard/editor.
+- `/ops/live-submit.php` is a disabled live-submit gate; live HTTP transport is still blocked.
+- `/ops/edxeix-session.php` checks EDXEIX session and submit URL readiness without printing secrets.
+- `edxeix_live_submission_audit` table exists.
+- Live EDXEIX submission is disabled and unauthorized.
 
 Known mappings:
+- Filippos Giannakopoulos → EDXEIX driver ID 17585.
+- EMX6874 → EDXEIX vehicle ID 13799.
+- EHA2545 → EDXEIX vehicle ID 5949.
+- Georgios Zachariou must remain unmapped for now.
 
-```text
-Filippos Giannakopoulos → 17585
-EMX6874 → 13799
-EHA2545 → 5949
-```
+Latest patch delivered:
+- Added EDXEIX session capture templates and updated help/docs.
+- Tracked templates:
+  - `gov.cabnet.app_config_examples/edxeix_session.example.json`
+  - `gov.cabnet.app_app/storage/runtime/edxeix_session.example`
+  - `gov.cabnet.app_config_examples/live_submit.example.php`
+- Real server-only files must remain ignored and uncommitted:
+  - `/home/cabnet/gov.cabnet.app_config/live_submit.php`
+  - `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json`
 
-Georgios Zachariou remains intentionally unmapped.
+Next safest steps:
+1. Verify `/ops/help.php` and `/ops/edxeix-session.php` after upload.
+2. If Andreas is ready to prepare EDXEIX session values, guide him to create only the server-side `edxeix_session.json` and set the exact `edxeix_submit_url` in server-only `live_submit.php`.
+3. Never request that real cookies/CSRF tokens be pasted into chat. Only instruct how to store them on the server.
+4. Keep `live_submit_enabled` and `http_submit_enabled` false.
+5. Do not build or enable final HTTP live transport until a real future Bolt candidate exists and Andreas explicitly approves.
 
-## Live submit status
+Critical safety rules:
+- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
+- Never submit LAB/test/historical/cancelled/terminal/past Bolt orders to EDXEIX.
+- Never expose credentials, cookies, CSRF tokens, DB passwords, session files, or API keys.
+- Config examples may be committed; real config/session files must stay server-only and ignored.
+- Keep cPanel paths and file names stable.
 
-- `/ops/live-submit.php` is installed but blocked.
-- `live_http_transport_enabled_in_this_patch` is false.
-- Current blockers expected until final phase include no real future candidate, EDXEIX submit URL missing, EDXEIX session not ready, and final HTTP transport not implemented.
-- `/ops/edxeix-session.php` helps inspect server-side session/submit URL readiness without exposing secrets.
-
-## Next best step
-
-If there is no real future Bolt ride yet, continue only with safe production-readiness work.
-
-Possible next safe step:
-
-```text
-Refine documentation and production checklist, or prepare the final HTTP transport patch as disabled code only.
-```
-
-Do not submit to EDXEIX live until Andreas explicitly approves and a real eligible future Bolt candidate exists.
+When creating deployment zips:
+- Do not wrap files in an extra package folder.
+- Zip root must mirror live/repo structure directly.
+- Include only changed/added files unless Andreas asks for a full archive.

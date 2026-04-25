@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-header('X-Robots-Tag: noindex, nofollow', true);
+header('X-Robots-Tag: noindex,nofollow', true);
 
 function oh_h($value): string
 {
@@ -24,6 +24,10 @@ $terms = [
     'Bolt sync' => 'A safe process that reads ride/order information from Bolt and stores it locally. It does not submit anything to EDXEIX.',
     'Mapping' => 'A connection between a Bolt driver or vehicle and the matching EDXEIX driver or vehicle ID.',
     'EDXEIX ID' => 'The numeric ID used by EDXEIX for a driver, vehicle, lessor, or starting point.',
+    'EDXEIX session' => 'A server-only saved browser/session state used later by the live-submit transport. It may contain cookie and CSRF values and must never be committed.',
+    'EDXEIX submit URL' => 'The exact form action URL where EDXEIX accepts the lease-agreement submission. It must be stored only in server config.',
+    'cookie_header' => 'A sensitive HTTP Cookie header copied from the authenticated EDXEIX browser session. The system checks only whether it exists; it never prints the value.',
+    'csrf_token' => 'A sensitive anti-forgery token from the EDXEIX form. The system checks only whether it exists; it never prints the value.',
     'Preflight' => 'A preview check that builds the EDXEIX payload locally so it can be reviewed before any live submission exists.',
     'Future guard' => 'The rule that a ride must start at least the configured number of minutes in the future, usually 30 minutes.',
     'Terminal status' => 'A ride status such as finished, cancelled, expired, failed, or rejected. Terminal rides must never be submitted.',
@@ -42,7 +46,7 @@ $terms = [
     <title>Operator Help | gov.cabnet.app</title>
     <style>
         :root { --bg:#f3f6fb; --panel:#fff; --ink:#07152f; --muted:#41577a; --line:#d7e1ef; --nav:#081225; --blue:#2563eb; --green:#07875a; --orange:#b85c00; --red:#b42318; --slate:#334155; }
-        *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1320px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{margin:16px 0 8px}p,li{color:var(--muted);line-height:1.5}.hero{border-left:7px solid var(--green)}.safety{background:#ecfdf3;border-left:7px solid var(--green)}.warn{background:#fff7ed;border-left:7px solid var(--orange)}.danger{background:#fef3f2;border-left:7px solid var(--red)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.steps{counter-reset:steps;list-style:none;padding:0;margin:0}.steps li{counter-increment:steps;margin:10px 0;padding:12px 14px 12px 54px;background:#f8fbff;border:1px solid var(--line);border-radius:10px;position:relative}.steps li:before{content:counter(steps);position:absolute;left:14px;top:12px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#eaf1ff;color:#1e40af;font-weight:800}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.term{display:grid;grid-template-columns:220px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:11px 0}.term strong{color:var(--ink)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px}.btn.dark{background:var(--slate)}@media(max-width:850px){.grid{grid-template-columns:1fr}.term{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
+        *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1320px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{margin:16px 0 8px}p,li{color:var(--muted);line-height:1.5}.hero{border-left:7px solid var(--green)}.safety{background:#ecfdf3;border-left:7px solid var(--green)}.warn{background:#fff7ed;border-left:7px solid var(--orange)}.danger{background:#fef3f2;border-left:7px solid var(--red)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.steps{counter-reset:steps;list-style:none;padding:0;margin:0}.steps li{counter-increment:steps;margin:10px 0;padding:12px 14px 12px 54px;background:#f8fbff;border:1px solid var(--line);border-radius:10px;position:relative}.steps li:before{content:counter(steps);position:absolute;left:14px;top:12px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#eaf1ff;color:#1e40af;font-weight:800}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.term{display:grid;grid-template-columns:220px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:11px 0}.term strong{color:var(--ink)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}pre{background:#0b1020;color:#d7e3ff;padding:14px;border-radius:12px;overflow:auto}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px}.btn.dark{background:var(--slate)}@media(max-width:850px){.grid{grid-template-columns:1fr}.term{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
     </style>
 </head>
 <body>
@@ -52,7 +56,8 @@ $terms = [
     <a href="/ops/readiness.php">Readiness</a>
     <a href="/ops/future-test.php">Future Test</a>
     <a href="/ops/mappings.php">Mappings</a>
-    <a href="/ops/jobs.php">Jobs</a>
+    <a href="/ops/live-submit.php">Live Submit Gate</a>
+    <a href="/ops/edxeix-session.php">EDXEIX Session</a>
     <a href="/ops/help.php">Help</a>
 </nav>
 
@@ -60,10 +65,11 @@ $terms = [
     <section class="card hero">
         <h1>Operator Help</h1>
         <p>This page explains the Bolt → EDXEIX bridge in plain language for novice operators.</p>
-        <div><?= oh_badge('READ ONLY', 'good') ?> <?= oh_badge('LIVE SUBMIT DISABLED', 'good') ?> <?= oh_badge('OPS GUARDED', 'good') ?></div>
+        <div><?= oh_badge('READ ONLY', 'good') ?> <?= oh_badge('LIVE SUBMIT DISABLED', 'good') ?> <?= oh_badge('NO SECRET OUTPUT', 'good') ?> <?= oh_badge('OPS GUARDED', 'good') ?></div>
         <div class="actions">
             <a class="btn" href="/ops/index.php">Back to Guided Console</a>
             <a class="btn dark" href="/ops/future-test.php">Open Future Test</a>
+            <a class="btn dark" href="/ops/edxeix-session.php">Open EDXEIX Session Helper</a>
         </div>
     </section>
 
@@ -78,9 +84,10 @@ $terms = [
         <ul>
             <li>Never submit historical, cancelled, terminal, expired, invalid, or past Bolt trips to EDXEIX.</li>
             <li>Never map a driver or vehicle unless the EDXEIX ID is independently confirmed.</li>
+            <li>Never paste cookies, CSRF tokens, API keys, passwords, or credentials into GitHub or screenshots.</li>
             <li>Leave Georgios Zachariou unmapped for now.</li>
             <li>Use Filippos Giannakopoulos with EMX6874 or EHA2545 for the first real future test.</li>
-            <li>Live submission requires a separate future patch and explicit approval from Andreas.</li>
+            <li>Live submission requires a separate future HTTP transport patch and explicit approval from Andreas.</li>
         </ul>
     </section>
 
@@ -90,6 +97,7 @@ $terms = [
             <li>Open <code>/ops/readiness.php</code> and confirm the system is clean.</li>
             <li>Open <code>/ops/future-test.php</code> and confirm it says ready to create a real future test ride.</li>
             <li>Open <code>/ops/mappings.php</code> and confirm Filippos plus a mapped vehicle are available.</li>
+            <li>Open <code>/ops/edxeix-session.php</code> and confirm session/submit URL readiness if preparing for final live phase.</li>
             <li>When Filippos is present, create a real Bolt ride 40–60 minutes in the future.</li>
             <li>Run <code>/bolt_sync_orders.php</code> to import the latest Bolt order data.</li>
             <li>Return to <code>/ops/future-test.php</code> and confirm a real future candidate appears.</li>
@@ -99,6 +107,20 @@ $terms = [
             <li>Confirm readiness still shows live EDXEIX attempts as zero.</li>
             <li>Stop. Do not attempt live submission from the current tools.</li>
         </ol>
+    </section>
+
+    <section class="card warn">
+        <h2>Prepare EDXEIX Session and Submit URL</h2>
+        <p>This preparation saves time for the final live phase, but it still does not enable live submission. The real session file is server-only and ignored by Git.</p>
+        <ol class="steps">
+            <li>Log into EDXEIX in the browser as usual and open the lease-agreement creation form.</li>
+            <li>Use browser developer tools to confirm the form <code>action</code> URL and method. The method should normally be <code>POST</code>.</li>
+            <li>Edit <code>/home/cabnet/gov.cabnet.app_config/live_submit.php</code> on the server and set only the exact <code>edxeix_submit_url</code>. Keep <code>live_submit_enabled</code> and <code>http_submit_enabled</code> as <code>false</code>.</li>
+            <li>Create <code>/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json</code> using the provided example template. Put the sensitive cookie and CSRF values only in this server file.</li>
+            <li>Run <code>chown cabnet:cabnet</code> and <code>chmod 600</code> or <code>chmod 640</code> on the real session file.</li>
+            <li>Open <code>/ops/edxeix-session.php</code>. It should show session cookie/CSRF ready and submit URL configured, without printing secret values.</li>
+        </ol>
+        <p><strong>Do not commit</strong> <code>gov.cabnet.app_config/live_submit.php</code> or <code>storage/runtime/edxeix_session.json</code>.</p>
     </section>
 
     <section class="grid">
@@ -122,6 +144,15 @@ $terms = [
     </section>
 
     <section class="card">
+        <h2>Server-side template snippets</h2>
+        <p>Use the downloadable templates in this patch. The real files must remain on the server only.</p>
+        <pre>cp /home/cabnet/gov.cabnet.app_config_examples/edxeix_session.example.json \
+  /home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json
+chown cabnet:cabnet /home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json
+chmod 600 /home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json</pre>
+    </section>
+
+    <section class="card">
         <h2>Glossary</h2>
         <?php foreach ($terms as $term => $definition): ?>
             <div class="term"><strong><?= oh_h($term) ?></strong><span><?= oh_h($definition) ?></span></div>
@@ -134,6 +165,8 @@ $terms = [
         <div class="term"><strong>vehicle_not_mapped</strong><span>The Bolt vehicle has no confirmed EDXEIX vehicle ID.</span></div>
         <div class="term"><strong>started_at_not_30_min_future</strong><span>The ride starts too soon or is already in the past.</span></div>
         <div class="term"><strong>terminal_order_status</strong><span>The ride is finished, cancelled, expired, rejected, or failed.</span></div>
+        <div class="term"><strong>edxeix_submit_url_missing</strong><span>The server-only live submit config does not yet contain the exact EDXEIX form action URL.</span></div>
+        <div class="term"><strong>edxeix_session_not_ready</strong><span>The server-side EDXEIX session file is missing, invalid, or does not contain both cookie and CSRF values.</span></div>
         <div class="term"><strong>lab_row_blocked</strong><span>A local test row is being correctly blocked from live behavior.</span></div>
         <div class="term"><strong>never_submit_live</strong><span>The row is marked as dry-run/test only and must never be submitted live.</span></div>
     </section>

@@ -1,0 +1,7 @@
+{
+  "cookie_header": "PASTE_EDXEIX_COOKIE_HEADER_HERE_SERVER_ONLY_DO_NOT_COMMIT",
+  "csrf_token": "PASTE_EDXEIX_CSRF_TOKEN_HERE_SERVER_ONLY_DO_NOT_COMMIT",
+  "updated_at": "YYYY-MM-DD HH:MM:SS",
+  "saved_at": "YYYY-MM-DD HH:MM:SS",
+  "notes": "This is a tracked template only. The real file must be edxeix_session.json and must remain ignored by Git."
+}

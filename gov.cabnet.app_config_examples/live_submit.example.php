@@ -6,13 +6,15 @@
  *   /home/cabnet/gov.cabnet.app_config/live_submit.php
  *
  * Keep the real file server-only. Do not commit real config.
+ * Keep live_submit_enabled and http_submit_enabled false until Andreas approves
+ * the one-shot live submission phase.
  */
 
 return [
     // Keep false until Andreas explicitly authorizes one controlled live submit.
     'live_submit_enabled' => false,
 
-    // Keep false in the preparatory patch. The current gate still blocks live HTTP.
+    // Keep false until the final live HTTP transport patch is installed and approved.
     'http_submit_enabled' => false,
 
     'require_post' => true,
@@ -29,7 +31,9 @@ return [
     'allowed_booking_id' => null,
     'allowed_order_reference' => null,
 
-    // Fill only when the exact EDXEIX submit endpoint has been confirmed.
+    // Paste the exact EDXEIX form action/submit URL here only on the real server.
+    // Example shape only; confirm the exact URL from browser developer tools:
+    // 'https://edxeix.yme.gov.gr/dashboard/lease-agreement'
     'edxeix_submit_url' => '',
     'edxeix_form_method' => 'POST',
 
