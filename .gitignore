@@ -4,6 +4,7 @@
 /gov.cabnet.app_config/database.php
 /gov.cabnet.app_config/app.php
 /gov.cabnet.app_config/edxeix.php
+/gov.cabnet.app_config/ops.php
 /gov.cabnet.app_config/*.local.php
 
 # Runtime sessions, logs, artifacts

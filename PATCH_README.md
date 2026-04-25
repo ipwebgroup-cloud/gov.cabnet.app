@@ -1,11 +1,17 @@
-# Patch: Add LAB Dry-Run Cleanup Tool
+# Patch: Add ops access guard
+
+## Purpose
+
+Adds a lightweight access guard for `/ops/*.php` and public `bolt_*.php` diagnostic/worker endpoints.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/cleanup-lab.php
-gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
-docs/LAB_DRY_RUN_CLEANUP.md
+.gitignore
+gov.cabnet.app_app/lib/ops_guard.php
+public_html/gov.cabnet.app/.user.ini
+gov.cabnet.app_config_examples/ops.example.php
+docs/OPS_ACCESS_GUARD.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -14,76 +20,40 @@ PATCH_README.md
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/cleanup-lab.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/cleanup-lab.php
+gov.cabnet.app_app/lib/ops_guard.php
+→ /home/cabnet/gov.cabnet.app_app/lib/ops_guard.php
 
-gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
+public_html/gov.cabnet.app/.user.ini
+→ /home/cabnet/public_html/gov.cabnet.app/.user.ini
+
+gov.cabnet.app_config_examples/ops.example.php
+→ /home/cabnet/gov.cabnet.app_config_examples/ops.example.php
 ```
 
-For GitHub, also commit:
+## Server-only config
 
-```text
-docs/LAB_DRY_RUN_CLEANUP.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
-
-## SQL
-
-No required migration.
-
-Optional read-only preview command:
+Create the real config manually:
 
 ```bash
-mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_04_25_lab_cleanup_preview.sql
+mkdir -p /home/cabnet/gov.cabnet.app_config /home/cabnet/gov.cabnet.app_config_examples
+cp /home/cabnet/gov.cabnet.app_config_examples/ops.example.php /home/cabnet/gov.cabnet.app_config/ops.php
+chmod 640 /home/cabnet/gov.cabnet.app_config/ops.php
+nano /home/cabnet/gov.cabnet.app_config/ops.php
 ```
+
+Do not commit `/home/cabnet/gov.cabnet.app_config/ops.php`.
 
 ## Verification
 
-Open:
-
-```text
-https://gov.cabnet.app/ops/cleanup-lab.php
-```
-
-Expected before cleanup:
-
-```text
-LAB/test normalized bookings: 1
-Linked local jobs: 1
-Linked attempts: 1
-Unsafe/unclassified attempts: 0
-```
-
-To delete, type exactly:
-
-```text
-DELETE LOCAL LAB DRY RUN DATA
-```
-
-Expected after cleanup:
-
-```text
-LAB/test normalized bookings: 0
-Linked local jobs: 0
-Linked attempts: 0
-Unsafe/unclassified attempts: 0
-```
-
-Then verify:
+After enabling config, test from an allowed browser:
 
 ```text
 https://gov.cabnet.app/ops/readiness.php
-https://gov.cabnet.app/ops/jobs.php
+https://gov.cabnet.app/bolt_readiness_audit.php
 ```
+
+Expected: allowed users load pages; denied users receive HTTP 403.
 
 ## Safety
 
-- No Bolt call.
-- No EDXEIX call.
-- No live submission.
-- No GET deletion.
-- Exact POST confirmation required.
-- Refuses cleanup if linked attempts are not clearly dry-run/no-live.
+No Bolt request, EDXEIX request, database write, or live submission is added by this patch.
