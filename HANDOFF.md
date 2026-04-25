@@ -2,51 +2,51 @@
 
 ## Current validated baseline
 
-- Domain: https://gov.cabnet.app
+The project is in a safe pre-production state.
+
+- Domain: `https://gov.cabnet.app`
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Ops guard: active
-- Operations console: novice guided dashboard active
-- Readiness: clean and waiting for a real future Bolt ride
-- Future test: ready to create real future test ride
-- Live EDXEIX submission: disabled and blocked
-- Live submit gate: installed as a disabled production scaffold
+- Live EDXEIX submission: disabled
+- Live HTTP transport: blocked by design
+- Ops access guard: active
+- LAB/test dry-run tooling: validated and cleaned
+- Mapping dashboard/editor: active
+- Live submit gate: installed, disabled, and safely blocked
+- EDXEIX session readiness helper: added at `/ops/edxeix-session.php`
 
-## Current mappings
+## Key current pages
 
-Known mapped test path:
+```text
+/ops/index.php              Guided operations console
+/ops/help.php               Novice help/glossary
+/ops/readiness.php          Readiness audit
+/ops/future-test.php        Real future Bolt test checklist
+/ops/mappings.php           Mapping coverage/editor
+/ops/jobs.php               Local job/attempt viewer
+/ops/live-submit.php        Disabled live submit gate
+/ops/edxeix-session.php     EDXEIX session / submit URL readiness helper
+```
 
-- Filippos Giannakopoulos → EDXEIX driver ID `17585`
-- EMX6874 → EDXEIX vehicle ID `13799`
-- EHA2545 → EDXEIX vehicle ID `5949`
+## Known mappings
 
-Leave Georgios Zachariou unmapped until the exact EDXEIX driver ID is independently confirmed.
+```text
+Filippos Giannakopoulos → EDXEIX driver 17585
+EMX6874 → EDXEIX vehicle 13799
+EHA2545 → EDXEIX vehicle 5949
+```
 
-## Latest patch state
+Leave Georgios Zachariou unmapped for now.
 
-The live-submit gate was refined so old finished/cancelled/terminal Bolt rows are treated only as analyzed rows, not as real future candidates. By default, `/ops/live-submit.php` should no longer auto-select historical blocked rows when no technical real future candidate exists.
+## Remaining blockers before actual live EDXEIX submission
 
-Expected current live gate state until the real future Bolt ride exists:
+```text
+1. A real future Bolt candidate must exist.
+2. EDXEIX cookie/CSRF session must be ready server-side.
+3. Exact EDXEIX submit/action URL must be configured server-side.
+4. Final HTTP transport patch must be explicitly approved and installed.
+5. Live-submit config must be enabled only for a controlled one-shot test.
+```
 
-- analyzed recent rows may show historical rows
-- real future candidates: `0`
-- live-eligible rows: `0`
-- no selected booking by default
-- live HTTP transport blocked
-- no EDXEIX request performed
+## Safety rule
 
-## Remaining production blockers
-
-Before real EDXEIX submission can be attempted:
-
-1. Create a real future Bolt ride using Filippos and a mapped vehicle.
-2. Confirm it appears through Bolt sync.
-3. Confirm Future Test and Preflight pass.
-4. Confirm EDXEIX session/cookie/CSRF readiness server-side.
-5. Configure exact EDXEIX submit URL server-side.
-6. Apply a separate final HTTP transport patch.
-7. Enable live only for a one-shot approved submission.
-8. Submit once, audit, then disable live flags again.
-
-## Safety boundary
-
-Do not enable live EDXEIX submission unless Andreas explicitly asks for the final live-submit transport patch and a real eligible future Bolt trip exists.
+Do not enable or implement live EDXEIX HTTP submission unless Andreas explicitly approves the final live-submit transport patch and a real future eligible Bolt booking exists.

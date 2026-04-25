@@ -2,45 +2,55 @@
 
 You are continuing the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Treat latest uploaded files/screenshots/SQL output as source of truth, then HANDOFF.md and this file.
+## Project identity
 
-## Project
-
-- Domain: https://gov.cabnet.app
-- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+- Domain: `https://gov.cabnet.app`
+- Repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload
-- Expected paths:
-  - `/home/cabnet/public_html/gov.cabnet.app`
-  - `/home/cabnet/gov.cabnet.app_app`
-  - `/home/cabnet/gov.cabnet.app_config`
-  - `/home/cabnet/gov.cabnet.app_sql`
+- No frameworks, Composer, Node, or heavy dependencies unless Andreas explicitly approves.
 
 ## Current state
 
-The app is safe, guarded, and production-prep ready, but live EDXEIX submission is not enabled.
+The system is prepared for a real future Bolt preflight test but live EDXEIX submission is still disabled.
 
-Validated tools:
+Validated pages/tools:
 
-- `/ops/index.php` guided operations console
-- `/ops/help.php` novice guide/glossary
-- `/ops/readiness.php` readiness audit
-- `/ops/future-test.php` real future Bolt test checklist
-- `/ops/mappings.php` mapping coverage/editor
-- `/ops/jobs.php` local queue viewer
-- `/ops/live-submit.php` disabled live-submit gate
+```text
+/ops/index.php              Guided operations console
+/ops/help.php               Novice operator guide
+/ops/readiness.php          Readiness audit
+/ops/future-test.php        Future Bolt test checklist
+/ops/mappings.php           Mapping dashboard/editor
+/ops/jobs.php               Jobs/attempts viewer
+/ops/live-submit.php        Disabled live-submit gate
+/ops/edxeix-session.php     EDXEIX session/readiness helper
+```
 
-Latest refinement: `/ops/live-submit.php` now distinguishes analyzed historical rows from real future candidates. It should not auto-select old blocked rows as candidates when no real future candidate exists.
+Known mappings:
 
-## Known mappings
+```text
+Filippos Giannakopoulos → 17585
+EMX6874 → 13799
+EHA2545 → 5949
+```
 
-- Filippos Giannakopoulos → `17585`
-- EMX6874 → `13799`
-- EHA2545 → `5949`
+Georgios Zachariou remains intentionally unmapped.
 
-Leave Georgios Zachariou unmapped for now.
+## Live submit status
 
-## Critical rule
+- `/ops/live-submit.php` is installed but blocked.
+- `live_http_transport_enabled_in_this_patch` is false.
+- Current blockers expected until final phase include no real future candidate, EDXEIX submit URL missing, EDXEIX session not ready, and final HTTP transport not implemented.
+- `/ops/edxeix-session.php` helps inspect server-side session/submit URL readiness without exposing secrets.
 
-Do not implement or enable live EDXEIX HTTP submission unless Andreas explicitly approves the final live-submit transport patch and there is a real eligible future Bolt trip.
+## Next best step
 
-Default to read-only, dry-run, preflight, queue visibility, and guarded one-shot safety gates.
+If there is no real future Bolt ride yet, continue only with safe production-readiness work.
+
+Possible next safe step:
+
+```text
+Refine documentation and production checklist, or prepare the final HTTP transport patch as disabled code only.
+```
+
+Do not submit to EDXEIX live until Andreas explicitly approves and a real eligible future Bolt candidate exists.

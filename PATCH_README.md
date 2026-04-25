@@ -1,26 +1,25 @@
-# Patch: Live Submit Candidate Wording Fix
+# Patch: EDXEIX Session Readiness Helper
 
-## Upload path
-
-Upload:
+## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/live-submit.php
-```
-
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/live-submit.php
-```
-
-Commit docs/root files to GitHub:
-
-```text
-docs/LIVE_SUBMIT_CANDIDATE_WORDING_FIX.md
+public_html/gov.cabnet.app/ops/edxeix-session.php
+docs/EDXEIX_SESSION_READINESS.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
+```
+
+## Upload paths
+
+```text
+public_html/gov.cabnet.app/ops/edxeix-session.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
+```
+
+```text
+docs/EDXEIX_SESSION_READINESS.md
+→ repository docs/EDXEIX_SESSION_READINESS.md
 ```
 
 ## SQL
@@ -32,21 +31,19 @@ No SQL required.
 Open:
 
 ```text
-https://gov.cabnet.app/ops/live-submit.php
-https://gov.cabnet.app/ops/live-submit.php?format=json
+https://gov.cabnet.app/ops/edxeix-session.php
+https://gov.cabnet.app/ops/edxeix-session.php?format=json
 ```
 
-Expected while no real future Bolt trip exists:
+Expected before server-side EDXEIX session setup:
 
 ```text
-Analyzed recent rows: may be 4
-Real future candidates: 0
-Live-eligible rows: 0
-Selected booking: none
-selected_is_real_future_candidate: false
-No EDXEIX HTTP request performed
+Session cookie/CSRF ready: no
+Submit URL configured: no
+No secrets displayed
+No EDXEIX call performed
 ```
 
 ## Safety
 
-This patch does not enable live EDXEIX submission. Live HTTP transport remains blocked.
+This patch is read-only. It does not call Bolt, call EDXEIX, write to the database, create jobs, or enable live submission.
