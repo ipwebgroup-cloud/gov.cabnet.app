@@ -245,6 +245,75 @@ function es_validate_edxeix_submit_url(string $url): string
     return $url;
 }
 
+
+function es_extract_cookie_from_headers(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
+    }
+    if (preg_match('/(?:^|\R)\s*Cookie\s*:\s*([^\r\n]+)/i', $raw, $m)) {
+        return trim((string)$m[1]);
+    }
+    if (strpos($raw, '=') !== false && stripos($raw, 'Set-Cookie:') === false && stripos($raw, 'Cookie:') === false) {
+        return $raw;
+    }
+    return '';
+}
+
+function es_extract_form_action_from_html(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
+    }
+    if (preg_match('/<form\b[^>]*\saction\s*=\s*(["\'])(.*?)\1/is', $raw, $m)) {
+        return html_entity_decode(trim((string)$m[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    if (preg_match('/\baction\s*=\s*(["\'])(https:\/\/edxeix\.yme\.gov\.gr\/[^"\']+)\1/i', $raw, $m)) {
+        return html_entity_decode(trim((string)$m[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    if (preg_match('/https:\/\/edxeix\.yme\.gov\.gr\/dashboard\/lease-agreement(?:\b|[^\w\/-])/i', $raw)) {
+        return 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
+    }
+    return '';
+}
+
+function es_extract_csrf_from_html(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
+    }
+    if (preg_match('/<input\b(?=[^>]*\bname\s*=\s*(["\'])_token\1)(?=[^>]*\bvalue\s*=\s*(["\'])(.*?)\2)[^>]*>/is', $raw, $m)) {
+        return html_entity_decode(trim((string)$m[3]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    if (preg_match('/<input\b(?=[^>]*\bvalue\s*=\s*(["\'])(.*?)\1)(?=[^>]*\bname\s*=\s*(["\'])_token\3)[^>]*>/is', $raw, $m)) {
+        return html_entity_decode(trim((string)$m[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    if (preg_match('/name\s*=\s*["\']_token["\'][^\n\r>]*value\s*=\s*(["\'])(.*?)\1/is', $raw, $m)) {
+        return html_entity_decode(trim((string)$m[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return '';
+}
+
+function es_extract_session_values_from_paste(string $requestHeaders, string $formHtml): array
+{
+    $cookie = es_extract_cookie_from_headers($requestHeaders);
+    $submitUrl = es_extract_form_action_from_html($formHtml);
+    $csrf = es_extract_csrf_from_html($formHtml);
+    return [
+        'submit_url' => $submitUrl,
+        'cookie_header' => $cookie,
+        'csrf_token' => $csrf,
+        'submit_url_found' => $submitUrl !== '',
+        'cookie_found' => $cookie !== '',
+        'csrf_found' => $csrf !== '',
+        'cookie_length' => strlen($cookie),
+        'csrf_length' => strlen($csrf),
+    ];
+}
+
 function es_save_live_config(array $currentConfig, string $submitUrl, string $method): array
 {
     $file = gov_live_config_path();
@@ -313,6 +382,13 @@ function es_handle_post(array $config, array $configState): array
         'saved_session' => false,
         'message' => '',
         'errors' => [],
+        'extracted' => [
+            'submit_url_found' => false,
+            'cookie_found' => false,
+            'csrf_found' => false,
+            'cookie_length' => 0,
+            'csrf_length' => 0,
+        ],
     ];
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -329,6 +405,27 @@ function es_handle_post(array $config, array $configState): array
     $method = es_request_value('edxeix_form_method', 'POST', 10);
     $cookie = es_request_value('cookie_header', '', 20000);
     $csrf = es_request_value('csrf_token', '', 4000);
+    $requestHeadersBlob = es_request_value('request_headers_blob', '', 60000);
+    $formHtmlBlob = es_request_value('form_html_blob', '', 60000);
+    $extracted = es_extract_session_values_from_paste($requestHeadersBlob, $formHtmlBlob);
+
+    if ($submitUrlRaw === '' && $extracted['submit_url'] !== '') {
+        $submitUrlRaw = $extracted['submit_url'];
+    }
+    if ($cookie === '' && $extracted['cookie_header'] !== '') {
+        $cookie = $extracted['cookie_header'];
+    }
+    if ($csrf === '' && $extracted['csrf_token'] !== '') {
+        $csrf = $extracted['csrf_token'];
+    }
+
+    $result['extracted'] = [
+        'submit_url_found' => !empty($extracted['submit_url_found']),
+        'cookie_found' => !empty($extracted['cookie_found']),
+        'csrf_found' => !empty($extracted['csrf_found']),
+        'cookie_length' => (int)($extracted['cookie_length'] ?? 0),
+        'csrf_length' => (int)($extracted['csrf_length'] ?? 0),
+    ];
 
     $submitUrl = es_validate_edxeix_submit_url($submitUrlRaw);
     if ($submitUrl !== '') {
@@ -418,7 +515,7 @@ if (($_GET['format'] ?? '') === 'json') {
     <title>EDXEIX Session Readiness | gov.cabnet.app</title>
     <style>
         :root { --bg:#f3f6fb; --panel:#fff; --ink:#07152f; --muted:#41577a; --line:#d7e1ef; --nav:#081225; --blue:#2563eb; --green:#07875a; --orange:#b85c00; --red:#b42318; --slate:#334155; --soft:#f8fbff; }
-        *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{margin:0 0 8px}p{color:var(--muted);line-height:1.45}.hero{border-left:7px solid var(--orange)}.hero.good{border-left-color:var(--green)}.hero.bad{border-left-color:var(--red)}.safe{border-left:7px solid var(--green)}.warn{border-left:7px solid var(--orange)}.danger{border-left:7px solid var(--red)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:28px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn,button{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;border:0;cursor:pointer}.btn.dark{background:var(--slate)}.btn.orange{background:var(--orange)}button.green{background:var(--green)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.02em}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.small{font-size:13px;color:var(--muted)}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}code{background:#eef2ff;padding:2px 5px;border-radius:5px}pre{background:#0b1020;color:#d7e3ff;padding:14px;border-radius:12px;overflow:auto}label{display:block;font-weight:700;margin:12px 0 5px}input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:Arial,Helvetica,sans-serif}textarea{min-height:110px;resize:vertical}.field-note{font-size:12px;color:var(--muted);margin-top:4px}.callout{border-radius:12px;padding:12px 14px;margin:12px 0}.callout.good{background:#ecfdf3;border:1px solid #bbf7d0}.callout.bad{background:#fef3f2;border:1px solid #fecaca}.callout.warn{background:#fff7ed;border:1px solid #fed7aa}@media(max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:720px){.grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
+        *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{margin:0 0 8px}p{color:var(--muted);line-height:1.45}.hero{border-left:7px solid var(--orange)}.hero.good{border-left-color:var(--green)}.hero.bad{border-left-color:var(--red)}.safe{border-left:7px solid var(--green)}.warn{border-left:7px solid var(--orange)}.danger{border-left:7px solid var(--red)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:28px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn,button{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;border:0;cursor:pointer}.btn.dark{background:var(--slate)}.btn.orange{background:var(--orange)}button.green{background:var(--green)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.02em}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.small{font-size:13px;color:var(--muted)}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}code{background:#eef2ff;padding:2px 5px;border-radius:5px}pre{background:#0b1020;color:#d7e3ff;padding:14px;border-radius:12px;overflow:auto}label{display:block;font-weight:700;margin:12px 0 5px}input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:Arial,Helvetica,sans-serif}textarea{min-height:110px;resize:vertical}.helper-textarea{min-height:150px;font-family:Consolas,Monaco,monospace;font-size:13px}.field-note{font-size:12px;color:var(--muted);margin-top:4px}.callout{border-radius:12px;padding:12px 14px;margin:12px 0}.callout.good{background:#ecfdf3;border:1px solid #bbf7d0}.callout.bad{background:#fef3f2;border:1px solid #fecaca}.callout.warn{background:#fff7ed;border:1px solid #fed7aa}.extract-status{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;color:var(--muted);font-size:13px;margin-top:10px}.extract-status strong{color:var(--ink)}@media(max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:720px){.grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
     </style>
 </head>
 <body>
@@ -467,6 +564,24 @@ if (($_GET['format'] ?? '') === 'json') {
         <h2>Guarded Server-Side Save Form</h2>
         <p>This form is available because only authorized operators use the app. It saves values directly into server-only files and never displays them back. It does not enable live submission.</p>
         <form method="post" autocomplete="off" spellcheck="false">
+            <div class="callout good">
+                <h3>Fast Paste + Auto-Extract Helper</h3>
+                <p class="small">Paste the full EDXEIX request headers and the EDXEIX form HTML/snippet below, then press <strong>Extract into fields</strong>. The browser fills the fields below so you can review lengths and save. Secret values are not printed after saving.</p>
+
+                <label for="request_headers_blob">Paste EDXEIX request headers</label>
+                <textarea class="helper-textarea" id="request_headers_blob" name="request_headers_blob" placeholder="Paste copied Request Headers here. The helper looks for the Cookie: header." autocomplete="off"></textarea>
+
+                <label for="form_html_blob">Paste EDXEIX form HTML / _token snippet</label>
+                <textarea class="helper-textarea" id="form_html_blob" name="form_html_blob" placeholder="Paste the &lt;form ... action=...&gt; and hidden _token input snippet here." autocomplete="off"></textarea>
+
+                <div class="actions">
+                    <button class="green" type="button" id="extract_values_btn">Extract into fields</button>
+                    <button type="button" class="btn dark" id="clear_helper_btn">Clear helper boxes</button>
+                </div>
+                <div id="extract_status" class="extract-status">Extraction status: waiting for pasted EDXEIX headers/form HTML.</div>
+                <p class="small"><strong>Safety:</strong> this helper runs in your browser only. The server still validates host, rejects placeholders, creates backups, and forces live flags disabled.</p>
+            </div>
+
             <label for="edxeix_submit_url">EDXEIX submit URL</label>
             <input type="url" id="edxeix_submit_url" name="edxeix_submit_url" placeholder="https://edxeix.yme.gov.gr/dashboard/lease-agreement" autocomplete="off">
             <div class="field-note">Optional if already configured. Must be HTTPS and host must be edxeix.yme.gov.gr.</div>
@@ -542,5 +657,76 @@ if (($_GET['format'] ?? '') === 'json') {
         <p class="small">Backups are created automatically before overwriting server-only config/session files.</p>
     </section>
 </main>
+
+<script>
+(function () {
+    function extractCookie(headers) {
+        headers = headers || '';
+        var match = headers.match(/(?:^|\n)\s*Cookie\s*:\s*([^\n\r]+)/i);
+        if (match && match[1]) return match[1].trim();
+        var trimmed = headers.trim();
+        if (trimmed.indexOf('=') !== -1 && !/Set-Cookie\s*:/i.test(trimmed) && !/Cookie\s*:/i.test(trimmed)) return trimmed;
+        return '';
+    }
+    function extractAction(html) {
+        html = html || '';
+        var match = html.match(/<form\b[^>]*\saction\s*=\s*["']([^"']+)["']/i);
+        if (match && match[1]) return match[1].trim();
+        match = html.match(/action\s*=\s*["'](https:\/\/edxeix\.yme\.gov\.gr\/[^"']+)["']/i);
+        if (match && match[1]) return match[1].trim();
+        if (/https:\/\/edxeix\.yme\.gov\.gr\/dashboard\/lease-agreement\b/i.test(html)) return 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
+        return '';
+    }
+    function extractCsrf(html) {
+        html = html || '';
+        var inputs = html.match(/<input\b[^>]*>/ig) || [];
+        for (var i = 0; i < inputs.length; i++) {
+            if (/name\s*=\s*["']_token["']/i.test(inputs[i])) {
+                var val = inputs[i].match(/value\s*=\s*["']([^"']+)["']/i);
+                if (val && val[1]) return val[1].trim();
+            }
+        }
+        var match = html.match(/name\s*=\s*["']_token["'][^\n\r>]*value\s*=\s*["']([^"']+)["']/i);
+        if (match && match[1]) return match[1].trim();
+        return '';
+    }
+    function setStatus(parts) {
+        var el = document.getElementById('extract_status');
+        if (!el) return;
+        el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+    }
+    var extractBtn = document.getElementById('extract_values_btn');
+    if (extractBtn) {
+        extractBtn.addEventListener('click', function () {
+            var headersEl = document.getElementById('request_headers_blob');
+            var htmlEl = document.getElementById('form_html_blob');
+            var headers = headersEl ? headersEl.value : '';
+            var html = htmlEl ? htmlEl.value : '';
+            var cookie = extractCookie(headers);
+            var action = extractAction(html);
+            var csrf = extractCsrf(html);
+            if (action && document.getElementById('edxeix_submit_url')) document.getElementById('edxeix_submit_url').value = action;
+            if (cookie && document.getElementById('cookie_header')) document.getElementById('cookie_header').value = cookie;
+            if (csrf && document.getElementById('csrf_token')) document.getElementById('csrf_token').value = csrf;
+            setStatus([
+                '<strong>Submit URL:</strong> ' + (action ? 'found' : 'not found'),
+                '<strong>Cookie:</strong> ' + (cookie ? (cookie.length + ' chars') : 'not found'),
+                '<strong>CSRF:</strong> ' + (csrf ? (csrf.length + ' chars') : 'not found')
+            ]);
+        });
+    }
+    var clearBtn = document.getElementById('clear_helper_btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            var h = document.getElementById('request_headers_blob');
+            var f = document.getElementById('form_html_blob');
+            if (h) h.value = '';
+            if (f) f.value = '';
+            setStatus(['Extraction status: helper boxes cleared. Saved server-side values were not changed.']);
+        });
+    }
+})();
+</script>
+
 </body>
 </html>

@@ -1,55 +1,35 @@
-# PATCH README — Final Production-Prep Handoff Refresh
-
-Patch name: gov_final_production_prep_handoff_patch_rooted.zip  
-Date: 2026-04-25
+# Patch: EDXEIX Session Auto-Extract Helper
 
 ## What changed
 
-This patch refreshes continuity documentation only.
+Updates `/ops/edxeix-session.php` with a fast paste helper that can extract:
 
-Updated/added:
+- Cookie request header
+- EDXEIX form action / submit URL
+- hidden `_token` CSRF token
 
-```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-docs/CURRENT_PRODUCTION_PREP_BASELINE.md
-PATCH_README.md
-```
+from pasted EDXEIX Developer Tools text.
 
-## Current documented baseline
+The operator can paste the request headers and form HTML/snippet, press **Extract into fields**, review that fields were populated, type the safety phrase, and save server-side.
 
-The docs now record:
+## Files included
 
 ```text
-EDXEIX submit URL configured: yes
-EDXEIX session ready: yes
-Real future Bolt candidates: 0
-Live-eligible rows: 0
-Live HTTP execution: no
-Live transport: intentionally blocked
-Final transport patch: still required
-Real future Bolt test: waiting for Filippos
-```
-
-## Upload / commit paths
-
-Repository root:
-
-```text
+public_html/gov.cabnet.app/ops/edxeix-session.php
+docs/EDXEIX_SESSION_AUTO_EXTRACT_HELPER.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
-docs/CURRENT_PRODUCTION_PREP_BASELINE.md
 ```
 
-Optional server-side reference copy only:
+## Upload paths
 
 ```text
-/home/cabnet/HANDOFF.md
-/home/cabnet/CONTINUE_PROMPT.md
-/home/cabnet/PATCH_README.md
-/home/cabnet/docs/CURRENT_PRODUCTION_PREP_BASELINE.md
+public_html/gov.cabnet.app/ops/edxeix-session.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
 ```
+
+Commit docs at repository root.
 
 ## SQL
 
@@ -57,27 +37,21 @@ No SQL required.
 
 ## Verification
 
-No runtime change is introduced by this patch.
-
-Useful current checks:
+Open:
 
 ```text
 https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/live-submit.php
-https://gov.cabnet.app/ops/future-test.php
+https://gov.cabnet.app/ops/edxeix-session.php?format=json
 ```
 
 Expected:
 
-```text
-EDXEIX session ready: yes
-EDXEIX submit URL configured: yes
-Real future candidates: 0
-Live HTTP execution: no
-```
+- Fast Paste + Auto-Extract Helper is visible.
+- Manual fields still exist.
+- Existing EDXEIX session readiness remains ready if already saved.
+- Live flags remain disabled.
+- No EDXEIX HTTP request is performed.
 
 ## Safety
 
-This patch does not include credentials, cookies, CSRF tokens, session files, database dumps, logs, cache, or runtime artifacts.
-
-This patch does not call Bolt, call EDXEIX, write to the database, create jobs, enable live submission, or implement live HTTP transport.
+This patch does not call Bolt, does not call EDXEIX, does not write to database, does not enable live submission, and does not print saved cookie/CSRF values.
