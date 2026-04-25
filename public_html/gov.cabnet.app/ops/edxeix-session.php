@@ -52,8 +52,14 @@ function es_read_session_details(string $file): array
         'file_exists' => false,
         'file_readable' => false,
         'json_valid' => false,
+        'cookie_raw_present' => false,
+        'csrf_raw_present' => false,
         'cookie_present' => false,
         'csrf_present' => false,
+        'cookie_placeholder_detected' => false,
+        'csrf_placeholder_detected' => false,
+        'timestamp_placeholder_detected' => false,
+        'placeholder_detected' => false,
         'cookie_length' => 0,
         'csrf_length' => 0,
         'updated_at' => null,
@@ -87,9 +93,19 @@ function es_read_session_details(string $file): array
     $csrf = trim((string)($decoded['csrf_token'] ?? ''));
     $updatedAt = $decoded['updated_at'] ?? $decoded['saved_at'] ?? null;
 
+    $cookiePlaceholder = function_exists('gov_live_secret_looks_placeholder') ? gov_live_secret_looks_placeholder($cookie) : false;
+    $csrfPlaceholder = function_exists('gov_live_secret_looks_placeholder') ? gov_live_secret_looks_placeholder($csrf) : false;
+    $timestampPlaceholder = is_string($updatedAt) && function_exists('gov_live_secret_looks_placeholder') ? gov_live_secret_looks_placeholder($updatedAt) : false;
+
     $details['json_valid'] = true;
-    $details['cookie_present'] = $cookie !== '';
-    $details['csrf_present'] = $csrf !== '';
+    $details['cookie_raw_present'] = $cookie !== '';
+    $details['csrf_raw_present'] = $csrf !== '';
+    $details['cookie_placeholder_detected'] = $cookiePlaceholder;
+    $details['csrf_placeholder_detected'] = $csrfPlaceholder;
+    $details['timestamp_placeholder_detected'] = $timestampPlaceholder;
+    $details['placeholder_detected'] = $cookiePlaceholder || $csrfPlaceholder || $timestampPlaceholder;
+    $details['cookie_present'] = $cookie !== '' && !$cookiePlaceholder;
+    $details['csrf_present'] = $csrf !== '' && !$csrfPlaceholder;
     $details['cookie_length'] = strlen($cookie);
     $details['csrf_length'] = strlen($csrf);
     $details['updated_at'] = $decoded['updated_at'] ?? null;
@@ -102,7 +118,10 @@ function es_read_session_details(string $file): array
         }
     }
 
-    $details['ready'] = $details['json_valid'] && $details['cookie_present'] && $details['csrf_present'];
+    $details['ready'] = $details['json_valid'] && $details['cookie_present'] && $details['csrf_present'] && !$details['placeholder_detected'];
+    if ($details['placeholder_detected']) {
+        $details['error'] = 'placeholder_session_values_detected';
+    }
     return $details;
 }
 
@@ -216,6 +235,9 @@ if (($_GET['format'] ?? '') === 'json') {
             <a class="btn dark" href="/ops/live-submit.php">Open Live Submit Gate</a>
             <a class="btn orange" href="/ops/future-test.php">Open Future Test</a>
         </div>
+        <?php if (!empty($sessionDetails['placeholder_detected'])): ?>
+            <p class="badline"><strong>Placeholder values detected:</strong> the session file was likely copied from the example template. This is safe, but it is not a real EDXEIX browser session yet.</p>
+        <?php endif; ?>
         <div class="grid">
             <div class="metric"><strong><?= !empty($configState['config_file_exists']) ? 'yes' : 'no' ?></strong><span>Live config file exists</span></div>
             <div class="metric"><strong><?= !empty($sessionDetails['ready']) ? 'yes' : 'no' ?></strong><span>Session cookie/CSRF ready</span></div>
@@ -249,8 +271,9 @@ if (($_GET['format'] ?? '') === 'json') {
                     <tr><td><strong>Session file exists</strong></td><td><?= es_bool_badge(!empty($sessionDetails['file_exists']), 'yes', 'no') ?></td><td>Runtime-only file, not committed.</td></tr>
                     <tr><td><strong>Session file readable</strong></td><td><?= es_bool_badge(!empty($sessionDetails['file_readable']), 'yes', 'no') ?></td><td>Must be readable by PHP.</td></tr>
                     <tr><td><strong>JSON valid</strong></td><td><?= es_bool_badge(!empty($sessionDetails['json_valid']), 'yes', 'no') ?></td><td>Expected JSON object with cookie_header and csrf_token keys.</td></tr>
-                    <tr><td><strong>Cookie header present</strong></td><td><?= es_bool_badge(!empty($sessionDetails['cookie_present']), 'yes', 'no') ?></td><td>Length only: <?= es_h($sessionDetails['cookie_length'] ?? 0) ?> chars.</td></tr>
-                    <tr><td><strong>CSRF token present</strong></td><td><?= es_bool_badge(!empty($sessionDetails['csrf_present']), 'yes', 'no') ?></td><td>Length only: <?= es_h($sessionDetails['csrf_length'] ?? 0) ?> chars.</td></tr>
+                    <tr><td><strong>Cookie header present</strong></td><td><?= es_bool_badge(!empty($sessionDetails['cookie_raw_present']), 'yes', 'no') ?></td><td>Length only: <?= es_h($sessionDetails['cookie_length'] ?? 0) ?> chars. Placeholder values do not count as ready.</td></tr>
+                    <tr><td><strong>CSRF token present</strong></td><td><?= es_bool_badge(!empty($sessionDetails['csrf_raw_present']), 'yes', 'no') ?></td><td>Length only: <?= es_h($sessionDetails['csrf_length'] ?? 0) ?> chars. Placeholder values do not count as ready.</td></tr>
+                    <tr><td><strong>Placeholder/example values</strong></td><td><?= !empty($sessionDetails['placeholder_detected']) ? es_badge('detected', 'bad') : es_badge('not detected', 'good') ?></td><td><?= !empty($sessionDetails['placeholder_detected']) ? 'Replace template values with real server-side EDXEIX session values before the final live phase.' : 'No known placeholder markers detected.' ?></td></tr>
                     <tr><td><strong>Updated at</strong></td><td><?= es_warn_badge(!empty($sessionDetails['updated_at']) || !empty($sessionDetails['saved_at']), 'recorded', 'unknown') ?></td><td><?= es_h($sessionDetails['updated_at'] ?? $sessionDetails['saved_at'] ?? 'not recorded') ?></td></tr>
                 </tbody>
             </table></div>

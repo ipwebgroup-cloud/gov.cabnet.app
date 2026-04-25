@@ -100,6 +100,36 @@ if (!function_exists('gov_live_bool')) {
     }
 }
 
+if (!function_exists('gov_live_secret_placeholder_patterns')) {
+    function gov_live_secret_placeholder_patterns(): array
+    {
+        return [
+            'PASTE', 'REPLACE', 'EXAMPLE', 'DUMMY', 'DEMO', 'TODO',
+            'SERVER_ONLY', 'SERVER-SIDE', 'SERVER_SIDE', 'DO_NOT_COMMIT',
+            'COOKIE_HEADER', 'CSRF_TOKEN', 'PLACEHOLDER', 'YOUR_',
+            'INSERT_', 'FILL_', 'CHANGE_ME', 'CHANGEME', 'XXXX',
+            'YYYY-MM-DD', 'HH:MM:SS',
+        ];
+    }
+}
+
+if (!function_exists('gov_live_secret_looks_placeholder')) {
+    function gov_live_secret_looks_placeholder($value): bool
+    {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return false;
+        }
+        $upper = strtoupper($value);
+        foreach (gov_live_secret_placeholder_patterns() as $needle) {
+            if (strpos($upper, strtoupper($needle)) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
 if (!function_exists('gov_live_terminal_status')) {
     function gov_live_terminal_status(string $status): bool
     {
@@ -266,29 +296,49 @@ if (!function_exists('gov_live_session_state')) {
     {
         $file = (string)($liveConfig['edxeix_session_file'] ?? '');
         $exists = $file !== '' && is_file($file) && is_readable($file);
+        $rawCookiePresent = false;
+        $rawCsrfPresent = false;
+        $cookiePlaceholder = false;
+        $csrfPlaceholder = false;
+        $timestampPlaceholder = false;
         $hasCookie = false;
         $hasCsrf = false;
         $updatedAt = null;
+
         if ($exists) {
             $raw = file_get_contents($file);
             $decoded = json_decode((string)$raw, true);
             if (is_array($decoded)) {
-                $hasCookie = trim((string)($decoded['cookie_header'] ?? '')) !== '';
-                $hasCsrf = trim((string)($decoded['csrf_token'] ?? '')) !== '';
+                $cookie = trim((string)($decoded['cookie_header'] ?? ''));
+                $csrf = trim((string)($decoded['csrf_token'] ?? ''));
                 $updatedAt = $decoded['updated_at'] ?? $decoded['saved_at'] ?? null;
+                $rawCookiePresent = $cookie !== '';
+                $rawCsrfPresent = $csrf !== '';
+                $cookiePlaceholder = gov_live_secret_looks_placeholder($cookie);
+                $csrfPlaceholder = gov_live_secret_looks_placeholder($csrf);
+                $timestampPlaceholder = is_string($updatedAt) && gov_live_secret_looks_placeholder($updatedAt);
+                $hasCookie = $rawCookiePresent && !$cookiePlaceholder;
+                $hasCsrf = $rawCsrfPresent && !$csrfPlaceholder;
             }
         }
+
+        $placeholderDetected = $cookiePlaceholder || $csrfPlaceholder || $timestampPlaceholder;
         return [
             'session_file_configured' => $file !== '',
             'session_file_exists' => $exists,
+            'cookie_raw_present' => $rawCookiePresent,
+            'csrf_raw_present' => $rawCsrfPresent,
             'cookie_present' => $hasCookie,
             'csrf_present' => $hasCsrf,
+            'cookie_placeholder_detected' => $cookiePlaceholder,
+            'csrf_placeholder_detected' => $csrfPlaceholder,
+            'timestamp_placeholder_detected' => $timestampPlaceholder,
+            'placeholder_detected' => $placeholderDetected,
             'updated_at' => $updatedAt,
-            'ready' => $exists && $hasCookie && $hasCsrf,
+            'ready' => $exists && $hasCookie && $hasCsrf && !$placeholderDetected,
         ];
     }
 }
-
 if (!function_exists('gov_live_analyze_booking')) {
     function gov_live_analyze_booking(mysqli $db, array $booking, ?array $liveConfig = null): array
     {
