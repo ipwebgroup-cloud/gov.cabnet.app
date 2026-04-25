@@ -1,59 +1,90 @@
-# Patch: Add Clear Saved EDXEIX Session Button
+# Patch README — Final Pre-Live Handoff Refresh
 
-## What changed
-
-Updated `/ops/edxeix-session.php` with a fast **Clear Saved EDXEIX Session** action.
-
-The action clears only the saved server-side EDXEIX Cookie/CSRF runtime session. It does not log out of EDXEIX, does not remove the configured submit URL, and does not enable live submission.
+This patch refreshes continuity documentation only.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/edxeix-session.php
-docs/EDXEIX_SESSION_CLEAR_BUTTON.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+docs/CURRENT_FINAL_PRE_LIVE_BASELINE.md
 PATCH_README.md
 ```
 
-## Upload path
+## What changed
+
+Updated project handoff and continuation files to record the current final pre-live baseline:
 
 ```text
-public_html/gov.cabnet.app/ops/edxeix-session.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
+EDXEIX submit URL configured
+EDXEIX server-side cookie/CSRF session ready
+Firefox extension capture workflow working
+Manual session input UI removed
+Clear Saved EDXEIX Session installed
+Live EDXEIX HTTP transport still intentionally blocked
+No real future Bolt candidate yet
+Final live-submit transport patch still not installed
+```
+
+## Upload / commit paths
+
+Repository root:
+
+```text
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+docs/CURRENT_FINAL_PRE_LIVE_BASELINE.md
+```
+
+Optional server reference copy:
+
+```text
+/home/cabnet/HANDOFF.md
+/home/cabnet/CONTINUE_PROMPT.md
+/home/cabnet/PATCH_README.md
+/home/cabnet/docs/CURRENT_FINAL_PRE_LIVE_BASELINE.md
 ```
 
 ## SQL
 
 No SQL required.
 
-## Verification
+## Runtime changes
 
-Open:
+None.
+
+## Verification URLs
+
+No runtime code changed. Current expected pages remain:
 
 ```text
 https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/edxeix-session.php?format=json
+https://gov.cabnet.app/ops/live-submit.php
+https://gov.cabnet.app/ops/future-test.php
 ```
 
-Expected before clearing:
+Expected state:
 
 ```text
-Session cookie/CSRF ready: yes
-Submit URL configured: yes
+EDXEIX session ready: yes
+EDXEIX submit URL configured: yes
+Real future candidates: 0
+Live HTTP execution: no
 ```
 
-After pressing **Clear Saved EDXEIX Session** and accepting the browser confirmation prompt:
+## Git commit title
 
 ```text
-Session cookie/CSRF ready: no
-Submit URL configured: yes
-Live flag: disabled
-HTTP flag: disabled
+Refresh final pre-live handoff baseline
 ```
 
-Then use the Firefox extension to refresh the saved session again.
+## Git commit description
 
-## Safety
+```text
+Refreshes HANDOFF.md, CONTINUE_PROMPT.md, and documentation with the current gov.cabnet.app Bolt → EDXEIX bridge pre-live baseline.
 
-No Bolt request, EDXEIX request, database write, live HTTP transport, secret output, or live submission behavior is introduced.
+The updated handoff records that the Firefox EDXEIX session capture extension is working, EDXEIX submit URL and cookie/CSRF prerequisites are ready, manual session input has been removed, and Clear Saved EDXEIX Session is available.
+
+Live EDXEIX HTTP transport remains intentionally blocked and no live submission behavior is introduced. The next major dependency remains creating a real future Bolt ride with Filippos and a mapped vehicle before any final one-shot live-submit transport patch can be considered.
+```
