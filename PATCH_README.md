@@ -1,24 +1,20 @@
-# Patch: Add ops access guard
+# Patch: Add mapping coverage dashboard
 
 ## Purpose
 
-Adds a lightweight access guard for `/ops/*.php` and public `bolt_*.php` diagnostic/worker endpoints.
+Adds a read-only operations page for Bolt → EDXEIX mapping coverage.
 
-This corrected package also includes a server-only `ops.php` config already allowlisting Andreas' current public IP:
+New page:
 
 ```text
-2.87.234.195
+/ops/mappings.php
 ```
 
 ## Files included
 
 ```text
-.gitignore
-gov.cabnet.app_app/lib/ops_guard.php
-gov.cabnet.app_config/ops.php
-gov.cabnet.app_config_examples/ops.example.php
-public_html/gov.cabnet.app/.user.ini
-docs/OPS_ACCESS_GUARD.md
+public_html/gov.cabnet.app/ops/mappings.php
+docs/MAPPING_COVERAGE_DASHBOARD.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -27,71 +23,50 @@ PATCH_README.md
 ## Upload paths
 
 ```text
-gov.cabnet.app_app/lib/ops_guard.php
-→ /home/cabnet/gov.cabnet.app_app/lib/ops_guard.php
-
-gov.cabnet.app_config/ops.php
-→ /home/cabnet/gov.cabnet.app_config/ops.php
-
-gov.cabnet.app_config_examples/ops.example.php
-→ /home/cabnet/gov.cabnet.app_config_examples/ops.example.php
-
-public_html/gov.cabnet.app/.user.ini
-→ /home/cabnet/public_html/gov.cabnet.app/.user.ini
+public_html/gov.cabnet.app/ops/mappings.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mappings.php
 ```
 
-## Ownership / permissions
-
-If files are uploaded with cPanel File Manager as the `cabnet` account, ownership should be correct automatically.
-
-If files are copied/unzipped as `root`, run:
-
-```bash
-chown cabnet:cabnet /home/cabnet/gov.cabnet.app_config/ops.php
-chown cabnet:cabnet /home/cabnet/gov.cabnet.app_app/lib/ops_guard.php
-chown cabnet:cabnet /home/cabnet/public_html/gov.cabnet.app/.user.ini
-chown -R cabnet:cabnet /home/cabnet/gov.cabnet.app_config_examples
-chmod 640 /home/cabnet/gov.cabnet.app_config/ops.php
-chmod 644 /home/cabnet/gov.cabnet.app_app/lib/ops_guard.php
-chmod 644 /home/cabnet/public_html/gov.cabnet.app/.user.ini
-```
-
-## GitHub commit note
-
-Commit these files:
+For GitHub, commit:
 
 ```text
-.gitignore
-gov.cabnet.app_app/lib/ops_guard.php
-gov.cabnet.app_config_examples/ops.example.php
-public_html/gov.cabnet.app/.user.ini
-docs/OPS_ACCESS_GUARD.md
+docs/MAPPING_COVERAGE_DASHBOARD.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-Do **not** commit the real server config:
+## SQL
 
-```text
-gov.cabnet.app_config/ops.php
-```
-
-It is intentionally ignored by `.gitignore`.
+No SQL is required.
 
 ## Verification
 
-After enabling config, test from the allowed browser/IP:
+Open:
 
 ```text
-https://gov.cabnet.app/ops/readiness.php
-https://gov.cabnet.app/bolt_readiness_audit.php
+https://gov.cabnet.app/ops/mappings.php
 ```
 
-Expected: allowed users load pages; denied users receive HTTP 403.
+Expected:
 
-If the guard does not activate immediately, wait a few minutes because PHP/cPanel may cache `.user.ini`.
+```text
+Drivers mapped: 1/2
+Vehicles mapped: 2/15
+```
+
+Open unmapped view:
+
+```text
+https://gov.cabnet.app/ops/mappings.php?view=unmapped
+```
+
+Open JSON:
+
+```text
+https://gov.cabnet.app/ops/mappings.php?format=json
+```
 
 ## Safety
 
-No Bolt request, EDXEIX request, database write, or live submission is added by this patch.
+The page is read-only. It does not call Bolt, does not call EDXEIX, does not write to the database, and does not enable live submission.

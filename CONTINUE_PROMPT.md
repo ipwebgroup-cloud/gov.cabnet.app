@@ -19,14 +19,15 @@ Validated status:
 2. Bolt reference sync works.
 3. Bolt order sync works.
 4. Schema compatibility issues for dedupe/defaults/price/null ended_at were resolved.
-5. Some Bolt driver/vehicle mappings are present, but not all imported vehicles are mapped.
-6. Operations pages exist: /ops/bolt-live.php, /ops/jobs.php, /ops/readiness.php.
-7. JSON/report endpoints exist: /bolt_sync_reference.php, /bolt_sync_orders.php, /bolt_edxeix_preflight.php, /bolt_jobs_queue.php, /bolt_stage_edxeix_jobs.php, /bolt_readiness_audit.php.
-8. Dry-run future booking harness exists at /ops/test-booking.php.
-9. LAB/test safety output now distinguishes technical validity from live submission eligibility.
-10. LAB cleanup tool exists at /ops/cleanup-lab.php.
-11. Ops access guard patch adds /home/cabnet/gov.cabnet.app_app/lib/ops_guard.php and /home/cabnet/public_html/gov.cabnet.app/.user.ini.
-12. Real ops guard config must be created server-side only at /home/cabnet/gov.cabnet.app_config/ops.php.
+5. Operations pages exist: /ops/bolt-live.php, /ops/jobs.php, /ops/readiness.php.
+6. JSON/report endpoints exist: /bolt_sync_reference.php, /bolt_sync_orders.php, /bolt_edxeix_preflight.php, /bolt_jobs_queue.php, /bolt_stage_edxeix_jobs.php, /bolt_readiness_audit.php.
+7. Dry-run future booking harness exists at /ops/test-booking.php and was validated end-to-end.
+8. LAB/test safety output distinguishes technical validity from live submission eligibility.
+9. LAB cleanup tool exists at /ops/cleanup-lab.php and cleanup returned the system to a clean state.
+10. Ops access guard is active through .user.ini and server-only /home/cabnet/gov.cabnet.app_config/ops.php.
+11. Readiness reached READY_FOR_REAL_BOLT_FUTURE_TEST after cleanup and guard verification.
+12. Mapping coverage remains partial: latest known readiness showed 1/2 drivers and 2/15 vehicles mapped.
+13. Mapping coverage dashboard has been added at /ops/mappings.php.
 
 Next live test blocker:
 A real Bolt ride must be scheduled at least 40–60 minutes in the future before a true live-safe EDXEIX candidate can exist.

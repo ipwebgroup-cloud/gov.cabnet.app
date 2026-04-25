@@ -19,16 +19,15 @@ No live EDXEIX submission has been approved. Do not add automatic submission beh
 - Bolt reference sync works.
 - Bolt order sync works.
 - Required DB tables exist in the working server line.
-- Mapping coverage is partial: latest known readiness showed 1/2 drivers and 2/15 vehicles mapped.
 - Historical Bolt orders are correctly blocked because they are terminal/cancelled and not +30 minutes in the future.
-- Dry-run future booking harness exists at `/ops/test-booking.php`.
+- Dry-run future booking harness exists at `/ops/test-booking.php` and was validated end-to-end.
 - LAB/test safety output separates technical payload validity from live submission eligibility.
-- LAB dry-run cleanup tool exists at `/ops/cleanup-lab.php`.
-- Ops access guard patch adds:
-  - `/home/cabnet/gov.cabnet.app_app/lib/ops_guard.php`
-  - `/home/cabnet/public_html/gov.cabnet.app/.user.ini`
-  - example config at `gov.cabnet.app_config_examples/ops.example.php`
-- Real guard config must be created server-side only at `/home/cabnet/gov.cabnet.app_config/ops.php` and must not be committed.
+- LAB dry-run cleanup tool exists at `/ops/cleanup-lab.php` and cleanup returned the system to a clean state.
+- Ops access guard is active via `/home/cabnet/public_html/gov.cabnet.app/.user.ini` and `/home/cabnet/gov.cabnet.app_app/lib/ops_guard.php`.
+- Real guard config exists server-side only at `/home/cabnet/gov.cabnet.app_config/ops.php` and must not be committed.
+- Latest verified readiness showed `READY_FOR_REAL_BOLT_FUTURE_TEST`, with no LAB rows, no local jobs, and no submission attempts.
+- Mapping coverage remains partial: latest known readiness showed 1/2 drivers and 2/15 vehicles mapped.
+- Mapping coverage dashboard added at `/ops/mappings.php`.
 
 ## Key files
 
@@ -46,6 +45,7 @@ public_html/gov.cabnet.app/bolt_submission_worker.php
 public_html/gov.cabnet.app/ops/bolt-live.php
 public_html/gov.cabnet.app/ops/jobs.php
 public_html/gov.cabnet.app/ops/readiness.php
+public_html/gov.cabnet.app/ops/mappings.php
 public_html/gov.cabnet.app/ops/submit.php
 public_html/gov.cabnet.app/ops/test-booking.php
 public_html/gov.cabnet.app/ops/cleanup-lab.php
@@ -63,8 +63,8 @@ public_html/gov.cabnet.app/ops/cleanup-lab.php
 
 ## Recommended next work
 
-1. Verify ops access guard works from allowed and denied contexts.
-2. Keep readiness audit clean after LAB cleanup.
-3. Complete driver/vehicle mapping coverage.
+1. Verify `/ops/mappings.php` from Andreas' allowed IP.
+2. Use the mapping dashboard to identify unmapped drivers/vehicles.
+3. Add a guarded mapping edit/update page only after the read-only dashboard is confirmed.
 4. Schedule a real Bolt ride 40–60 minutes in the future for the first true preflight candidate.
 5. Only after successful real preflight, design a separately gated live-submit patch.
