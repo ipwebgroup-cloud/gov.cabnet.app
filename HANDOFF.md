@@ -24,7 +24,9 @@ No live EDXEIX submission has been approved. Do not add automatic submission beh
 - Readiness reached `READY_FOR_REAL_BOLT_FUTURE_TEST` after cleanup.
 - Mapping dashboard exists at `/ops/mappings.php` and JSON output is sanitized.
 - Current mapping coverage around latest validation: 1/2 drivers mapped, 2/15 vehicles mapped.
-- This patch adds a guarded mapping editor for EDXEIX IDs only, with local audit logging.
+- Guarded mapping editor exists for EDXEIX IDs only, with local audit logging.
+- Known EDXEIX driver reference notes are shown on `/ops/mappings.php`: 1658 ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ, 17585 ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ, 6026 ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ.
+- Georgios Zachariou should remain unmapped for now unless his exact EDXEIX driver ID is independently confirmed.
 
 ## Key files
 
@@ -60,8 +62,9 @@ public_html/gov.cabnet.app/ops/cleanup-lab.php
 
 ## Recommended next work
 
-1. Run `2026_04_25_mapping_update_audit.sql`.
-2. Use `/ops/mappings.php?view=unmapped` to fill missing EDXEIX IDs.
-3. Recheck `/ops/readiness.php`.
-4. When mapping coverage is good enough, schedule a real Bolt ride 40–60 minutes in the future for the first true preflight candidate.
-5. Only after successful preflight, design a separately gated live-submit patch.
+1. Confirm `mapping_update_audit` exists if using the mapping editor.
+2. Use `/ops/mappings.php?view=unmapped` to fill only independently confirmed missing EDXEIX IDs.
+3. Keep Georgios Zachariou unmapped until his exact EDXEIX driver ID is confirmed.
+4. Recheck `/ops/readiness.php`.
+5. When mapping coverage is good enough, schedule a real Bolt ride 40–60 minutes in the future for the first true preflight candidate.
+6. Only after successful preflight, design a separately gated live-submit patch.

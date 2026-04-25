@@ -24,7 +24,9 @@ Validated status:
 7. Readiness reached READY_FOR_REAL_BOLT_FUTURE_TEST after cleanup.
 8. Mapping dashboard exists at /ops/mappings.php.
 9. JSON output from mappings is sanitized and excludes raw_payload_json.
-10. Mapping editor patch adds POST-only EDXEIX ID updates for mapping rows with audit logging.
+10. Mapping editor supports POST-only EDXEIX ID updates for mapping rows with audit logging.
+11. Known EDXEIX driver references are now visible on /ops/mappings.php: 1658 ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ, 17585 ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ, 6026 ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ.
+12. Georgios Zachariou should remain unmapped until his exact EDXEIX driver ID is independently confirmed.
 
 Next live test blocker:
 A real Bolt ride must be scheduled at least 40–60 minutes in the future before a true live-safe EDXEIX candidate can exist. Live submission is still disabled.

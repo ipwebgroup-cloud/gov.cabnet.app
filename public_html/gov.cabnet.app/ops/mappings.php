@@ -248,6 +248,27 @@ function map_validate_edxeix_id(string $value): string
     return $value;
 }
 
+function map_known_edxeix_driver_references(): array
+{
+    return [
+        [
+            'edxeix_driver_id' => '1658',
+            'name_el' => 'ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ',
+            'status' => 'reference_only',
+        ],
+        [
+            'edxeix_driver_id' => '17585',
+            'name_el' => 'ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ',
+            'status' => 'known_mapped_to_filippos',
+        ],
+        [
+            'edxeix_driver_id' => '6026',
+            'name_el' => 'ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ',
+            'status' => 'reference_only',
+        ],
+    ];
+}
+
 function map_update_mapping(mysqli $db): array
 {
     $result = [
@@ -356,6 +377,7 @@ $state = [
     'vehicle_stats' => [],
     'editor' => ['enabled' => false, 'reason' => 'not_checked'],
     'update_result' => null,
+    'known_edxeix_driver_references' => map_known_edxeix_driver_references(),
 ];
 
 try {
@@ -403,6 +425,8 @@ if (map_request_param('format', '') === 'json') {
         'generated_at' => $state['generated_at'],
         'read_only' => $_SERVER['REQUEST_METHOD'] !== 'POST',
         'editor_enabled' => $state['editor']['enabled'] ?? false,
+        'known_edxeix_driver_references' => $state['known_edxeix_driver_references'],
+        'reference_note' => 'These EDXEIX driver IDs are reference-only notes and do not automatically update Bolt mappings.',
         'json_sanitized' => true,
         'raw_payload_json_included' => false,
         'view' => $state['view'],
@@ -468,8 +492,12 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
         .inline-edit { display:grid; grid-template-columns:110px 210px 86px; gap:6px; min-width:420px; }
         .inline-edit input { padding:8px; font-size:13px; }
         .inline-edit .btn { padding:8px 10px; }
-        @media (max-width:1100px) { .grid { grid-template-columns:repeat(2, minmax(0,1fr)); } .filters { grid-template-columns:1fr 1fr; } }
-        @media (max-width:720px) { .grid, .filters { grid-template-columns:1fr; } .wrap { width:calc(100% - 24px); margin-top:14px; } .nav { padding:0 14px; } }
+        .reference-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:12px; }
+        .reference-card { border:1px solid var(--line); border-radius:10px; padding:12px; background:#f8fbff; }
+        .reference-card strong { display:block; font-size:22px; margin-bottom:4px; }
+        .reference-card span { display:block; color:var(--muted); }
+        @media (max-width:1100px) { .grid, .reference-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } .filters { grid-template-columns:1fr 1fr; } }
+        @media (max-width:720px) { .grid, .reference-grid, .filters { grid-template-columns:1fr; } .wrap { width:calc(100% - 24px); margin-top:14px; } .nav { padding:0 14px; } }
     </style>
 </head>
 <body>
@@ -512,6 +540,23 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
             <a href="/ops/mappings.php" class="dark">Show All</a>
             <a href="/ops/mappings.php?<?= map_h($queryString) ?>&format=json" class="dark">Open Sanitized JSON</a>
         </div>
+    </section>
+
+
+
+    <section class="card">
+        <h2>Known EDXEIX driver references</h2>
+        <p class="small">Reference-only notes from the current EDXEIX driver dropdown. These values do not automatically map any Bolt driver. Confirm the real person before using the editor.</p>
+        <div class="reference-grid">
+            <?php foreach ($state['known_edxeix_driver_references'] as $driverRef): ?>
+                <div class="reference-card">
+                    <strong><?= map_h($driverRef['edxeix_driver_id']) ?></strong>
+                    <span><?= map_h($driverRef['name_el']) ?></span>
+                    <span><?= map_badge($driverRef['status'] === 'known_mapped_to_filippos' ? 'currently used for Filippos' : 'reference only', $driverRef['status'] === 'known_mapped_to_filippos' ? 'good' : 'neutral') ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <p class="small"><strong>Current operating note:</strong> leave Georgios Zachariou unmapped for now unless his exact EDXEIX driver ID is independently confirmed.</p>
     </section>
 
     <section class="card">
