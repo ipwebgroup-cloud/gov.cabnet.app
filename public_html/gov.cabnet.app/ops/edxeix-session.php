@@ -375,12 +375,40 @@ function es_save_session_file(string $file, string $cookie, string $csrf): void
     es_atomic_write($file, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL, 0600);
 }
 
+function es_clear_session_file(string $file): array
+{
+    if ($file === '') {
+        throw new RuntimeException('EDXEIX session file is not configured.');
+    }
+
+    $backup = es_backup_file_if_exists($file);
+    $payload = [
+        'cookie_header' => '',
+        'csrf_token' => '',
+        'saved_at' => null,
+        'updated_at' => date('Y-m-d H:i:s'),
+        'cleared_at' => date('Y-m-d H:i:s'),
+        'source' => 'ops_clear_saved_session_button',
+        'note' => 'Saved EDXEIX session was cleared from gov.cabnet.app server-side runtime storage. Submit URL remains configured; live flags remain disabled.',
+    ];
+
+    es_atomic_write($file, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL, 0600);
+
+    return [
+        'cleared_session' => true,
+        'backup_created' => $backup !== null,
+        'session_file' => $file,
+    ];
+}
+
+
 function es_handle_post(array $config, array $configState): array
 {
     $result = [
         'ok' => false,
         'saved_config' => false,
         'saved_session' => false,
+        'cleared_session' => false,
         'message' => '',
         'errors' => [],
         'extracted' => [
@@ -393,6 +421,18 @@ function es_handle_post(array $config, array $configState): array
     ];
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        return $result;
+    }
+
+    $action = es_request_value('session_action', '', 80);
+    if ($action === 'clear_saved_edxeix_session') {
+        $clear = es_clear_session_file((string)$configState['edxeix_session_file']);
+        $result['ok'] = true;
+        $result['cleared_session'] = true;
+        $result['saved_config'] = false;
+        $result['saved_session'] = false;
+        $result['message'] = 'Saved EDXEIX Cookie/CSRF session was cleared. Submit URL remains configured and live flags remain disabled.';
+        $result['clear_result'] = $clear;
         return $result;
     }
 
@@ -497,6 +537,7 @@ if (($_GET['format'] ?? '') === 'json') {
         'remaining_notes' => [
             'This page never displays cookie or CSRF values.',
             'Use the CABnet EDXEIX Capture Firefox extension to refresh server-side cookie/CSRF values.',
+            'Use the Clear Saved EDXEIX Session button to remove the saved server-side cookie/CSRF values without changing the submit URL.',
             'Live EDXEIX HTTP transport is still blocked in the current live-submit gate.',
             'A real future Bolt candidate is still required for the first actual live submission test.',
         ],
@@ -514,7 +555,7 @@ if (($_GET['format'] ?? '') === 'json') {
     <title>EDXEIX Session Readiness | gov.cabnet.app</title>
     <style>
         :root { --bg:#f3f6fb; --panel:#fff; --ink:#07152f; --muted:#41577a; --line:#d7e1ef; --nav:#081225; --blue:#2563eb; --green:#07875a; --orange:#b85c00; --red:#b42318; --slate:#334155; --soft:#f8fbff; }
-        *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{margin:0 0 8px}p{color:var(--muted);line-height:1.45}.hero{border-left:7px solid var(--orange)}.hero.good{border-left-color:var(--green)}.hero.bad{border-left-color:var(--red)}.safe{border-left:7px solid var(--green)}.warn{border-left:7px solid var(--orange)}.danger{border-left:7px solid var(--red)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:28px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn,button{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;border:0;cursor:pointer}.btn.dark{background:var(--slate)}.btn.orange{background:var(--orange)}button.green{background:var(--green)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.02em}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.small{font-size:13px;color:var(--muted)}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}code{background:#eef2ff;padding:2px 5px;border-radius:5px}pre{background:#0b1020;color:#d7e3ff;padding:14px;border-radius:12px;overflow:auto}label{display:block;font-weight:700;margin:12px 0 5px}input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:Arial,Helvetica,sans-serif}textarea{min-height:110px;resize:vertical}.helper-textarea{min-height:150px;font-family:Consolas,Monaco,monospace;font-size:13px}.field-note{font-size:12px;color:var(--muted);margin-top:4px}.callout{border-radius:12px;padding:12px 14px;margin:12px 0}.callout.good{background:#ecfdf3;border:1px solid #bbf7d0}.callout.bad{background:#fef3f2;border:1px solid #fecaca}.callout.warn{background:#fff7ed;border:1px solid #fed7aa}.extract-status{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;color:var(--muted);font-size:13px;margin-top:10px}.extract-status strong{color:var(--ink)}@media(max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:720px){.grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
+        *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{margin:0 0 8px}p{color:var(--muted);line-height:1.45}.hero{border-left:7px solid var(--orange)}.hero.good{border-left-color:var(--green)}.hero.bad{border-left-color:var(--red)}.safe{border-left:7px solid var(--green)}.warn{border-left:7px solid var(--orange)}.danger{border-left:7px solid var(--red)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:28px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.btn,button{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;border:0;cursor:pointer}.btn.dark{background:var(--slate)}.btn.orange{background:var(--orange)}button.green{background:var(--green)}button.orange{background:var(--orange)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.02em}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.small{font-size:13px;color:var(--muted)}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}code{background:#eef2ff;padding:2px 5px;border-radius:5px}pre{background:#0b1020;color:#d7e3ff;padding:14px;border-radius:12px;overflow:auto}label{display:block;font-weight:700;margin:12px 0 5px}input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:Arial,Helvetica,sans-serif}textarea{min-height:110px;resize:vertical}.helper-textarea{min-height:150px;font-family:Consolas,Monaco,monospace;font-size:13px}.field-note{font-size:12px;color:var(--muted);margin-top:4px}.callout{border-radius:12px;padding:12px 14px;margin:12px 0}.callout.good{background:#ecfdf3;border:1px solid #bbf7d0}.callout.bad{background:#fef3f2;border:1px solid #fecaca}.callout.warn{background:#fff7ed;border:1px solid #fed7aa}.extract-status{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;color:var(--muted);font-size:13px;margin-top:10px}.extract-status strong{color:var(--ink)}@media(max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:720px){.grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
     </style>
 </head>
 <body>
@@ -541,7 +582,7 @@ if (($_GET['format'] ?? '') === 'json') {
         </div>
         <?php if ($error): ?><p class="badline"><strong>Error:</strong> <?= es_h($error) ?></p><?php endif; ?>
         <?php if ($postResult && !empty($postResult['ok'])): ?>
-            <div class="callout good"><strong>Saved.</strong> <?= es_h($postResult['message']) ?> No secret values are displayed back.</div>
+            <div class="callout good"><strong>Action complete.</strong> <?= es_h($postResult['message']) ?> No secret values are displayed back.</div>
         <?php endif; ?>
         <div class="actions">
             <a class="btn" href="/ops/edxeix-session.php?format=json">Open Session JSON</a>
@@ -557,6 +598,9 @@ if (($_GET['format'] ?? '') === 'json') {
             <div class="metric"><strong><?= !empty($configState['edxeix_submit_url_configured']) ? 'yes' : 'no' ?></strong><span>Submit URL configured</span></div>
             <div class="metric"><strong><?= isset($sessionDetails['age_minutes']) && $sessionDetails['age_minutes'] !== null ? es_h($sessionDetails['age_minutes']) : 'n/a' ?></strong><span>Session age, minutes</span></div>
         </div>
+        <?php if (!empty($sessionDetails['ready']) && isset($sessionDetails['age_minutes']) && $sessionDetails['age_minutes'] !== null && (int)$sessionDetails['age_minutes'] >= 180): ?>
+            <div class="callout warn"><strong>Refresh recommended:</strong> the saved EDXEIX session is <?= es_h($sessionDetails['age_minutes']) ?> minutes old. Use the Firefox extension before the next live-test attempt.</div>
+        <?php endif; ?>
     </section>
 
     <section class="card safe">
@@ -578,6 +622,16 @@ if (($_GET['format'] ?? '') === 'json') {
             <a class="btn orange" href="/ops/live-submit.php">Open Live Submit Gate</a>
         </div>
         <p class="small"><strong>Safety:</strong> saved Cookie and CSRF values are never printed back to the page. The capture endpoint still validates the EDXEIX host, rejects placeholders, creates backups, and forces live/HTTP submit flags disabled.</p>
+    </section>
+
+    <section class="card warn">
+        <h2>Clear Saved EDXEIX Session</h2>
+        <p>This clears only the saved server-side EDXEIX Cookie/CSRF values from gov.cabnet.app. It does <strong>not</strong> log out of EDXEIX, does <strong>not</strong> remove the configured submit URL, and does <strong>not</strong> enable live submission.</p>
+        <form method="post" onsubmit="return confirm('Clear the saved server-side EDXEIX Cookie/CSRF session now? This does not log out of EDXEIX and live submission remains disabled.');">
+            <input type="hidden" name="session_action" value="clear_saved_edxeix_session">
+            <button type="submit" class="orange">Clear Saved EDXEIX Session</button>
+        </form>
+        <p class="small"><strong>Use when:</strong> testing is finished, the EDXEIX user logs out, the session is stale, the wrong operator captured a session, or before handing control to another operator.</p>
     </section>
 
     <section class="two">

@@ -1,38 +1,33 @@
-# Patch: EDXEIX Session Extension-Only UI
+# Patch: Add Clear Saved EDXEIX Session Button
 
 ## What changed
 
-Updated `/ops/edxeix-session.php` so the visible manual Cookie/CSRF form is removed from the operator workflow.
+Updated `/ops/edxeix-session.php` with a fast **Clear Saved EDXEIX Session** action.
 
-The page now presents the Firefox extension as the normal session-refresh method and remains a diagnostic/read-only readiness page for operators.
+The action clears only the saved server-side EDXEIX Cookie/CSRF runtime session. It does not log out of EDXEIX, does not remove the configured submit URL, and does not enable live submission.
 
 ## Files included
 
-- `public_html/gov.cabnet.app/ops/edxeix-session.php`
-- `docs/EDXEIX_SESSION_EXTENSION_ONLY_UI.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
+```text
+public_html/gov.cabnet.app/ops/edxeix-session.php
+docs/EDXEIX_SESSION_CLEAR_BUTTON.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
 
 ## Upload path
 
-Upload:
-
 ```text
 public_html/gov.cabnet.app/ops/edxeix-session.php
-```
-
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
 ```
 
 ## SQL
 
 No SQL required.
 
-## Verify
+## Verification
 
 Open:
 
@@ -41,11 +36,24 @@ https://gov.cabnet.app/ops/edxeix-session.php
 https://gov.cabnet.app/ops/edxeix-session.php?format=json
 ```
 
-Expected:
+Expected before clearing:
 
-- No manual Cookie/CSRF input form is visible.
-- The page explains the Firefox extension workflow.
-- Session cookie/CSRF ready remains yes if already captured.
-- Submit URL configured remains yes.
-- Live flags remain disabled.
-- No EDXEIX call is performed.
+```text
+Session cookie/CSRF ready: yes
+Submit URL configured: yes
+```
+
+After pressing **Clear Saved EDXEIX Session** and accepting the browser confirmation prompt:
+
+```text
+Session cookie/CSRF ready: no
+Submit URL configured: yes
+Live flag: disabled
+HTTP flag: disabled
+```
+
+Then use the Firefox extension to refresh the saved session again.
+
+## Safety
+
+No Bolt request, EDXEIX request, database write, live HTTP transport, secret output, or live submission behavior is introduced.

@@ -4,53 +4,51 @@
 
 The project is in safe production-prep state.
 
-- Safe ops dashboard: installed.
-- Readiness/future-test workflow: installed.
-- Mapping dashboard/editor: installed.
-- Live submit gate: installed but live HTTP transport is intentionally blocked.
-- EDXEIX submit URL: configured server-side as `https://edxeix.yme.gov.gr/dashboard/lease-agreement`.
-- EDXEIX cookie/CSRF session: saved server-side and placeholder-free.
-- Firefox extension: installed/working locally for operator session capture.
-- `/ops/edxeix-session-capture.php`: guarded extension endpoint installed.
-- `/ops/edxeix-session.php`: diagnostic/read-only operator page; manual Cookie/CSRF input fields removed to avoid confusion.
-- Real future Bolt candidates: 0.
-- Live-eligible rows: 0.
-- Live HTTP execution: no.
+- EDXEIX submit URL is configured server-side.
+- EDXEIX Cookie/CSRF session can be refreshed using the private Firefox extension.
+- `/ops/edxeix-session.php` is a diagnostic/readiness page and no longer shows manual Cookie/CSRF input fields.
+- `/ops/edxeix-session.php` now includes **Clear Saved EDXEIX Session**, protected by a browser confirmation prompt.
+- Clearing the saved session only clears the server-side runtime Cookie/CSRF file; it does not log out of EDXEIX and does not remove the submit URL.
+- Live submission remains blocked.
+- HTTP transport remains intentionally unimplemented/blocked in the current preparatory patch.
+- A real future Bolt ride with Filippos and a mapped vehicle is still required before the final live-submit transport patch can be considered.
 
-## Current remaining blockers before real live EDXEIX submission
+## Important safety posture
 
-1. Create/sync one real future Bolt ride with Filippos and a mapped vehicle.
-2. Confirm `/ops/future-test.php` detects a real future candidate.
-3. Confirm `/bolt_edxeix_preflight.php?limit=30` shows a valid payload.
-4. Apply the final explicitly approved live HTTP transport patch.
-5. Enable live flags only for the approved one-shot test, then disable again after audit.
+Do not enable live EDXEIX submission unless Andreas explicitly asks for the final approved live-submit update.
 
-## Known safe first-test mappings
+Historical, finished, cancelled, terminal, LAB/test, invalid, or past Bolt rows must never be submitted to EDXEIX.
 
-Driver:
+Real secrets/config/session files remain server-only and must not be committed.
 
-- Filippos Giannakopoulos → EDXEIX driver ID `17585`
+## Key pages
 
-Vehicles:
+```text
+https://gov.cabnet.app/ops/
+https://gov.cabnet.app/ops/readiness.php
+https://gov.cabnet.app/ops/future-test.php
+https://gov.cabnet.app/ops/mappings.php
+https://gov.cabnet.app/ops/edxeix-session.php
+https://gov.cabnet.app/ops/live-submit.php
+```
 
-- EMX6874 → EDXEIX vehicle ID `13799`
-- EHA2545 → EDXEIX vehicle ID `5949`
+## Firefox extension
 
-Leave Georgios Zachariou unmapped for now.
+Local extension source:
 
-## Firefox extension workflow
+```text
+tools/firefox-edxeix-session-capture/
+```
+
+Normal refresh workflow:
 
 1. Log in to EDXEIX.
 2. Open `https://edxeix.yme.gov.gr/dashboard/lease-agreement/create`.
 3. Click the CABnet EDXEIX Capture Firefox extension.
 4. Click **Capture from EDXEIX tab**.
 5. Click **Save to gov.cabnet.app**.
-6. Verify `/ops/edxeix-session.php` and `/ops/live-submit.php`.
+6. Confirm `/ops/edxeix-session.php` shows `Session cookie/CSRF ready: yes`.
 
-## Safety rules
+## Latest patch
 
-- Do not enable live submission without explicit approval.
-- Do not submit historical, finished, cancelled, expired, terminal, LAB, or test rows.
-- Do not commit real config, cookies, CSRF tokens, logs, sessions, or runtime files.
-- Keep `/home/cabnet/gov.cabnet.app_config/live_submit.php` server-only.
-- Keep `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json` server-only.
+Added **Clear Saved EDXEIX Session** to `/ops/edxeix-session.php` and a warning when the saved session age is over 180 minutes.
