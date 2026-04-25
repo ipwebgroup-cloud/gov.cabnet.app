@@ -1,32 +1,30 @@
-# Patch: EDXEIX driver reference panel
+# Patch: Real Future Bolt Test Checklist
 
 ## What changed
 
-Adds a reference-only panel to `/ops/mappings.php` listing known EDXEIX driver IDs:
+Adds a guarded read-only operations page:
 
 ```text
-1658  — ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ
-17585 — ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ
-6026  — ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ
+public_html/gov.cabnet.app/ops/future-test.php
 ```
 
-The notes are display-only. They do not automatically map any Bolt driver.
+The page uses the existing readiness audit and displays a focused checklist for the next real Bolt future-ride preflight test.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/mappings.php
-docs/EDXEIX_DRIVER_REFERENCES.md
+public_html/gov.cabnet.app/ops/future-test.php
+docs/REAL_FUTURE_TEST_CHECKLIST.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
-public_html/gov.cabnet.app/ops/mappings.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mappings.php
+public_html/gov.cabnet.app/ops/future-test.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/future-test.php
 ```
 
 ## SQL
@@ -38,16 +36,26 @@ No SQL required.
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mappings.php
-https://gov.cabnet.app/ops/mappings.php?format=json
+https://gov.cabnet.app/ops/future-test.php
+https://gov.cabnet.app/ops/future-test.php?format=json
 ```
 
-Expected:
+Expected before a real future Bolt ride exists:
 
-- The mapping page shows a Known EDXEIX driver references panel.
-- JSON includes `known_edxeix_driver_references`.
-- JSON remains sanitized and excludes `raw_payload_json`.
+```text
+READY TO CREATE REAL FUTURE TEST RIDE
+candidate_count: 0
+live_submission_authorized: false
+```
+
+Expected after a real future Bolt ride exists and passes checks:
+
+```text
+REAL FUTURE CANDIDATE READY FOR PREFLIGHT
+candidate_count >= 1
+live_submission_authorized: false
+```
 
 ## Safety
 
-This patch does not call Bolt, does not call EDXEIX, does not write to the database on GET, does not create jobs, and does not enable live submission.
+This patch does not call Bolt, does not call EDXEIX, does not create jobs, and does not write to the database.

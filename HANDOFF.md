@@ -11,28 +11,33 @@
 
 ## Safety rule
 
-No live EDXEIX submission has been approved. Do not add automatic submission behavior. Work must remain read-only, dry-run, preflight, queue, local-only, or guarded admin mapping updates unless the owner explicitly asks for live submission after a real eligible future Bolt trip exists.
+No live EDXEIX submission has been approved. Do not add automatic submission behavior. Work must remain read-only, dry-run, preflight, queue, local-only, or guarded admin-only unless Andreas explicitly asks for live submission after a real eligible future Bolt trip exists.
 
 ## Current known state
 
 - Bolt API connection works.
 - Bolt reference sync works.
 - Bolt order sync works.
+- Readiness audit and UI are operational.
+- Ops access guard is installed and verified.
 - Dry-run future booking harness was validated end-to-end.
-- LAB/test cleanup tool was validated and readiness returned to a clean state.
-- Ops access guard is installed through `.user.ini` and enabled with server-only config.
-- Readiness reached `READY_FOR_REAL_BOLT_FUTURE_TEST` after cleanup.
-- Mapping dashboard exists at `/ops/mappings.php` and JSON output is sanitized.
-- Current mapping coverage around latest validation: 1/2 drivers mapped, 2/15 vehicles mapped.
-- Guarded mapping editor exists for EDXEIX IDs only, with local audit logging.
-- Known EDXEIX driver reference notes are shown on `/ops/mappings.php`: 1658 ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ, 17585 ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ, 6026 ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ.
-- Georgios Zachariou should remain unmapped for now unless his exact EDXEIX driver ID is independently confirmed.
+- LAB cleanup tool was validated and cleanup returned the system to a clean state.
+- Mapping dashboard is operational and JSON output is sanitized.
+- Mapping editor is guarded and audit-logged.
+- Known EDXEIX driver references are displayed in `/ops/mappings.php`:
+  - `1658` — `ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ`
+  - `17585` — `ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ`
+  - `6026` — `ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ`
+- Georgios Zachariou remains intentionally unmapped until his exact EDXEIX driver ID is independently confirmed.
+- New page: `/ops/future-test.php` shows a read-only checklist for the next real Bolt future-ride preflight.
+- Live EDXEIX submission is still disabled and not authorized.
 
 ## Key files
 
 ```text
 gov.cabnet.app_app/lib/bolt_sync_lib.php
 gov.cabnet.app_app/lib/ops_guard.php
+public_html/gov.cabnet.app/.user.ini
 public_html/gov.cabnet.app/bolt_sync_reference.php
 public_html/gov.cabnet.app/bolt_sync_orders.php
 public_html/gov.cabnet.app/bolt_edxeix_preflight.php
@@ -46,6 +51,7 @@ public_html/gov.cabnet.app/ops/readiness.php
 public_html/gov.cabnet.app/ops/mappings.php
 public_html/gov.cabnet.app/ops/test-booking.php
 public_html/gov.cabnet.app/ops/cleanup-lab.php
+public_html/gov.cabnet.app/ops/future-test.php
 ```
 
 ## Do not commit
@@ -53,6 +59,7 @@ public_html/gov.cabnet.app/ops/cleanup-lab.php
 - Real `gov.cabnet.app_config/config.php`
 - Real `gov.cabnet.app_config/bolt.php`
 - Real `gov.cabnet.app_config/database.php`
+- Real `gov.cabnet.app_config/app.php`
 - Real `gov.cabnet.app_config/edxeix.php`
 - Real `gov.cabnet.app_config/ops.php`
 - EDXEIX session files/cookies/CSRF tokens
@@ -62,9 +69,8 @@ public_html/gov.cabnet.app/ops/cleanup-lab.php
 
 ## Recommended next work
 
-1. Confirm `mapping_update_audit` exists if using the mapping editor.
-2. Use `/ops/mappings.php?view=unmapped` to fill only independently confirmed missing EDXEIX IDs.
-3. Keep Georgios Zachariou unmapped until his exact EDXEIX driver ID is confirmed.
-4. Recheck `/ops/readiness.php`.
-5. When mapping coverage is good enough, schedule a real Bolt ride 40–60 minutes in the future for the first true preflight candidate.
-6. Only after successful preflight, design a separately gated live-submit patch.
+1. Verify `/ops/future-test.php` and `/ops/future-test.php?format=json`.
+2. Keep Georgios Zachariou unmapped until his EDXEIX driver ID is confirmed.
+3. Confirm EDXEIX vehicle IDs only for vehicles intended for real testing.
+4. When possible, create a real Bolt ride 40–60 minutes in the future using Filippos and a mapped vehicle.
+5. Use preflight-only validation first. Do not enable live EDXEIX submission without explicit approval.
