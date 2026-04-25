@@ -1,18 +1,65 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-Current baseline: production-prep is safe and live submission remains blocked.
+## Current state
 
-Latest patch fixes EDXEIX placeholder session detection. Copied example/template values in `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json` must not count as a real EDXEIX browser session.
+The bridge is in safe preproduction mode. Live EDXEIX HTTP submission is still blocked.
 
-Expected current state until real EDXEIX values are added:
+Installed guarded ops tools include:
 
-- `/ops/edxeix-session.php`: session file exists and JSON valid, but placeholder values detected and session readiness is false.
-- `/ops/live-submit.php`: no real future candidate, no selected booking, live HTTP transport blocked.
-- live submission remains disabled and unauthorized.
+- `/ops/` guided console
+- `/ops/readiness.php`
+- `/ops/future-test.php`
+- `/ops/mappings.php`
+- `/ops/jobs.php`
+- `/ops/live-submit.php`
+- `/ops/edxeix-session.php`
+- `/ops/help.php`
 
-Remaining prerequisites for final live phase:
+## Latest change
 
-1. Real future Bolt candidate using Filippos + mapped vehicle.
-2. Real server-side EDXEIX session cookie/CSRF values.
-3. Exact EDXEIX submit URL configured in server-only `live_submit.php`.
-4. Final HTTP transport patch after explicit Andreas approval.
+`/ops/edxeix-session.php` now includes a guarded web form for authorized operators to save:
+
+- EDXEIX submit URL,
+- EDXEIX Cookie request header,
+- EDXEIX CSRF token.
+
+The form writes only to server-only files and never displays secret values back.
+
+Server-only files:
+
+```text
+/home/cabnet/gov.cabnet.app_config/live_submit.php
+/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json
+```
+
+The form forces:
+
+```text
+live_submit_enabled = false
+http_submit_enabled = false
+```
+
+So this does not enable live submission.
+
+## Current blockers before real live EDXEIX submission
+
+1. A real future Bolt candidate must exist.
+2. EDXEIX session values must be real, not placeholders.
+3. EDXEIX submit URL must be configured.
+4. Final HTTP transport patch must be approved and installed.
+5. Live flags must be enabled only for the approved one-shot test.
+
+## Known first test mappings
+
+```text
+Filippos Giannakopoulos → EDXEIX driver 17585
+EMX6874 → EDXEIX vehicle 13799
+EHA2545 → EDXEIX vehicle 5949
+```
+
+Leave Georgios Zachariou unmapped for now.
+
+## Safety rules
+
+Do not submit LAB/test rows, historical trips, cancelled trips, finished trips, terminal trips, invalid trips, or past trips to EDXEIX.
+Do not expose cookies, CSRF tokens, API keys, DB passwords, or sessions in chat, screenshots, GitHub, or email.
