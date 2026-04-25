@@ -1,74 +1,70 @@
-# Patch: Guided Ops Dashboard and Novice Help
+# Patch: Disabled Live EDXEIX Submit Gate
 
-## What changed
+## Purpose
 
-This patch refines the guarded operations GUI for novice operators.
+Prepare the final live EDXEIX submission control path while keeping live HTTP submission blocked.
 
-It updates:
-
-```text
-public_html/gov.cabnet.app/ops/index.php
-public_html/gov.cabnet.app/ops/future-test.php
-```
-
-It adds:
+## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/help.php
-docs/NOVICE_OPERATOR_GUIDE.md
-```
-
-## Safety posture
-
-This patch is read-only.
-
-It does not:
-
-- call Bolt
-- call EDXEIX
-- write to the database
-- create queue jobs
-- update mappings
-- enable live submission
-
-## Upload paths
-
-```text
-public_html/gov.cabnet.app/ops/index.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/index.php
-
-public_html/gov.cabnet.app/ops/future-test.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/future-test.php
-
-public_html/gov.cabnet.app/ops/help.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/help.php
-```
-
-Commit docs/root files to GitHub:
-
-```text
-docs/NOVICE_OPERATOR_GUIDE.md
+.gitignore
+gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+public_html/gov.cabnet.app/ops/live-submit.php
+gov.cabnet.app_config_examples/live_submit.example.php
+gov.cabnet.app_sql/2026_04_25_live_submission_audit.sql
+docs/LIVE_EDXEIX_SUBMIT_GATE.md
+docs/PRODUCTION_BY_FIRST_CHECKLIST.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## SQL
-
-No SQL required.
-
-## Verification URLs
+## Upload paths
 
 ```text
-https://gov.cabnet.app/ops/index.php
-https://gov.cabnet.app/ops/help.php
-https://gov.cabnet.app/ops/future-test.php
-https://gov.cabnet.app/ops/future-test.php?format=json
+gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+→ /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+
+public_html/gov.cabnet.app/ops/live-submit.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/live-submit.php
+
+gov.cabnet.app_config_examples/live_submit.example.php
+→ /home/cabnet/gov.cabnet.app_config_examples/live_submit.example.php
+
+gov.cabnet.app_sql/2026_04_25_live_submission_audit.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_04_25_live_submission_audit.sql
 ```
 
-## Expected result
+## SQL to run
 
-- `/ops/index.php` shows a 1–6 guided workflow.
-- `/ops/help.php` explains the workflow, glossary, blockers, and safety rules.
-- `/ops/future-test.php` shows a visual progress rail and novice-friendly next steps.
-- Live submission remains disabled.
+```bash
+mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_04_25_live_submission_audit.sql
+```
+
+## Optional server config copy
+
+```bash
+cp /home/cabnet/gov.cabnet.app_config_examples/live_submit.example.php /home/cabnet/gov.cabnet.app_config/live_submit.php
+chown cabnet:cabnet /home/cabnet/gov.cabnet.app_config/live_submit.php
+chmod 640 /home/cabnet/gov.cabnet.app_config/live_submit.php
+```
+
+Do not commit `/home/cabnet/gov.cabnet.app_config/live_submit.php`.
+
+## Verification
+
+```text
+https://gov.cabnet.app/ops/live-submit.php
+https://gov.cabnet.app/ops/live-submit.php?format=json
+```
+
+Expected:
+
+- config live disabled
+- HTTP config disabled
+- live HTTP transport blocked
+- no EDXEIX HTTP request performed
+
+## Safety
+
+This patch does not call Bolt, does not call EDXEIX, and does not enable live submission.
