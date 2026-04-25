@@ -1,20 +1,10 @@
-# Patch: Real Future Bolt Test Checklist
-
-## What changed
-
-Adds a guarded read-only operations page:
-
-```text
-public_html/gov.cabnet.app/ops/future-test.php
-```
-
-The page uses the existing readiness audit and displays a focused checklist for the next real Bolt future-ride preflight test.
+# Patch: Replace legacy ops index with safe landing page
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/future-test.php
-docs/REAL_FUTURE_TEST_CHECKLIST.md
+public_html/gov.cabnet.app/ops/index.php
+docs/SAFE_OPS_INDEX.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -23,39 +13,29 @@ PATCH_README.md
 ## Upload path
 
 ```text
-public_html/gov.cabnet.app/ops/future-test.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/future-test.php
+public_html/gov.cabnet.app/ops/index.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/index.php
 ```
 
 ## SQL
 
 No SQL required.
 
-## Verification
+## Verify
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/future-test.php
-https://gov.cabnet.app/ops/future-test.php?format=json
+https://gov.cabnet.app/ops/index.php
 ```
 
-Expected before a real future Bolt ride exists:
+Expected:
 
-```text
-READY TO CREATE REAL FUTURE TEST RIDE
-candidate_count: 0
-live_submission_authorized: false
-```
-
-Expected after a real future Bolt ride exists and passes checks:
-
-```text
-REAL FUTURE CANDIDATE READY FOR PREFLIGHT
-candidate_count >= 1
-live_submission_authorized: false
-```
+- read-only Operations Console landing page loads
+- current safe workflow tools are linked
+- no POST forms are present
+- no manual booking/session/queue actions are present
 
 ## Safety
 
-This patch does not call Bolt, does not call EDXEIX, does not create jobs, and does not write to the database.
+No Bolt request, EDXEIX request, database write, queue creation, or live submission behavior is introduced.

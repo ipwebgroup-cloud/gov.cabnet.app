@@ -11,56 +11,56 @@
 
 ## Safety rule
 
-No live EDXEIX submission has been approved. Do not add automatic submission behavior. Work must remain read-only, dry-run, preflight, queue, local-only, or guarded admin-only unless Andreas explicitly asks for live submission after a real eligible future Bolt trip exists.
+No live EDXEIX submission has been approved. Do not add automatic submission behavior. Work must remain read-only, dry-run, preflight, queue visibility, or local-only unless Andreas explicitly asks for a live-submit patch after a real eligible future Bolt trip exists and preflight passes.
 
 ## Current known state
 
 - Bolt API connection works.
 - Bolt reference sync works.
 - Bolt order sync works.
-- Readiness audit and UI are operational.
-- Ops access guard is installed and verified.
+- Ops access guard is active through `.user.ini` and `/home/cabnet/gov.cabnet.app_config/ops.php`.
+- Readiness currently reached `READY_FOR_REAL_BOLT_FUTURE_TEST` after LAB cleanup.
 - Dry-run future booking harness was validated end-to-end.
-- LAB cleanup tool was validated and cleanup returned the system to a clean state.
-- Mapping dashboard is operational and JSON output is sanitized.
-- Mapping editor is guarded and audit-logged.
-- Known EDXEIX driver references are displayed in `/ops/mappings.php`:
-  - `1658` — `ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ`
-  - `17585` — `ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ`
-  - `6026` — `ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ`
-- Georgios Zachariou remains intentionally unmapped until his exact EDXEIX driver ID is independently confirmed.
-- New page: `/ops/future-test.php` shows a read-only checklist for the next real Bolt future-ride preflight.
-- Live EDXEIX submission is still disabled and not authorized.
+- LAB cleanup tool was validated and removed local test rows/jobs/attempts.
+- Mapping dashboard/editor exists at `/ops/mappings.php`.
+- Mapping JSON output is sanitized and excludes `raw_payload_json`.
+- Known EDXEIX driver references are displayed as reference-only notes.
+- Real future-test checklist exists at `/ops/future-test.php`.
+- Legacy `/ops/index.php` has now been replaced by a safe read-only operations landing page.
+- Live EDXEIX submission remains disabled and intentionally unimplemented.
 
-## Key files
+## Key current ops routes
 
 ```text
-gov.cabnet.app_app/lib/bolt_sync_lib.php
-gov.cabnet.app_app/lib/ops_guard.php
-public_html/gov.cabnet.app/.user.ini
-public_html/gov.cabnet.app/bolt_sync_reference.php
-public_html/gov.cabnet.app/bolt_sync_orders.php
-public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
-public_html/gov.cabnet.app/bolt_jobs_queue.php
-public_html/gov.cabnet.app/bolt_readiness_audit.php
-public_html/gov.cabnet.app/bolt_submission_worker.php
-public_html/gov.cabnet.app/ops/bolt-live.php
-public_html/gov.cabnet.app/ops/jobs.php
-public_html/gov.cabnet.app/ops/readiness.php
-public_html/gov.cabnet.app/ops/mappings.php
-public_html/gov.cabnet.app/ops/test-booking.php
-public_html/gov.cabnet.app/ops/cleanup-lab.php
-public_html/gov.cabnet.app/ops/future-test.php
+/ops/index.php
+/ops/readiness.php
+/ops/future-test.php
+/ops/mappings.php
+/ops/jobs.php
+/ops/bolt-live.php
+/ops/test-booking.php
+/ops/cleanup-lab.php
+/bolt_readiness_audit.php
+/bolt_edxeix_preflight.php?limit=30
+/bolt_jobs_queue.php?limit=50
 ```
+
+## Mapping notes
+
+Known EDXEIX driver IDs from the current dropdown:
+
+```text
+1658  — ΒΙΔΑΚΗΣ ΝΙΚΟΛΑΟΣ
+17585 — ΓΙΑΝΝΑΚΟΠΟΥΛΟΣ ΦΙΛΙΠΠΟΣ
+6026  — ΜΑΝΟΥΣΕΛΗΣ ΙΩΣΗΦ
+```
+
+Current operational decision: leave Georgios Zachariou unmapped unless his exact EDXEIX driver ID is independently confirmed.
 
 ## Do not commit
 
 - Real `gov.cabnet.app_config/config.php`
 - Real `gov.cabnet.app_config/bolt.php`
-- Real `gov.cabnet.app_config/database.php`
-- Real `gov.cabnet.app_config/app.php`
-- Real `gov.cabnet.app_config/edxeix.php`
 - Real `gov.cabnet.app_config/ops.php`
 - EDXEIX session files/cookies/CSRF tokens
 - Raw SQL data dumps
@@ -69,8 +69,7 @@ public_html/gov.cabnet.app/ops/future-test.php
 
 ## Recommended next work
 
-1. Verify `/ops/future-test.php` and `/ops/future-test.php?format=json`.
-2. Keep Georgios Zachariou unmapped until his EDXEIX driver ID is confirmed.
-3. Confirm EDXEIX vehicle IDs only for vehicles intended for real testing.
-4. When possible, create a real Bolt ride 40–60 minutes in the future using Filippos and a mapped vehicle.
-5. Use preflight-only validation first. Do not enable live EDXEIX submission without explicit approval.
+1. Verify `/ops/index.php` now shows the safe landing page only.
+2. Wait for a real Bolt ride scheduled at least 40–60 minutes in the future using a mapped driver and mapped vehicle.
+3. Run `/bolt_sync_orders.php`, then `/ops/future-test.php`, then `/bolt_edxeix_preflight.php?limit=30`.
+4. Do not enable live EDXEIX submission until explicitly requested.
