@@ -15,7 +15,7 @@ Source-of-truth order:
 Current validated state:
 - Ops access guard is active.
 - `/ops/index.php` is a safe guided operations dashboard.
-- `/ops/help.php` is a novice help page and now includes EDXEIX session preparation steps.
+- `/ops/help.php` is a novice help page and includes EDXEIX session preparation steps.
 - `/ops/readiness.php` and `/ops/future-test.php` are the main readiness checks.
 - `/ops/mappings.php` contains the mapping dashboard/editor.
 - `/ops/live-submit.php` is a disabled live-submit gate; live HTTP transport is still blocked.
@@ -23,26 +23,26 @@ Current validated state:
 - `edxeix_live_submission_audit` table exists.
 - Live EDXEIX submission is disabled and unauthorized.
 
+Latest patch delivered:
+- Placeholder detection for EDXEIX runtime session values.
+- Updated `/ops/edxeix-session.php`.
+- Updated `gov.cabnet.app_app/lib/edxeix_live_submit_gate.php`.
+- If the copied template exists at `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json`, the system should report placeholder/example values detected and session ready = no.
+
+Real server-only files must remain ignored and uncommitted:
+- `/home/cabnet/gov.cabnet.app_config/live_submit.php`
+- `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json`
+
 Known mappings:
 - Filippos Giannakopoulos → EDXEIX driver ID 17585.
 - EMX6874 → EDXEIX vehicle ID 13799.
 - EHA2545 → EDXEIX vehicle ID 5949.
 - Georgios Zachariou must remain unmapped for now.
 
-Latest patch delivered:
-- Added EDXEIX session capture templates and updated help/docs.
-- Tracked templates:
-  - `gov.cabnet.app_config_examples/edxeix_session.example.json`
-  - `gov.cabnet.app_app/storage/runtime/edxeix_session.example`
-  - `gov.cabnet.app_config_examples/live_submit.example.php`
-- Real server-only files must remain ignored and uncommitted:
-  - `/home/cabnet/gov.cabnet.app_config/live_submit.php`
-  - `/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json`
-
 Next safest steps:
-1. Verify `/ops/help.php` and `/ops/edxeix-session.php` after upload.
-2. If Andreas is ready to prepare EDXEIX session values, guide him to create only the server-side `edxeix_session.json` and set the exact `edxeix_submit_url` in server-only `live_submit.php`.
-3. Never request that real cookies/CSRF tokens be pasted into chat. Only instruct how to store them on the server.
+1. Verify `/ops/edxeix-session.php` after upload.
+2. Confirm placeholders are no longer counted as a ready session.
+3. When Andreas is ready, guide him to enter real EDXEIX cookie/CSRF values only into the server-side `edxeix_session.json`; never ask him to paste secrets into chat.
 4. Keep `live_submit_enabled` and `http_submit_enabled` false.
 5. Do not build or enable final HTTP live transport until a real future Bolt candidate exists and Andreas explicitly approves.
 

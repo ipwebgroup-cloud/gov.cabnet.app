@@ -18,15 +18,38 @@ Expected cPanel layout:
 ## Current state
 
 - Ops access guard is active.
-- Safe operations landing page is installed at `/ops/index.php`.
-- Novice operator help page is installed at `/ops/help.php`.
-- Future-test checklist is installed at `/ops/future-test.php`.
-- Mapping dashboard/editor is installed at `/ops/mappings.php`.
-- Live-submit gate is installed at `/ops/live-submit.php`, but live HTTP transport is still blocked.
-- EDXEIX session readiness helper is installed at `/ops/edxeix-session.php`.
-- EDXEIX session capture templates are now included.
-- LAB dry-run data was cleaned.
-- Live EDXEIX submission is still disabled and unauthorized.
+- `/ops/index.php` is a safe guided operations dashboard.
+- `/ops/help.php` is a novice help page and includes EDXEIX session preparation steps.
+- `/ops/readiness.php` and `/ops/future-test.php` are the main readiness checks.
+- `/ops/mappings.php` contains the mapping dashboard/editor.
+- `/ops/live-submit.php` is a disabled live-submit gate; live HTTP transport is still blocked.
+- `/ops/edxeix-session.php` checks EDXEIX session and submit URL readiness without printing secrets.
+- `edxeix_live_submission_audit` table exists.
+- Live EDXEIX submission is disabled and unauthorized.
+
+## Latest patch state
+
+Patch name: `gov_edxeix_placeholder_session_detection_patch_rooted.zip`
+
+Purpose:
+
+- prevent copied example/template EDXEIX session values from being counted as ready,
+- update `/ops/edxeix-session.php` with placeholder detection,
+- update `edxeix_live_submit_gate.php` so the live-submit gate also treats placeholders as not ready,
+- keep all real session data server-only and never displayed.
+
+Expected current status if the template was copied to the runtime file:
+
+```text
+Session file exists: yes
+JSON valid: yes
+Cookie header present: yes
+CSRF token present: yes
+Placeholder/example values: detected
+Session cookie/CSRF ready: no
+```
+
+That is correct until real EDXEIX browser/session values are entered server-side.
 
 ## Current known mappings
 
@@ -53,84 +76,16 @@ Known EDXEIX reference-only driver IDs:
 
 Do not map Georgios Zachariou until his exact EDXEIX driver ID is independently confirmed.
 
-## Latest patch state
-
-Patch name: `gov_edxeix_session_capture_prep_patch_rooted.zip`
-
-Purpose:
-
-- add EDXEIX session JSON templates,
-- update live submit config example,
-- update `/ops/help.php` with session/submit URL preparation steps,
-- document production secrets rules,
-- keep all real credentials and session values server-only.
-
-Files changed/added:
+## Remaining blockers before actual live EDXEIX submission
 
 ```text
-public_html/gov.cabnet.app/ops/help.php
-gov.cabnet.app_config_examples/edxeix_session.example.json
-gov.cabnet.app_config_examples/live_submit.example.php
-gov.cabnet.app_app/storage/runtime/edxeix_session.example
-docs/EDXEIX_SESSION_CAPTURE_TEMPLATE.md
-docs/EDXEIX_PRODUCTION_SECRETS_RULES.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
+1. Real future Bolt candidate using Filippos + mapped vehicle.
+2. Real server-side EDXEIX cookie/CSRF session values, not placeholders.
+3. Exact EDXEIX submit URL configured server-side.
+4. Final HTTP transport patch, explicitly approved by Andreas.
+5. One-shot live config enablement only after preflight/dry-run validation.
 ```
 
-## Real server-only session/config files
+## Safety
 
-The real files must remain ignored and must not be committed:
-
-```text
-/home/cabnet/gov.cabnet.app_config/live_submit.php
-/home/cabnet/gov.cabnet.app_app/storage/runtime/edxeix_session.json
-```
-
-The current `.gitignore` ignores:
-
-```text
-/gov.cabnet.app_config/live_submit.php
-/gov.cabnet.app_app/storage/runtime/*
-```
-
-and allows the tracked `.example` runtime template.
-
-## Verification URLs
-
-```text
-https://gov.cabnet.app/ops/
-https://gov.cabnet.app/ops/help.php
-https://gov.cabnet.app/ops/readiness.php
-https://gov.cabnet.app/ops/future-test.php
-https://gov.cabnet.app/ops/mappings.php
-https://gov.cabnet.app/ops/live-submit.php
-https://gov.cabnet.app/ops/edxeix-session.php
-https://gov.cabnet.app/ops/edxeix-session.php?format=json
-```
-
-Expected current EDXEIX session status until values are prepared:
-
-```text
-live_submit.php exists: yes
-session cookie/CSRF ready: no
-submit URL configured: no
-calls_edxeix: false
-prints_secrets: false
-```
-
-## Remaining blockers before final live EDXEIX submit
-
-1. A real future Bolt candidate must exist.
-2. Filippos must be available for the real future Bolt test.
-3. The test must use Filippos and mapped vehicle `EMX6874` or `EHA2545`.
-4. The EDXEIX submit URL must be configured server-side.
-5. The EDXEIX session file must contain valid server-only `cookie_header` and `csrf_token` values.
-6. Preflight and dry-run path must pass.
-7. Final HTTP live transport patch must be separately prepared and explicitly approved.
-8. `live_submit_enabled` and `http_submit_enabled` must remain false until the approved one-shot test.
-
-## Safety boundary
-
-Do not enable live EDXEIX submission unless Andreas explicitly asks for the final live-submit update and a real eligible future Bolt trip exists. Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted.
+Do not ask for or expose real cookies, CSRF tokens, API keys, DB passwords, or session files. Real config/session files stay server-only and ignored by Git.
