@@ -1,68 +1,74 @@
-# Patch README — Final Handoff / Continue Prompt Refresh
+# Patch: Guided Ops Dashboard and Novice Help
 
-## Purpose
+## What changed
 
-Updates project continuity files so the next chat starts from the current validated baseline.
+This patch refines the guarded operations GUI for novice operators.
 
-## Files included
+It updates:
 
 ```text
+public_html/gov.cabnet.app/ops/index.php
+public_html/gov.cabnet.app/ops/future-test.php
+```
+
+It adds:
+
+```text
+public_html/gov.cabnet.app/ops/help.php
+docs/NOVICE_OPERATOR_GUIDE.md
+```
+
+## Safety posture
+
+This patch is read-only.
+
+It does not:
+
+- call Bolt
+- call EDXEIX
+- write to the database
+- create queue jobs
+- update mappings
+- enable live submission
+
+## Upload paths
+
+```text
+public_html/gov.cabnet.app/ops/index.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/index.php
+
+public_html/gov.cabnet.app/ops/future-test.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/future-test.php
+
+public_html/gov.cabnet.app/ops/help.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/help.php
+```
+
+Commit docs/root files to GitHub:
+
+```text
+docs/NOVICE_OPERATOR_GUIDE.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
-```
-
-## Upload / commit paths
-
-Commit these files at the repository root:
-
-```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
-
-Optional server copy if maintaining docs on the cPanel account root:
-
-```text
-HANDOFF.md → /home/cabnet/HANDOFF.md
-CONTINUE_PROMPT.md → /home/cabnet/CONTINUE_PROMPT.md
-PATCH_README.md → /home/cabnet/PATCH_README.md
 ```
 
 ## SQL
 
 No SQL required.
 
-## Verification
-
-After committing, open the files in GitHub and confirm they mention:
+## Verification URLs
 
 ```text
-READY_FOR_REAL_BOLT_FUTURE_TEST
-READY TO CREATE REAL FUTURE TEST RIDE
-real future candidates: 0
-live submission disabled
-Filippos mapped to EDXEIX 17585
-EMX6874 mapped to 13799
-EHA2545 mapped to 5949
-Georgios Zachariou left unmapped for now
-ops access guard active
-legacy /ops/index.php replaced by safe landing page
+https://gov.cabnet.app/ops/index.php
+https://gov.cabnet.app/ops/help.php
+https://gov.cabnet.app/ops/future-test.php
+https://gov.cabnet.app/ops/future-test.php?format=json
 ```
 
-## Git commit title
+## Expected result
 
-```text
-Refresh handoff for current Bolt EDXEIX baseline
-```
-
-## Git commit description
-
-```text
-Updates HANDOFF.md and CONTINUE_PROMPT.md with the current validated gov.cabnet.app Bolt → EDXEIX bridge baseline.
-
-The refreshed continuity files document the clean readiness state, guarded operations pages, dry-run/LAB cleanup validation, access guard status, mapping dashboard/editor state, known EDXEIX driver references, current driver/vehicle mappings, and the remaining blocker that a real future Bolt ride cannot yet be created because Filippos must be available for the test.
-
-Live EDXEIX submission remains disabled and unauthorized.
-```
+- `/ops/index.php` shows a 1–6 guided workflow.
+- `/ops/help.php` explains the workflow, glossary, blockers, and safety rules.
+- `/ops/future-test.php` shows a visual progress rail and novice-friendly next steps.
+- Live submission remains disabled.
