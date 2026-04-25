@@ -5,7 +5,7 @@
  * Read-only diagnostic endpoint.
  * - Does not call EDXEIX.
  * - Does not create submission jobs.
- * - Separates mapping readiness from live submission safety.
+ * - Separates mapping/readiness from LAB/test/live submission safety.
  */
 
 declare(strict_types=1);
@@ -20,6 +20,14 @@ function gov_preflight_value(array $row, array $keys, $default = '')
         }
     }
     return $default;
+}
+
+function gov_preflight_boolish($value): bool
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+    return in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
 }
 
 function gov_preflight_terminal_status(string $status): bool
@@ -49,6 +57,28 @@ function gov_preflight_terminal_status(string $status): bool
     return strpos($status, 'cancel') !== false || strpos($status, 'finished') !== false || strpos($status, 'complete') !== false;
 }
 
+function gov_preflight_order_reference(array $booking): string
+{
+    return (string)gov_preflight_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference', 'source_trip_id'], '');
+}
+
+function gov_preflight_is_lab_row(array $booking): bool
+{
+    $source = strtolower((string)gov_preflight_value($booking, ['source_system', 'source_type', 'source'], ''));
+    $ref = strtoupper(gov_preflight_order_reference($booking));
+    return strpos($source, 'lab') !== false || strpos($ref, 'LAB-') === 0;
+}
+
+function gov_preflight_is_test_booking(array $booking): bool
+{
+    return gov_preflight_boolish($booking['is_test_booking'] ?? false);
+}
+
+function gov_preflight_never_submit_live(array $booking): bool
+{
+    return gov_preflight_boolish($booking['never_submit_live'] ?? false) || gov_preflight_is_test_booking($booking);
+}
+
 function gov_preflight_analyze_row(mysqli $db, array $booking): array
 {
     $preview = gov_build_edxeix_preview_payload($db, $booking);
@@ -57,35 +87,48 @@ function gov_preflight_analyze_row(mysqli $db, array $booking): array
     $status = (string)gov_preflight_value($booking, ['order_status', 'status'], '');
     $startedAt = (string)gov_preflight_value($booking, ['started_at'], '');
     $endedAt = (string)gov_preflight_value($booking, ['ended_at'], '');
-    $orderRef = (string)gov_preflight_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference'], '');
+    $orderRef = gov_preflight_order_reference($booking);
 
     $driverMapped = !empty($mapping['driver_mapped']);
     $vehicleMapped = !empty($mapping['vehicle_mapped']);
     $futureGuard = !empty($mapping['passes_future_guard']);
     $terminal = gov_preflight_terminal_status($status);
+    $labRow = gov_preflight_is_lab_row($booking);
+    $testBooking = gov_preflight_is_test_booking($booking);
+    $neverSubmitLive = gov_preflight_never_submit_live($booking);
 
-    $blockers = [];
+    $technicalBlockers = [];
     if (!$driverMapped) {
-        $blockers[] = 'driver_not_mapped';
+        $technicalBlockers[] = 'driver_not_mapped';
     }
     if (!$vehicleMapped) {
-        $blockers[] = 'vehicle_not_mapped';
+        $technicalBlockers[] = 'vehicle_not_mapped';
     }
     if (!$startedAt) {
-        $blockers[] = 'missing_started_at';
+        $technicalBlockers[] = 'missing_started_at';
     } elseif (!$futureGuard) {
-        $blockers[] = 'started_at_not_30_min_future';
+        $technicalBlockers[] = 'started_at_not_30_min_future';
     }
     if ($terminal) {
-        $blockers[] = 'terminal_order_status';
+        $technicalBlockers[] = 'terminal_order_status';
+    }
+
+    $liveBlockers = $technicalBlockers;
+    if ($labRow) {
+        $liveBlockers[] = 'lab_row_blocked';
+    }
+    if ($neverSubmitLive) {
+        $liveBlockers[] = 'never_submit_live';
     }
 
     $mappingReady = $driverMapped && $vehicleMapped;
-    $submissionSafe = $mappingReady && $futureGuard && !$terminal;
+    $technicalPayloadValid = empty($technicalBlockers);
+    $liveSubmissionAllowed = empty($liveBlockers);
 
     return [
         'id' => $booking['id'] ?? null,
         'order_reference' => $orderRef,
+        'source_system' => gov_preflight_value($booking, ['source_system', 'source_type', 'source'], ''),
         'status' => $status,
         'driver_uuid' => gov_preflight_value($booking, ['driver_external_id', 'external_driver_id'], ''),
         'driver_name' => gov_preflight_value($booking, ['driver_name', 'external_driver_name'], ''),
@@ -101,8 +144,16 @@ function gov_preflight_analyze_row(mysqli $db, array $booking): array
         'mapping_ready' => $mappingReady,
         'future_guard_passed' => $futureGuard,
         'terminal_status' => $terminal,
-        'submission_safe' => $submissionSafe,
-        'blockers' => $blockers,
+        'is_lab_row' => $labRow,
+        'is_test_booking' => $testBooking,
+        'never_submit_live' => $neverSubmitLive,
+        'technical_payload_valid' => $technicalPayloadValid,
+        'dry_run_allowed' => $technicalPayloadValid,
+        'live_submission_allowed' => $liveSubmissionAllowed,
+        'submission_safe' => $liveSubmissionAllowed,
+        'technical_blockers' => $technicalBlockers,
+        'live_blockers' => $liveBlockers,
+        'blockers' => $liveBlockers,
         'edxeix_payload_preview' => $preview,
     ];
 }
@@ -119,15 +170,23 @@ try {
 
     $rows = [];
     $mappingReadyCount = 0;
-    $submissionSafeCount = 0;
+    $technicalValidCount = 0;
+    $liveAllowedCount = 0;
+    $labOrTestCount = 0;
     foreach ($bookings as $booking) {
         $row = gov_preflight_analyze_row($db, $booking);
         $rows[] = $row;
         if ($row['mapping_ready']) {
             $mappingReadyCount++;
         }
-        if ($row['submission_safe']) {
-            $submissionSafeCount++;
+        if ($row['technical_payload_valid']) {
+            $technicalValidCount++;
+        }
+        if ($row['live_submission_allowed']) {
+            $liveAllowedCount++;
+        }
+        if ($row['is_lab_row'] || $row['is_test_booking'] || $row['never_submit_live']) {
+            $labOrTestCount++;
         }
     }
 
@@ -139,11 +198,14 @@ try {
         'summary' => [
             'rows_checked' => count($rows),
             'mapping_ready' => $mappingReadyCount,
-            'submission_safe' => $submissionSafeCount,
-            'blocked' => count($rows) - $submissionSafeCount,
+            'technical_payload_valid' => $technicalValidCount,
+            'lab_or_test_rows' => $labOrTestCount,
+            'live_submission_allowed' => $liveAllowedCount,
+            'submission_safe' => $liveAllowedCount,
+            'blocked_from_live' => count($rows) - $liveAllowedCount,
         ],
         'rows' => $rows,
-        'note' => 'Read-only preflight. No EDXEIX submission was performed. A row is submission_safe only when mappings exist, status is not terminal, and started_at is at least the configured future guard window away.',
+        'note' => 'Read-only preflight. technical_payload_valid means the payload shape/mapping/time checks pass. live_submission_allowed is false for LAB/test/never_submit_live rows. No EDXEIX submission was performed.',
     ]);
 } catch (Throwable $e) {
     gov_bridge_json_response([

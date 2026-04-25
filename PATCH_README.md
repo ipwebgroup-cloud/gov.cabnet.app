@@ -1,81 +1,77 @@
-# gov.cabnet.app — Dry-Run Future Booking Harness Patch
+# Patch: LAB/Test Safety Output Clarification
 
 ## What changed
 
-This patch adds a safe local-only future booking simulator for the Bolt → EDXEIX bridge. It lets the internal preflight, queue staging, worker dry-run audit, and readiness workflow be tested without a real future Bolt ride.
+This patch clarifies the output of the Bolt → EDXEIX dry-run/preflight flow so LAB/test bookings no longer appear live-safe just because their payload is technically valid.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/src/TestBookingFactory.php
-public_html/gov.cabnet.app/ops/test-booking.php
-gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql
-docs/DRY_RUN_TEST_BOOKING_HARNESS.md
+public_html/gov.cabnet.app/bolt_edxeix_preflight.php
+public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
+public_html/gov.cabnet.app/bolt_submission_worker.php
+gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
+docs/LAB_TEST_SAFETY_OUTPUT.md
 HANDOFF.md
 CONTINUE_PROMPT.md
-PATCH_README.md
 ```
 
 ## Upload paths
 
 ```text
-gov.cabnet.app_app/src/TestBookingFactory.php
-→ /home/cabnet/gov.cabnet.app_app/src/TestBookingFactory.php
+public_html/gov.cabnet.app/bolt_edxeix_preflight.php
+→ /home/cabnet/public_html/gov.cabnet.app/bolt_edxeix_preflight.php
 
-public_html/gov.cabnet.app/ops/test-booking.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/test-booking.php
+public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
+→ /home/cabnet/public_html/gov.cabnet.app/bolt_stage_edxeix_jobs.php
 
-gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql
-```
+public_html/gov.cabnet.app/bolt_submission_worker.php
+→ /home/cabnet/public_html/gov.cabnet.app/bolt_submission_worker.php
 
-For GitHub commit, also include:
+gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
 
-```text
-docs/DRY_RUN_TEST_BOOKING_HARNESS.md
+docs/LAB_TEST_SAFETY_OUTPUT.md
+→ docs/LAB_TEST_SAFETY_OUTPUT.md in GitHub
+
 HANDOFF.md
+→ HANDOFF.md in GitHub
+
 CONTINUE_PROMPT.md
-PATCH_README.md
+→ CONTINUE_PROMPT.md in GitHub
 ```
 
-## SQL to run
+## Optional SQL
 
-Run once in phpMyAdmin or MySQL CLI:
+Run this only if you want the existing local LAB attempt row to be classified as dry-run in readiness:
 
-```sql
-source /home/cabnet/gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql;
+```bash
+mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
 ```
 
-## Verification URLs
+The SQL updates only attempts linked to LAB/test/never-live normalized bookings.
+
+## Verify
 
 ```text
-https://gov.cabnet.app/ops/test-booking.php
 https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30
 https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30
 https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&allow_lab=1
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&create=1&allow_lab=1
 https://gov.cabnet.app/bolt_submission_worker.php?limit=30&allow_lab=1
 https://gov.cabnet.app/bolt_submission_worker.php?limit=30&record=1&allow_lab=1
+https://gov.cabnet.app/ops/jobs.php
 https://gov.cabnet.app/ops/readiness.php
 ```
 
 ## Expected result
 
-- `/ops/test-booking.php` previews one future LAB/local booking using an existing mapped driver and vehicle.
-- Creating the row inserts one synthetic record into `normalized_bookings` only.
-- Normal staging without `allow_lab=1` blocks the LAB row.
-- Staging with `allow_lab=1` can create a local `submission_jobs` record only.
-- The worker records local dry-run audit attempts only.
-- No EDXEIX HTTP request is performed.
-
-## Git commit title
+LAB/test rows should show:
 
 ```text
-Add dry-run future booking simulation harness
+technical_payload_valid: true
+dry_run_allowed or dry_run_stage_allowed: true when allow_lab=1
+live_submission_allowed: false
+submission_safe: false
 ```
 
-## Git commit description
-
-```text
-Adds a local-only future booking test harness for the Bolt → EDXEIX bridge. The harness creates synthetic LAB/local normalized bookings using existing mapped driver and vehicle records, adds optional never-submit-live safety flags for normalized bookings, documents the dry-run verification flow, and keeps live EDXEIX submission disabled.
-```
+The worker should still state that no EDXEIX submission was performed.

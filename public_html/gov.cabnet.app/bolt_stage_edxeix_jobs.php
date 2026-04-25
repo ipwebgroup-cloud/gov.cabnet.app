@@ -7,13 +7,14 @@
  * - Does NOT post a form.
  * - Default mode is dry-run only.
  * - create=1 only stages local records in submission_jobs.
- * - LAB rows are blocked unless allow_lab=1 is explicitly passed.
+ * - LAB/test/never-live rows are blocked unless allow_lab=1 is explicitly passed.
+ * - LAB/test rows can only be staged as local dry-run jobs and remain blocked for live submission.
  *
  * Usage:
  *   /bolt_stage_edxeix_jobs.php
  *   /bolt_stage_edxeix_jobs.php?limit=30
  *   /bolt_stage_edxeix_jobs.php?create=1
- *   /bolt_stage_edxeix_jobs.php?create=1&allow_lab=1   // lab/dev only
+ *   /bolt_stage_edxeix_jobs.php?create=1&allow_lab=1   // local lab/dev only
  */
 
 declare(strict_types=1);
@@ -28,6 +29,14 @@ function gov_stage_value(array $row, array $keys, $default = '')
         }
     }
     return $default;
+}
+
+function gov_stage_boolish($value): bool
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+    return in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
 }
 
 function gov_stage_terminal_status(string $status): bool
@@ -66,14 +75,24 @@ function gov_stage_booking_id(array $booking): string
 
 function gov_stage_order_reference(array $booking): string
 {
-    return (string)gov_stage_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference'], '');
+    return (string)gov_stage_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference', 'source_trip_id'], '');
 }
 
 function gov_stage_is_lab_row(array $booking): bool
 {
-    $source = strtolower((string)gov_stage_value($booking, ['source_system', 'source_type'], ''));
+    $source = strtolower((string)gov_stage_value($booking, ['source_system', 'source_type', 'source'], ''));
     $ref = strtoupper(gov_stage_order_reference($booking));
     return strpos($source, 'lab') !== false || strpos($ref, 'LAB-') === 0;
+}
+
+function gov_stage_is_test_booking(array $booking): bool
+{
+    return gov_stage_boolish($booking['is_test_booking'] ?? false);
+}
+
+function gov_stage_never_submit_live(array $booking): bool
+{
+    return gov_stage_boolish($booking['never_submit_live'] ?? false) || gov_stage_is_test_booking($booking);
 }
 
 function gov_stage_analyze_booking(mysqli $db, array $booking, bool $allowLab): array
@@ -83,7 +102,7 @@ function gov_stage_analyze_booking(mysqli $db, array $booking, bool $allowLab): 
 
     $status = (string)gov_stage_value($booking, ['order_status', 'status'], '');
     $startedAt = (string)gov_stage_value($booking, ['started_at'], '');
-    $source = (string)gov_stage_value($booking, ['source_system', 'source_type'], '');
+    $source = (string)gov_stage_value($booking, ['source_system', 'source_type', 'source'], '');
     $orderRef = gov_stage_order_reference($booking);
     $bookingId = gov_stage_booking_id($booking);
 
@@ -92,27 +111,47 @@ function gov_stage_analyze_booking(mysqli $db, array $booking, bool $allowLab): 
     $futureGuard = !empty($mapping['passes_future_guard']);
     $terminal = gov_stage_terminal_status($status);
     $lab = gov_stage_is_lab_row($booking);
+    $testBooking = gov_stage_is_test_booking($booking);
+    $neverSubmitLive = gov_stage_never_submit_live($booking);
 
-    $blockers = [];
-    if ($lab && !$allowLab) {
-        $blockers[] = 'lab_row_blocked';
-    }
+    $technicalBlockers = [];
     if (!$driverMapped) {
-        $blockers[] = 'driver_not_mapped';
+        $technicalBlockers[] = 'driver_not_mapped';
     }
     if (!$vehicleMapped) {
-        $blockers[] = 'vehicle_not_mapped';
+        $technicalBlockers[] = 'vehicle_not_mapped';
     }
     if ($startedAt === '') {
-        $blockers[] = 'missing_started_at';
+        $technicalBlockers[] = 'missing_started_at';
     } elseif (!$futureGuard) {
-        $blockers[] = 'started_at_not_30_min_future';
+        $technicalBlockers[] = 'started_at_not_30_min_future';
     }
     if ($terminal) {
-        $blockers[] = 'terminal_order_status';
+        $technicalBlockers[] = 'terminal_order_status';
     }
 
-    $submissionSafe = !$blockers;
+    $liveBlockers = $technicalBlockers;
+    if ($lab) {
+        $liveBlockers[] = 'lab_row_blocked';
+    }
+    if ($neverSubmitLive) {
+        $liveBlockers[] = 'never_submit_live';
+    }
+
+    $stageBlockers = $technicalBlockers;
+    if (($lab || $neverSubmitLive) && !$allowLab) {
+        if ($lab) {
+            $stageBlockers[] = 'lab_row_blocked';
+        }
+        if ($neverSubmitLive) {
+            $stageBlockers[] = 'never_submit_live_requires_allow_lab';
+        }
+    }
+
+    $technicalPayloadValid = empty($technicalBlockers);
+    $dryRunStageAllowed = empty($stageBlockers);
+    $liveSubmissionAllowed = empty($liveBlockers);
+
     $hash = hash('sha256', json_encode([
         'normalized_booking_id' => $bookingId,
         'source_system' => $source,
@@ -137,8 +176,16 @@ function gov_stage_analyze_booking(mysqli $db, array $booking, bool $allowLab): 
         'future_guard_passed' => $futureGuard,
         'terminal_status' => $terminal,
         'is_lab_row' => $lab,
-        'submission_safe' => $submissionSafe,
-        'blockers' => $blockers,
+        'is_test_booking' => $testBooking,
+        'never_submit_live' => $neverSubmitLive,
+        'technical_payload_valid' => $technicalPayloadValid,
+        'dry_run_stage_allowed' => $dryRunStageAllowed,
+        'live_submission_allowed' => $liveSubmissionAllowed,
+        'submission_safe' => $liveSubmissionAllowed,
+        'technical_blockers' => $technicalBlockers,
+        'stage_blockers' => $stageBlockers,
+        'live_blockers' => $liveBlockers,
+        'blockers' => $stageBlockers,
         'dedupe_hash' => $hash,
     ];
 }
@@ -204,7 +251,7 @@ function gov_stage_job_row(array $analysis): array
         'payload_json' => $payloadJson,
         'request_payload_json' => $payloadJson,
         'edxeix_payload_json' => $payloadJson,
-        'notes' => 'STAGED ONLY. No EDXEIX HTTP request has been made by this script.',
+        'notes' => 'STAGED DRY RUN ONLY. No EDXEIX HTTP request has been made by this script. live_submission_allowed=' . ($analysis['live_submission_allowed'] ? 'true' : 'false'),
         'created_at' => $now,
         'updated_at' => $now,
         'queued_at' => $now,
@@ -225,7 +272,7 @@ function gov_stage_insert_or_update_job(mysqli $db, array $analysis, bool $dryRu
     if ($dryRun) {
         return [
             'ok' => true,
-            'action' => $existing ? 'would_keep_existing_job' : 'would_stage_job',
+            'action' => $existing ? 'would_keep_existing_job' : 'would_stage_dry_run_job',
             'existing_job_id' => $existing['id'] ?? null,
         ];
     }
@@ -236,7 +283,7 @@ function gov_stage_insert_or_update_job(mysqli $db, array $analysis, bool $dryRu
         gov_bridge_update_row($db, 'submission_jobs', $update, 'id = ?', [(string)$existing['id']]);
         return [
             'ok' => true,
-            'action' => 'updated_existing_job',
+            'action' => 'updated_existing_dry_run_job',
             'job_id' => $existing['id'] ?? null,
         ];
     }
@@ -244,7 +291,7 @@ function gov_stage_insert_or_update_job(mysqli $db, array $analysis, bool $dryRu
     $id = gov_bridge_insert_row($db, 'submission_jobs', gov_stage_job_row($analysis));
     return [
         'ok' => true,
-        'action' => 'staged_job',
+        'action' => 'staged_dry_run_job',
         'job_id' => $id,
     ];
 }
@@ -264,8 +311,11 @@ try {
     $rows = [];
     $summary = [
         'checked' => 0,
-        'eligible' => 0,
-        'blocked' => 0,
+        'technical_payload_valid' => 0,
+        'dry_run_stage_allowed' => 0,
+        'live_submission_allowed' => 0,
+        'blocked_from_stage' => 0,
+        'blocked_from_live' => 0,
         'staged_or_would_stage' => 0,
         'existing_or_would_keep' => 0,
     ];
@@ -273,19 +323,29 @@ try {
     foreach ($bookings as $booking) {
         $analysis = gov_stage_analyze_booking($db, $booking, $allowLab);
         $summary['checked']++;
+        if ($analysis['technical_payload_valid']) {
+            $summary['technical_payload_valid']++;
+        }
+        if ($analysis['dry_run_stage_allowed']) {
+            $summary['dry_run_stage_allowed']++;
+        } else {
+            $summary['blocked_from_stage']++;
+        }
+        if ($analysis['live_submission_allowed']) {
+            $summary['live_submission_allowed']++;
+        } else {
+            $summary['blocked_from_live']++;
+        }
 
         $job = null;
-        if ($analysis['submission_safe']) {
-            $summary['eligible']++;
+        if ($analysis['dry_run_stage_allowed']) {
             $job = gov_stage_insert_or_update_job($db, $analysis, !$create);
-            if (in_array($job['action'] ?? '', ['staged_job', 'would_stage_job', 'updated_existing_job'], true)) {
+            if (in_array($job['action'] ?? '', ['staged_dry_run_job', 'would_stage_dry_run_job', 'updated_existing_dry_run_job'], true)) {
                 $summary['staged_or_would_stage']++;
             }
             if (in_array($job['action'] ?? '', ['would_keep_existing_job'], true)) {
                 $summary['existing_or_would_keep']++;
             }
-        } else {
-            $summary['blocked']++;
         }
 
         $rows[] = [
@@ -300,8 +360,16 @@ try {
             'future_guard_passed' => $analysis['future_guard_passed'],
             'terminal_status' => $analysis['terminal_status'],
             'is_lab_row' => $analysis['is_lab_row'],
-            'submission_safe' => $analysis['submission_safe'],
-            'blockers' => $analysis['blockers'],
+            'is_test_booking' => $analysis['is_test_booking'],
+            'never_submit_live' => $analysis['never_submit_live'],
+            'technical_payload_valid' => $analysis['technical_payload_valid'],
+            'dry_run_stage_allowed' => $analysis['dry_run_stage_allowed'],
+            'live_submission_allowed' => $analysis['live_submission_allowed'],
+            'submission_safe' => $analysis['live_submission_allowed'],
+            'technical_blockers' => $analysis['technical_blockers'],
+            'stage_blockers' => $analysis['stage_blockers'],
+            'live_blockers' => $analysis['live_blockers'],
+            'blockers' => $analysis['stage_blockers'],
             'job' => $job,
             'edxeix_payload_preview' => $analysis['preview'],
         ];
@@ -310,12 +378,12 @@ try {
     gov_bridge_json_response([
         'ok' => true,
         'script' => 'bolt_stage_edxeix_jobs.php',
-        'mode' => $create ? 'create_local_staged_jobs' : 'dry_run_only',
+        'mode' => $create ? 'create_local_staged_dry_run_jobs' : 'dry_run_only',
         'allow_lab' => $allowLab,
         'generated_at' => date('Y-m-d H:i:s'),
         'summary' => $summary,
         'rows' => $rows,
-        'note' => 'No EDXEIX submission was performed. create=1 stages local submission_jobs records only. LAB rows require allow_lab=1 and still must never be sent live.',
+        'note' => 'No EDXEIX submission was performed. create=1 stages local dry-run submission_jobs records only. LAB/test/never-live rows require allow_lab=1 for local staging and still show live_submission_allowed=false.',
     ]);
 } catch (Throwable $e) {
     gov_bridge_json_response([

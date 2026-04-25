@@ -11,38 +11,38 @@
 
 ## Safety rule
 
-No live EDXEIX submission has been approved. Do not add automatic submission behavior. Work must remain read-only, dry-run, preflight, queue, or local-only unless the owner explicitly asks for live submission after a real eligible future Bolt trip exists.
+No live EDXEIX submission has been approved. Do not add automatic submission behavior. Work must remain read-only, dry-run, preflight, queue, local-only, or explicit manual verification unless the owner explicitly asks for a live submission patch after a real eligible future Bolt trip exists.
 
-## Current known state
+## Current known state after dry-run harness validation
 
 - Bolt API connection works.
 - Bolt reference sync works.
 - Bolt order sync works.
 - Required DB tables exist in the working server line.
-- Mapping coverage is partial; at least one mapped driver and vehicle are needed for test harness use.
-- Historical Bolt orders were mapping-ready but not submission-safe because they were terminal/cancelled and not +30 minutes in the future.
-- Readiness audit exists at `/bolt_readiness_audit.php`.
-- Readiness UI exists at `/ops/readiness.php`.
-- Local dry-run future booking harness added in this patch at `/ops/test-booking.php`.
+- Mapping coverage remains partial: latest visible readiness showed 1/2 drivers and 2/15 vehicles mapped.
+- Historical Bolt rows are correctly blocked because they are terminal/cancelled and not in the future.
+- A LAB/local future booking test row was created successfully:
+  - normalized booking ID: `10`
+  - order reference: `LAB-LOCAL-FUTURE-20260425105607-8943`
+  - source system: `lab_local_test`
+- A local dry-run submission job was created successfully:
+  - submission job ID: `2`
+  - status: `staged_dry_run`
+- A local dry-run worker attempt was recorded successfully:
+  - attempt ID: `1`
+  - no EDXEIX submission was performed
+- Readiness showed zero live attempts indicated.
+- Readiness may remain `NOT_READY` while LAB rows/jobs/attempts exist and while mappings are incomplete. That is expected and safe.
 
-## Latest patch: dry-run future booking simulation harness
+## Latest safety-output patch
 
-Added:
+The latest patch clarifies the JSON language for LAB/test rows:
 
-```text
-gov.cabnet.app_app/src/TestBookingFactory.php
-public_html/gov.cabnet.app/ops/test-booking.php
-gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql
-docs/DRY_RUN_TEST_BOOKING_HARNESS.md
-```
-
-Purpose:
-
-- Create a synthetic future `normalized_bookings` row when no real future Bolt ride is available.
-- Use only existing mapped driver and vehicle records.
-- Mark synthetic rows as `lab_local_test` and `LAB-LOCAL-FUTURE-*`.
-- Keep the workflow dry-run/local only.
-- Preserve the rule that LAB rows require `allow_lab=1` for local queue/worker testing.
+- `technical_payload_valid` means mapping/time/status checks pass.
+- `dry_run_allowed` or `dry_run_stage_allowed` means local dry-run processing is allowed.
+- `live_submission_allowed` means a row is eligible for live EDXEIX consideration.
+- `submission_safe` now follows `live_submission_allowed`.
+- LAB/test/never-live rows should show `live_submission_allowed: false` even when their technical payload is valid.
 
 ## Key files
 
@@ -63,17 +63,11 @@ public_html/gov.cabnet.app/ops/submit.php
 public_html/gov.cabnet.app/ops/test-booking.php
 ```
 
-## Test harness verification URLs
+## Recent SQL files
 
 ```text
-https://gov.cabnet.app/ops/test-booking.php
-https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&allow_lab=1
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&create=1&allow_lab=1
-https://gov.cabnet.app/bolt_submission_worker.php?limit=30&allow_lab=1
-https://gov.cabnet.app/bolt_submission_worker.php?limit=30&record=1&allow_lab=1
-https://gov.cabnet.app/ops/readiness.php
+gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql
+gov.cabnet.app_sql/2026_04_25_mark_local_dry_run_attempts.sql
 ```
 
 ## Do not commit
@@ -83,15 +77,14 @@ https://gov.cabnet.app/ops/readiness.php
 - EDXEIX session files/cookies/CSRF tokens
 - Raw SQL data dumps
 - Logs/artifacts/runtime files
-- Temporary public fix/cleanup scripts
+- Temporary public fix/cleanup scripts unless explicitly documented and safe
 
 ## Recommended next work
 
-1. Upload the dry-run future booking harness patch.
-2. Run the additive SQL migration.
-3. Use `/ops/test-booking.php` to create one local LAB future booking.
-4. Verify normal staging blocks LAB rows without `allow_lab=1`.
-5. Verify local dry-run staging and worker audit with `allow_lab=1`.
-6. Keep live submission disabled.
-7. Later, schedule a real Bolt ride 40–60 minutes in the future for the first true real-trip preflight candidate.
-8. Only after successful real preflight, design a separately gated live-submit patch.
+1. Upload and verify the LAB/test safety-output patch.
+2. Run the optional dry-run attempt marker SQL if the existing attempt row remains unclassified in readiness.
+3. Keep readiness audit clean.
+4. Add authentication/IP restriction around `/ops` and public JSON endpoints before broader exposure.
+5. Continue mapping remaining drivers/vehicles.
+6. Schedule a real Bolt ride 40–60 minutes in the future for the first true real-world preflight candidate.
+7. Only after successful real preflight, design a separately gated live-submit patch.

@@ -20,37 +20,23 @@ Validated status:
 3. Bolt order sync works.
 4. Schema compatibility issues for dedupe/defaults/price/null ended_at were resolved.
 5. Some Bolt driver/vehicle mappings are present, but not all imported vehicles are mapped.
-6. Operations pages exist: /ops/bolt-live.php, /ops/jobs.php, /ops/readiness.php.
+6. Operations pages exist: /ops/bolt-live.php, /ops/jobs.php, /ops/readiness.php, /ops/test-booking.php.
 7. JSON/report endpoints exist: /bolt_sync_reference.php, /bolt_sync_orders.php, /bolt_edxeix_preflight.php, /bolt_jobs_queue.php, /bolt_stage_edxeix_jobs.php, /bolt_readiness_audit.php, /bolt_submission_worker.php.
-8. Queue was clean at latest validation: zero local submission jobs and zero recent attempts.
-9. Real existing Bolt rows are blocked correctly because they are terminal/cancelled and not at least +30 minutes in the future.
-10. A dry-run future booking simulation harness has now been prepared.
+8. Real existing Bolt rows are blocked correctly because they are terminal/cancelled and not at least +30 minutes in the future.
+9. A LAB/local dry-run future booking was created and validated through preflight, local staging, and worker dry-run attempt recording.
+10. No EDXEIX live submission was performed. Live submission remains intentionally unimplemented.
 
-Latest patch:
-- gov.cabnet.app_app/src/TestBookingFactory.php
-- public_html/gov.cabnet.app/ops/test-booking.php
-- gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql
-- docs/DRY_RUN_TEST_BOOKING_HARNESS.md
-
-Harness purpose:
-- Create a synthetic `lab_local_test` future booking using one existing mapped driver and one existing mapped vehicle.
-- Use order references beginning with `LAB-LOCAL-FUTURE`.
-- Mark the synthetic normalized booking row with `is_test_booking=1`, `never_submit_live=1`, and `live_submit_block_reason` after the SQL migration. The migration also prepares matching job columns for a later propagation patch.
-- Allow testing of preflight, local queue staging, worker dry-run audit, and readiness without a real future Bolt ride.
-- Never submit harness rows to EDXEIX live.
-
-Verification sequence:
-1. Upload patch files to the exact cPanel paths.
-2. Run `gov.cabnet.app_sql/2026_04_25_test_booking_flags.sql` once.
-3. Open https://gov.cabnet.app/ops/test-booking.php
-4. Create one local dry-run booking by typing `CREATE LOCAL DRY RUN BOOKING`.
-5. Open https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30
-6. Open https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30 and confirm the LAB row is blocked.
-7. Open https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&allow_lab=1 to preview local LAB staging.
-8. Open https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&create=1&allow_lab=1 to create a local staged job only.
-9. Open https://gov.cabnet.app/bolt_submission_worker.php?limit=30&allow_lab=1 for worker preview.
-10. Open https://gov.cabnet.app/bolt_submission_worker.php?limit=30&record=1&allow_lab=1 to record a local dry-run attempt only.
-11. Open https://gov.cabnet.app/ops/readiness.php.
+Latest completed/active patch direction:
+- Make LAB/test safety explicit in preflight/stage/worker output.
+- Separate technical payload validity from live submission eligibility.
+- Expected fields:
+  - technical_payload_valid
+  - dry_run_allowed or dry_run_stage_allowed
+  - live_submission_allowed
+  - technical_blockers
+  - dry_run_blockers or stage_blockers
+  - live_blockers
+- `submission_safe` should mean live submission allowed, not merely payload-valid.
 
 Next live test blocker:
 A real Bolt ride must be scheduled at least 40–60 minutes in the future before a true live-safe EDXEIX candidate can exist.

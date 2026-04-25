@@ -7,12 +7,13 @@
  * - This script does NOT submit forms.
  * - Default mode is read-only analysis.
  * - record=1 writes local submission_attempts audit rows only.
- * - LAB rows remain blocked unless allow_lab=1 is explicit.
+ * - LAB/test/never-live rows remain blocked from live submission.
+ * - allow_lab=1 permits local dry-run validation only, not live submission.
  *
  * Usage:
  *   /bolt_submission_worker.php?limit=30
  *   /bolt_submission_worker.php?record=1&limit=30
- *   /bolt_submission_worker.php?allow_lab=1&record=1&limit=30   // local lab only
+ *   /bolt_submission_worker.php?allow_lab=1&record=1&limit=30   // local lab dry-run only
  */
 
 declare(strict_types=1);
@@ -27,6 +28,14 @@ function gov_worker_value(array $row, array $keys, $default = '')
         }
     }
     return $default;
+}
+
+function gov_worker_boolish($value): bool
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+    return in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
 }
 
 function gov_worker_terminal_status(string $status): bool
@@ -55,7 +64,7 @@ function gov_worker_terminal_status(string $status): bool
 
 function gov_worker_order_reference(array $row): string
 {
-    return (string)gov_worker_value($row, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference'], '');
+    return (string)gov_worker_value($row, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference', 'source_trip_id'], '');
 }
 
 function gov_worker_is_lab_reference(string $source, string $orderRef): bool
@@ -63,6 +72,22 @@ function gov_worker_is_lab_reference(string $source, string $orderRef): bool
     $source = strtolower(trim($source));
     $ref = strtoupper(trim($orderRef));
     return strpos($source, 'lab') !== false || strpos($ref, 'LAB-') === 0;
+}
+
+function gov_worker_is_test_booking(?array $booking): bool
+{
+    if (!$booking) {
+        return false;
+    }
+    return gov_worker_boolish($booking['is_test_booking'] ?? false);
+}
+
+function gov_worker_never_submit_live(?array $booking): bool
+{
+    if (!$booking) {
+        return false;
+    }
+    return gov_worker_boolish($booking['never_submit_live'] ?? false) || gov_worker_is_test_booking($booking);
 }
 
 function gov_worker_decode_json_value($raw): ?array
@@ -161,7 +186,7 @@ function gov_worker_analyze_job(mysqli $db, array $job, bool $allowLab): array
     [$payload, $booking] = gov_worker_payload_for_job($db, $job);
 
     $jobId = (string)gov_worker_value($job, ['id'], '');
-    $source = (string)gov_worker_value($job, ['source_system', 'source_type'], gov_worker_value($booking ?: [], ['source_system', 'source_type'], ''));
+    $source = (string)gov_worker_value($job, ['source_system', 'source_type'], gov_worker_value($booking ?: [], ['source_system', 'source_type', 'source'], ''));
     $source = $source ?: 'bolt';
     $orderRef = gov_worker_order_reference($job) ?: gov_worker_order_reference($booking ?: []);
     $status = (string)gov_worker_value($booking ?: [], ['order_status', 'status'], gov_worker_value($job, ['booking_status', 'order_status'], ''));
@@ -180,31 +205,50 @@ function gov_worker_analyze_job(mysqli $db, array $job, bool $allowLab): array
     $futureGuard = function_exists('gov_edxeix_future_guard_passes') ? gov_edxeix_future_guard_passes($startedAt ?: null) : false;
     $terminal = gov_worker_terminal_status($status);
     $lab = gov_worker_is_lab_reference($source, $orderRef);
+    $testBooking = gov_worker_is_test_booking($booking);
+    $neverSubmitLive = gov_worker_never_submit_live($booking);
 
-    $blockers = [];
+    $technicalBlockers = [];
     if ($payload === null) {
-        $blockers[] = 'missing_payload_and_no_normalized_booking_match';
-    }
-    if ($lab && !$allowLab) {
-        $blockers[] = 'lab_row_blocked';
+        $technicalBlockers[] = 'missing_payload_and_no_normalized_booking_match';
     }
     if (!$driverMapped) {
-        $blockers[] = 'driver_not_mapped';
+        $technicalBlockers[] = 'driver_not_mapped';
     }
     if (!$vehicleMapped) {
-        $blockers[] = 'vehicle_not_mapped';
+        $technicalBlockers[] = 'vehicle_not_mapped';
     }
     if ($startedAt === '') {
-        $blockers[] = 'missing_started_at';
+        $technicalBlockers[] = 'missing_started_at';
     } elseif (!$futureGuard) {
-        $blockers[] = 'started_at_not_30_min_future';
+        $technicalBlockers[] = 'started_at_not_30_min_future';
     }
     if ($terminal) {
-        $blockers[] = 'terminal_order_status';
+        $technicalBlockers[] = 'terminal_order_status';
+    }
+
+    $liveBlockers = $technicalBlockers;
+    if ($lab) {
+        $liveBlockers[] = 'lab_row_blocked';
+    }
+    if ($neverSubmitLive) {
+        $liveBlockers[] = 'never_submit_live';
+    }
+
+    $dryRunBlockers = $technicalBlockers;
+    if (($lab || $neverSubmitLive) && !$allowLab) {
+        if ($lab) {
+            $dryRunBlockers[] = 'lab_row_blocked';
+        }
+        if ($neverSubmitLive) {
+            $dryRunBlockers[] = 'never_submit_live_requires_allow_lab';
+        }
     }
 
     $payloadHash = $payload ? hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) : '';
-    $submissionSafe = $payload !== null && !$blockers;
+    $technicalPayloadValid = $payload !== null && empty($technicalBlockers);
+    $dryRunAllowed = $payload !== null && empty($dryRunBlockers);
+    $liveSubmissionAllowed = $payload !== null && empty($liveBlockers);
 
     return [
         'job_id' => $jobId,
@@ -222,8 +266,16 @@ function gov_worker_analyze_job(mysqli $db, array $job, bool $allowLab): array
         'future_guard_passed' => $futureGuard,
         'terminal_status' => $terminal,
         'is_lab_row' => $lab,
-        'submission_safe' => $submissionSafe,
-        'blockers' => $blockers,
+        'is_test_booking' => $testBooking,
+        'never_submit_live' => $neverSubmitLive,
+        'technical_payload_valid' => $technicalPayloadValid,
+        'dry_run_allowed' => $dryRunAllowed,
+        'live_submission_allowed' => $liveSubmissionAllowed,
+        'submission_safe' => $liveSubmissionAllowed,
+        'technical_blockers' => $technicalBlockers,
+        'dry_run_blockers' => $dryRunBlockers,
+        'live_blockers' => $liveBlockers,
+        'blockers' => $dryRunBlockers,
         'payload_hash' => $payloadHash,
         'payload_source' => $payload !== null ? (gov_worker_payload_from_job($job) !== null ? 'submission_job' : 'normalized_booking_rebuild') : 'missing',
         'edxeix_payload_preview' => $payload,
@@ -244,6 +296,12 @@ function gov_worker_attempt_exists(mysqli $db, array $analysis): bool
     }
     if ($jobId !== '' && $hash !== '' && isset($columns['job_id']) && isset($columns['payload_hash'])) {
         return (bool)gov_bridge_fetch_one($db, 'SELECT * FROM submission_attempts WHERE job_id = ? AND payload_hash = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) LIMIT 1', [$jobId, $hash]);
+    }
+    if ($jobId !== '' && isset($columns['submission_job_id'])) {
+        return (bool)gov_bridge_fetch_one($db, 'SELECT * FROM submission_attempts WHERE submission_job_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) LIMIT 1', [$jobId]);
+    }
+    if ($jobId !== '' && isset($columns['job_id'])) {
+        return (bool)gov_bridge_fetch_one($db, 'SELECT * FROM submission_attempts WHERE job_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) LIMIT 1', [$jobId]);
     }
     return false;
 }
@@ -267,14 +325,17 @@ function gov_worker_record_attempt(mysqli $db, array $analysis): array
     }
 
     $now = date('Y-m-d H:i:s');
-    $status = $analysis['submission_safe'] ? 'dry_run_validated' : 'blocked_by_preflight';
+    $status = $analysis['dry_run_allowed'] ? 'dry_run_validated' : 'blocked_by_preflight';
     $response = [
-        'ok' => $analysis['submission_safe'],
+        'ok' => $analysis['dry_run_allowed'],
         'mode' => 'dry_run_worker',
+        'dry_run_allowed' => $analysis['dry_run_allowed'],
+        'technical_payload_valid' => $analysis['technical_payload_valid'],
+        'live_submission_allowed' => $analysis['live_submission_allowed'],
         'would_submit_to_edxeix' => false,
-        'submission_safe' => $analysis['submission_safe'],
-        'blockers' => $analysis['blockers'],
-        'note' => 'Local audit attempt only. No EDXEIX HTTP request was performed.',
+        'blockers' => $analysis['dry_run_blockers'],
+        'live_blockers' => $analysis['live_blockers'],
+        'note' => 'DRY RUN ONLY. No EDXEIX HTTP request was performed.',
     ];
 
     $payloadJson = gov_bridge_json_encode_db($analysis['edxeix_payload_preview'] ?? []);
@@ -293,15 +354,19 @@ function gov_worker_record_attempt(mysqli $db, array $analysis): array
         'attempt_status' => $status,
         'mode' => 'dry_run_worker',
         'is_dry_run' => '1',
+        'response_status' => '0',
         'http_status' => '0',
+        'success' => '0',
+        'remote_reference' => '',
         'payload_hash' => $analysis['payload_hash'],
         'dedupe_hash' => $analysis['payload_hash'],
         'request_payload_json' => $payloadJson,
         'payload_json' => $payloadJson,
+        'response_body' => $responseJson,
         'response_payload_json' => $responseJson,
         'response_json' => $responseJson,
-        'error_message' => $analysis['submission_safe'] ? '' : implode(', ', $analysis['blockers']),
-        'notes' => 'DRY RUN ONLY. No EDXEIX HTTP request was performed.',
+        'error_message' => $analysis['dry_run_allowed'] ? '' : implode(', ', $analysis['dry_run_blockers']),
+        'notes' => 'DRY RUN ONLY. No EDXEIX HTTP request was performed. live_submission_allowed=' . ($analysis['live_submission_allowed'] ? 'true' : 'false'),
         'created_at' => $now,
         'updated_at' => $now,
         'attempted_at' => $now,
@@ -312,7 +377,7 @@ function gov_worker_record_attempt(mysqli $db, array $analysis): array
     $id = gov_bridge_insert_row($db, 'submission_attempts', $row);
     return [
         'ok' => true,
-        'action' => 'recorded_local_attempt',
+        'action' => 'recorded_local_dry_run_attempt',
         'attempt_id' => $id,
         'status' => $status,
     ];
@@ -334,8 +399,12 @@ try {
     $rows = [];
     $summary = [
         'jobs_checked' => 0,
+        'technical_payload_valid' => 0,
+        'dry_run_allowed' => 0,
+        'would_submit_live' => 0,
         'would_submit' => 0,
-        'blocked' => 0,
+        'blocked_from_dry_run' => 0,
+        'blocked_from_live' => 0,
         'recorded_attempts' => 0,
         'kept_recent_attempts' => 0,
         'missing_payload_or_booking' => 0,
@@ -344,19 +413,28 @@ try {
     foreach ($jobs as $job) {
         $analysis = gov_worker_analyze_job($db, $job, $allowLab);
         $summary['jobs_checked']++;
-        if ($analysis['submission_safe']) {
+        if ($analysis['technical_payload_valid']) {
+            $summary['technical_payload_valid']++;
+        }
+        if ($analysis['dry_run_allowed']) {
+            $summary['dry_run_allowed']++;
+        } else {
+            $summary['blocked_from_dry_run']++;
+        }
+        if ($analysis['live_submission_allowed']) {
+            $summary['would_submit_live']++;
             $summary['would_submit']++;
         } else {
-            $summary['blocked']++;
+            $summary['blocked_from_live']++;
         }
-        if (in_array('missing_payload_and_no_normalized_booking_match', $analysis['blockers'], true)) {
+        if (in_array('missing_payload_and_no_normalized_booking_match', $analysis['technical_blockers'], true)) {
             $summary['missing_payload_or_booking']++;
         }
 
         $attempt = null;
         if ($record) {
             $attempt = gov_worker_record_attempt($db, $analysis);
-            if (($attempt['action'] ?? '') === 'recorded_local_attempt') {
+            if (($attempt['action'] ?? '') === 'recorded_local_dry_run_attempt') {
                 $summary['recorded_attempts']++;
             }
             if (($attempt['action'] ?? '') === 'kept_recent_attempt') {
@@ -380,10 +458,18 @@ try {
             'future_guard_passed' => $analysis['future_guard_passed'],
             'terminal_status' => $analysis['terminal_status'],
             'is_lab_row' => $analysis['is_lab_row'],
-            'submission_safe' => $analysis['submission_safe'],
+            'is_test_booking' => $analysis['is_test_booking'],
+            'never_submit_live' => $analysis['never_submit_live'],
+            'technical_payload_valid' => $analysis['technical_payload_valid'],
+            'dry_run_allowed' => $analysis['dry_run_allowed'],
+            'live_submission_allowed' => $analysis['live_submission_allowed'],
+            'submission_safe' => $analysis['live_submission_allowed'],
             'payload_source' => $analysis['payload_source'],
             'payload_hash' => $analysis['payload_hash'],
-            'blockers' => $analysis['blockers'],
+            'technical_blockers' => $analysis['technical_blockers'],
+            'dry_run_blockers' => $analysis['dry_run_blockers'],
+            'live_blockers' => $analysis['live_blockers'],
+            'blockers' => $analysis['dry_run_blockers'],
             'attempt' => $attempt,
             'edxeix_payload_preview' => $analysis['edxeix_payload_preview'],
         ];
@@ -398,7 +484,7 @@ try {
         'guard_minutes' => (int)($config['edxeix']['future_start_guard_minutes'] ?? 30),
         'summary' => $summary,
         'rows' => $rows,
-        'note' => 'No EDXEIX submission was performed. record=1 only writes local submission_attempts audit rows. Live submission remains intentionally unimplemented in this worker.',
+        'note' => 'No EDXEIX submission was performed. record=1 only writes local dry-run submission_attempts audit rows. Live submission remains intentionally unimplemented in this worker. LAB/test/never-live rows show live_submission_allowed=false.',
     ]);
 } catch (Throwable $e) {
     gov_bridge_json_response([
