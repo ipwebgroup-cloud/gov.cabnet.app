@@ -351,6 +351,169 @@ if (!function_exists('gov_bolt_visibility_recent_snapshots')) {
     }
 }
 
+
+if (!function_exists('gov_bolt_visibility_pick_existing_column')) {
+    function gov_bolt_visibility_pick_existing_column(array $columns, array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            if (isset($columns[$candidate])) {
+                return $candidate;
+            }
+        }
+        return null;
+    }
+}
+
+if (!function_exists('gov_bolt_visibility_normalize_plate')) {
+    function gov_bolt_visibility_normalize_plate(?string $plate): string
+    {
+        return strtoupper(str_replace([' ', '-', '_'], '', trim((string)$plate)));
+    }
+}
+
+if (!function_exists('gov_bolt_visibility_local_booking_summary')) {
+    function gov_bolt_visibility_local_booking_summary(array $row, array $watch = []): array
+    {
+        $id = gov_bolt_visibility_scalar($row['external_order_id'] ?? null);
+        $driver = gov_bolt_visibility_scalar($row['driver_external_id'] ?? null);
+        $vehiclePlate = gov_bolt_visibility_scalar($row['vehicle_plate'] ?? null);
+        $vehicleId = gov_bolt_visibility_scalar($row['vehicle_external_id'] ?? null);
+
+        $watchOrderId = trim((string)($watch['order_id'] ?? ''));
+        $watchDriverUuid = strtolower(trim((string)($watch['driver_uuid'] ?? '')));
+        $watchVehiclePlate = gov_bolt_visibility_normalize_plate((string)($watch['vehicle_plate'] ?? ''));
+        $normalizedPlate = gov_bolt_visibility_normalize_plate((string)$vehiclePlate);
+
+        return [
+            'local_id' => gov_bolt_visibility_scalar($row['local_id'] ?? null),
+            'external_order_id' => $id,
+            'status' => gov_bolt_visibility_scalar($row['status'] ?? null),
+            'driver_external_id' => $driver,
+            'vehicle_external_id' => $vehicleId,
+            'vehicle_plate' => $vehiclePlate,
+            'order_created_at' => gov_bolt_visibility_scalar($row['order_created_at'] ?? null),
+            'scheduled_for' => gov_bolt_visibility_scalar($row['scheduled_for'] ?? null),
+            'started_at' => gov_bolt_visibility_scalar($row['started_at'] ?? null),
+            'ended_at' => gov_bolt_visibility_scalar($row['ended_at'] ?? null),
+            'edxeix_ready' => gov_bolt_visibility_scalar($row['edxeix_ready'] ?? null),
+            'edxeix_driver_id' => gov_bolt_visibility_scalar($row['edxeix_driver_id'] ?? null),
+            'edxeix_vehicle_id' => gov_bolt_visibility_scalar($row['edxeix_vehicle_id'] ?? null),
+            'watch_match' => [
+                'order_id' => $watchOrderId !== '' && $id !== null && stripos((string)$id, $watchOrderId) !== false,
+                'driver_uuid' => $watchDriverUuid !== '' && $driver !== null && strtolower((string)$driver) === $watchDriverUuid,
+                'vehicle_plate' => $watchVehiclePlate !== '' && $normalizedPlate !== '' && $normalizedPlate === $watchVehiclePlate,
+            ],
+        ];
+    }
+}
+
+if (!function_exists('gov_bolt_visibility_recent_local_bookings')) {
+    function gov_bolt_visibility_recent_local_bookings(int $limit = 10, array $watch = []): array
+    {
+        $limit = max(1, min(50, $limit));
+        try {
+            $db = gov_bridge_db();
+            if (!gov_bridge_table_exists($db, 'normalized_bookings')) {
+                return [
+                    'available' => false,
+                    'rows' => [],
+                    'columns_used' => [],
+                    'note' => 'normalized_bookings table was not found.',
+                ];
+            }
+
+            $columns = gov_bridge_table_columns($db, 'normalized_bookings');
+            $aliases = [
+                'local_id' => ['id', 'booking_id'],
+                'external_order_id' => ['external_order_id', 'order_reference', 'source_trip_reference', 'external_reference'],
+                'status' => ['status', 'booking_status', 'order_status', 'source_status'],
+                'driver_external_id' => ['driver_external_id', 'driver_uuid', 'bolt_driver_uuid', 'driver_id'],
+                'vehicle_external_id' => ['vehicle_external_id', 'vehicle_uuid', 'bolt_vehicle_uuid', 'vehicle_id'],
+                'vehicle_plate' => ['vehicle_plate', 'license_plate', 'registration_plate', 'plate', 'vehicle_registration'],
+                'order_created_at' => ['order_created_at', 'created_at', 'captured_at'],
+                'scheduled_for' => ['scheduled_for', 'scheduled_at', 'pickup_time', 'requested_pickup_time', 'planned_start_time'],
+                'started_at' => ['started_at', 'start_time', 'trip_started_at'],
+                'ended_at' => ['ended_at', 'finished_at', 'completed_at', 'trip_finished_at'],
+                'edxeix_ready' => ['edxeix_ready'],
+                'edxeix_driver_id' => ['edxeix_driver_id'],
+                'edxeix_vehicle_id' => ['edxeix_vehicle_id'],
+            ];
+
+            $select = [];
+            $used = [];
+            foreach ($aliases as $alias => $candidates) {
+                $column = gov_bolt_visibility_pick_existing_column($columns, $candidates);
+                if ($column !== null) {
+                    $select[] = gov_bridge_quote_identifier($column) . ' AS ' . gov_bridge_quote_identifier($alias);
+                    $used[$alias] = $column;
+                }
+            }
+
+            if (!$select) {
+                return [
+                    'available' => true,
+                    'rows' => [],
+                    'columns_used' => [],
+                    'note' => 'normalized_bookings exists, but no known summary columns were found.',
+                ];
+            }
+
+            $where = [];
+            $params = [];
+            $sourceSystem = gov_bolt_visibility_pick_existing_column($columns, ['source_system', 'source_type']);
+            if ($sourceSystem !== null) {
+                $where[] = gov_bridge_quote_identifier($sourceSystem) . ' = ?';
+                $params[] = 'bolt';
+            }
+
+            $orderBy = gov_bolt_visibility_pick_existing_column($columns, ['id', 'updated_at', 'created_at', 'order_created_at', 'started_at']);
+            $sql = 'SELECT ' . implode(', ', $select) . ' FROM `normalized_bookings`';
+            if ($where) {
+                $sql .= ' WHERE ' . implode(' AND ', $where);
+            }
+            if ($orderBy !== null) {
+                $sql .= ' ORDER BY ' . gov_bridge_quote_identifier($orderBy) . ' DESC';
+            }
+            $sql .= ' LIMIT ' . $limit;
+
+            $rows = gov_bridge_fetch_all($db, $sql, $params);
+            $summaries = [];
+            foreach ($rows as $row) {
+                $summaries[] = gov_bolt_visibility_local_booking_summary($row, $watch);
+            }
+
+            return [
+                'available' => true,
+                'rows' => $summaries,
+                'columns_used' => $used,
+                'source_filter_column' => $sourceSystem,
+                'order_by_column' => $orderBy,
+                'note' => 'Read-only summary from normalized_bookings after the dry-run Bolt probe.',
+            ];
+        } catch (Throwable $e) {
+            return [
+                'available' => false,
+                'rows' => [],
+                'columns_used' => [],
+                'note' => 'Local normalized booking read failed: ' . $e->getMessage(),
+            ];
+        }
+    }
+}
+
+if (!function_exists('gov_bolt_visibility_merge_watch_matches')) {
+    function gov_bolt_visibility_merge_watch_matches(array $base, array $rows): array
+    {
+        foreach ($rows as $row) {
+            $matches = $row['watch_match'] ?? [];
+            foreach (['order_id', 'driver_uuid', 'vehicle_plate'] as $key) {
+                $base[$key] = !empty($base[$key]) || !empty($matches[$key]);
+            }
+        }
+        return $base;
+    }
+}
+
 if (!function_exists('gov_bolt_visibility_build_snapshot')) {
     function gov_bolt_visibility_build_snapshot(array $options = []): array
     {
@@ -397,6 +560,17 @@ if (!function_exists('gov_bolt_visibility_build_snapshot')) {
         }
         ksort($statusCounts);
 
+        $localBookings = gov_bolt_visibility_recent_local_bookings(min(10, $sampleLimit), $watch);
+        $localRows = is_array($localBookings['rows'] ?? null) ? $localBookings['rows'] : [];
+        $localStatusCounts = [];
+        foreach ($localRows as $localRow) {
+            $status = strtoupper((string)($localRow['status'] ?? 'UNKNOWN'));
+            $status = $status !== '' ? $status : 'UNKNOWN';
+            $localStatusCounts[$status] = ($localStatusCounts[$status] ?? 0) + 1;
+        }
+        ksort($localStatusCounts);
+        $watchMatches = gov_bolt_visibility_merge_watch_matches($watchMatches, $localRows);
+
         $safeSyncKeys = [];
         foreach (array_keys($syncResult) as $key) {
             if (!gov_bolt_visibility_is_sensitive_key((string)$key)) {
@@ -404,9 +578,15 @@ if (!function_exists('gov_bolt_visibility_build_snapshot')) {
             }
         }
 
+        $sampleExtractionNote = 'Order samples are extracted only when the dry-run sync result exposes order-like arrays.';
+        if (gov_bolt_visibility_count_orders($syncResult, $extractedOrders) > 0 && count($samples) === 0) {
+            $sampleExtractionNote = 'The dry-run sync result reported orders_seen > 0 but did not expose order-like arrays. Use the local normalized bookings summary below to inspect the last imported Bolt rows without printing raw payloads.';
+        }
+
         $snapshot = [
             'ok' => true,
             'script' => 'bolt_api_visibility_diagnostic',
+            'diagnostic_version' => '1.1.0',
             'safety' => [
                 'edxeix_live_submission' => 'not_used',
                 'bolt_sync_mode' => 'dry_run_only',
@@ -425,7 +605,9 @@ if (!function_exists('gov_bolt_visibility_build_snapshot')) {
             'visibility' => [
                 'orders_seen' => gov_bolt_visibility_count_orders($syncResult, $extractedOrders),
                 'sample_count' => count($samples),
+                'local_recent_count' => count($localRows),
                 'status_counts_from_samples' => $statusCounts,
+                'status_counts_from_local_recent' => $localStatusCounts,
                 'watch' => [
                     'driver_uuid_set' => $watch['driver_uuid'] !== '',
                     'vehicle_plate_set' => $watch['vehicle_plate'] !== '',
@@ -434,6 +616,14 @@ if (!function_exists('gov_bolt_visibility_build_snapshot')) {
                 ],
             ],
             'order_samples' => $samples,
+            'local_recent_bookings' => $localRows,
+            'local_recent_bookings_meta' => [
+                'available' => (bool)($localBookings['available'] ?? false),
+                'columns_used' => $localBookings['columns_used'] ?? [],
+                'source_filter_column' => $localBookings['source_filter_column'] ?? null,
+                'order_by_column' => $localBookings['order_by_column'] ?? null,
+                'note' => $localBookings['note'] ?? null,
+            ],
             'sync_result_summary' => [
                 'safe_top_level_keys' => $safeSyncKeys,
                 'orders_seen' => isset($syncResult['orders_seen']) ? (int)$syncResult['orders_seen'] : null,
@@ -441,6 +631,7 @@ if (!function_exists('gov_bolt_visibility_build_snapshot')) {
                 'updated' => isset($syncResult['updated']) ? (int)$syncResult['updated'] : null,
                 'skipped' => isset($syncResult['skipped']) ? (int)$syncResult['skipped'] : null,
                 'dry_run' => $syncResult['dry_run'] ?? true,
+                'sample_extraction_note' => $sampleExtractionNote,
                 'note' => 'Raw sync result is intentionally not stored or printed by this diagnostic.',
             ],
         ];

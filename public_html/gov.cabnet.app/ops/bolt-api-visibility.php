@@ -113,7 +113,7 @@ $filipposRefreshUrl = $filipposUrl . '&refresh=20';
     <?php endif; ?>
     <title>Bolt API Visibility Diagnostic | gov.cabnet.app</title>
     <style>
-        :root{--bg:#f4f7fb;--panel:#fff;--ink:#07152f;--muted:#475569;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}.hero{border-left:7px solid var(--blue)}.safety{background:#ecfdf3;border:1px solid #bbf7d0;border-left:7px solid var(--green);border-radius:14px;padding:16px;margin-bottom:18px}.safety strong{color:#166534}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:0 0 8px}p{color:var(--muted);line-height:1.45}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:30px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.btn{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);border:0;cursor:pointer;font-size:14px}.btn.light{background:var(--slate)}.btn.good{background:var(--green)}.btn.warn{background:var(--orange)}label{display:block;font-size:13px;font-weight:700;color:var(--slate);margin:10px 0 5px}input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}input[type=checkbox]{width:auto;margin-right:8px}.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;background:#fff}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top;font-size:14px}th{background:#f1f5f9;color:#334155}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}.mono{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}@media(max-width:1050px){.grid,.two,.form-grid{grid-template-columns:1fr 1fr}}@media(max-width:720px){.grid,.two,.form-grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
+        :root{--bg:#f4f7fb;--panel:#fff;--ink:#07152f;--muted:#475569;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}.hero{border-left:7px solid var(--blue)}.safety{background:#ecfdf3;border:1px solid #bbf7d0;border-left:7px solid var(--green);border-radius:14px;padding:16px;margin-bottom:18px}.safety strong{color:#166534}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:0 0 8px}p{color:var(--muted);line-height:1.45}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:30px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.btn{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);border:0;cursor:pointer;font-size:14px}.btn.light{background:var(--slate)}.btn.good{background:var(--green)}.btn.warn{background:var(--orange)}label{display:block;font-size:13px;font-weight:700;color:var(--slate);margin:10px 0 5px}input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}input[type=checkbox]{width:auto;margin-right:8px}.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;background:#fff}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top;font-size:14px}th{background:#f1f5f9;color:#334155}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}.mono{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}@media(max-width:1050px){.grid,.two,.form-grid{grid-template-columns:1fr 1fr}}@media(max-width:720px){.grid,.two,.form-grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
     </style>
 </head>
 <body>
@@ -221,6 +221,7 @@ $filipposRefreshUrl = $filipposUrl . '&refresh=20';
             <div class="grid">
                 <div class="metric"><strong><?= bv_h((string)($visibility['orders_seen'] ?? 0)) ?></strong><span>Orders seen</span></div>
                 <div class="metric"><strong><?= bv_h((string)($visibility['sample_count'] ?? 0)) ?></strong><span>Sanitized samples</span></div>
+                <div class="metric"><strong><?= bv_h((string)($visibility['local_recent_count'] ?? 0)) ?></strong><span>Local recent rows</span></div>
                 <div class="metric"><strong><?= !empty($snapshot['recorded']) ? 'YES' : 'NO' ?></strong><span>Recorded privately</span></div>
                 <div class="metric"><strong><?= bv_h((string)($snapshot['duration_ms'] ?? 0)) ?>ms</strong><span>Probe duration</span></div>
             </div>
@@ -239,7 +240,7 @@ $filipposRefreshUrl = $filipposUrl . '&refresh=20';
             <h2>Sanitized order samples</h2>
             <?php $samples = $snapshot['order_samples'] ?? []; ?>
             <?php if (!$samples): ?>
-                <p class="warnline"><strong>No order samples were exposed by the dry-run probe.</strong> This is the expected result if the active trip is still invisible to the current Bolt endpoint.</p>
+                <p class="warnline"><strong>No order samples were exposed by the dry-run probe.</strong> The dry-run sync may still report <code>orders_seen</code> without returning order-like arrays to this diagnostic. Check the local normalized bookings section below for the last imported Bolt rows.</p>
             <?php else: ?>
                 <div class="table-wrap">
                     <table>
@@ -270,6 +271,73 @@ $filipposRefreshUrl = $filipposUrl . '&refresh=20';
                 </div>
             <?php endif; ?>
         </section>
+
+        <section class="card">
+            <h2>Dry-run sync explanation</h2>
+            <?php $syncSummary = $snapshot['sync_result_summary'] ?? []; ?>
+            <p><?= bv_h((string)($syncSummary['sample_extraction_note'] ?? 'Raw sync result is intentionally not printed.')) ?></p>
+            <p class="small">
+                Sync keys exposed safely:
+                <?php foreach (($syncSummary['safe_top_level_keys'] ?? []) as $key): ?>
+                    <code><?= bv_h((string)$key) ?></code>
+                <?php endforeach; ?>
+            </p>
+            <p class="small">
+                Dry run: <code><?= bv_h((string)($syncSummary['dry_run'] ?? 'true')) ?></code> ·
+                Inserted: <code><?= bv_h((string)($syncSummary['inserted'] ?? '')) ?></code> ·
+                Updated: <code><?= bv_h((string)($syncSummary['updated'] ?? '')) ?></code> ·
+                Skipped: <code><?= bv_h((string)($syncSummary['skipped'] ?? '')) ?></code>
+            </p>
+        </section>
+
+        <section class="card">
+            <h2>Recent local normalized Bolt bookings</h2>
+            <?php $localRows = $snapshot['local_recent_bookings'] ?? []; $localMeta = $snapshot['local_recent_bookings_meta'] ?? []; ?>
+            <p class="small"><?= bv_h((string)($localMeta['note'] ?? 'Read-only normalized booking summary.')) ?></p>
+            <?php if (!$localRows): ?>
+                <p class="warnline"><strong>No recent local normalized Bolt rows were available for display.</strong></p>
+            <?php else: ?>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Local ID</th><th>Order</th><th>Status</th><th>Driver</th><th>Vehicle</th><th>Times</th><th>EDXEIX</th><th>Watch match</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($localRows as $local): ?>
+                            <?php $localWatch = $local['watch_match'] ?? []; ?>
+                            <tr>
+                                <td class="mono"><?= bv_h((string)($local['local_id'] ?? '')) ?></td>
+                                <td class="mono"><?= bv_h((string)($local['external_order_id'] ?? '')) ?></td>
+                                <td><?= bv_badge((string)($local['status'] ?? 'UNKNOWN'), bv_status_class($local['status'] ?? null)) ?></td>
+                                <td class="mono"><?= bv_h((string)($local['driver_external_id'] ?? '')) ?></td>
+                                <td><span class="mono"><?= bv_h((string)($local['vehicle_external_id'] ?? '')) ?></span><br><?= bv_h((string)($local['vehicle_plate'] ?? '')) ?></td>
+                                <td class="small">
+                                    Created: <?= bv_h((string)($local['order_created_at'] ?? '')) ?><br>
+                                    Scheduled: <?= bv_h((string)($local['scheduled_for'] ?? '')) ?><br>
+                                    Started: <?= bv_h((string)($local['started_at'] ?? '')) ?><br>
+                                    Ended: <?= bv_h((string)($local['ended_at'] ?? '')) ?>
+                                </td>
+                                <td class="small">
+                                    Ready: <?= bv_h((string)($local['edxeix_ready'] ?? '')) ?><br>
+                                    Driver: <?= bv_h((string)($local['edxeix_driver_id'] ?? '')) ?><br>
+                                    Vehicle: <?= bv_h((string)($local['edxeix_vehicle_id'] ?? '')) ?>
+                                </td>
+                                <td>
+                                    <?= bv_badge('order ' . (!empty($localWatch['order_id']) ? 'YES' : 'NO'), !empty($localWatch['order_id']) ? 'good' : 'neutral') ?>
+                                    <?= bv_badge('driver ' . (!empty($localWatch['driver_uuid']) ? 'YES' : 'NO'), !empty($localWatch['driver_uuid']) ? 'good' : 'neutral') ?>
+                                    <?= bv_badge('vehicle ' . (!empty($localWatch['vehicle_plate']) ? 'YES' : 'NO'), !empty($localWatch['vehicle_plate']) ? 'good' : 'neutral') ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small">Columns used:
+                    <?php foreach (($localMeta['columns_used'] ?? []) as $alias => $column): ?>
+                        <code><?= bv_h((string)$alias) ?>=&gt;<?= bv_h((string)$column) ?></code>
+                    <?php endforeach; ?>
+                </p>
+            <?php endif; ?>
+        </section>
+
     <?php endif; ?>
 
     <section class="card">
@@ -279,7 +347,7 @@ $filipposRefreshUrl = $filipposUrl . '&refresh=20';
         <?php else: ?>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Captured</th><th>Label</th><th>Orders</th><th>Samples</th><th>Status counts</th><th>Watch matches</th></tr></thead>
+                    <thead><tr><th>Captured</th><th>Label</th><th>Orders</th><th>Samples</th><th>Local rows</th><th>Status counts</th><th>Watch matches</th></tr></thead>
                     <tbody>
                     <?php foreach ($recentDisplay as $row): ?>
                         <?php $vis = $row['visibility'] ?? []; $matches = $vis['watch']['matches'] ?? []; ?>
@@ -288,9 +356,13 @@ $filipposRefreshUrl = $filipposUrl . '&refresh=20';
                             <td><?= bv_h((string)($row['label'] ?? '')) ?></td>
                             <td><?= bv_count_badge($vis['orders_seen'] ?? 0) ?></td>
                             <td><?= bv_h((string)($vis['sample_count'] ?? 0)) ?></td>
+                            <td><?= bv_h((string)($vis['local_recent_count'] ?? 0)) ?></td>
                             <td class="small">
                                 <?php foreach (($vis['status_counts_from_samples'] ?? []) as $status => $count): ?>
                                     <?= bv_badge((string)$status . ': ' . (string)$count, bv_status_class((string)$status)) ?>
+                                <?php endforeach; ?>
+                                <?php foreach (($vis['status_counts_from_local_recent'] ?? []) as $status => $count): ?>
+                                    <?= bv_badge('local ' . (string)$status . ': ' . (string)$count, bv_status_class((string)$status)) ?>
                                 <?php endforeach; ?>
                             </td>
                             <td>

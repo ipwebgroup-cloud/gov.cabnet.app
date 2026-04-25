@@ -1,98 +1,85 @@
 # Bolt API Visibility Diagnostic
 
-## Purpose
-
-This patch adds a guarded diagnostic page for the gov.cabnet.app Bolt → EDXEIX bridge.
-
-The diagnostic answers one question:
-
-> At which ride stage does the current Bolt Fleet orders endpoint expose a real Bolt trip?
-
-The 2026-04-25 live test showed the trip was not visible while accepted, picked up/waiting, or started, and became visible only after completion. This diagnostic gives Andreas a repeatable way to capture that evidence with sanitized snapshots.
+This diagnostic is a guarded, read-only ops tool for proving when the current Bolt Fleet orders endpoint exposes a trip.
 
 ## Safety posture
 
-This diagnostic is safe by design:
+- Does not submit to EDXEIX.
+- Does not enable live EDXEIX submission.
+- Does not stage queue jobs.
+- Uses the existing Bolt sync path in dry-run mode only.
+- Does not print raw Bolt payloads.
+- Does not print secrets, cookies, CSRF values, tokens, passenger names, emails, or phone numbers.
+- Optional timeline recording stores sanitized JSONL summaries only under private app storage.
 
-- It does **not** enable live EDXEIX submission.
-- It does **not** call EDXEIX.
-- It does **not** stage EDXEIX jobs.
-- It calls the existing Bolt order sync through `gov_bolt_sync_orders($hoursBack, true)` only.
-- It records only sanitized summaries when `record=1` is used.
-- It does not print or store raw Bolt payloads, API tokens, cookies, CSRF values, emails, phone numbers, passenger names, or session data.
+## Files
 
-## New URLs
+- `public_html/gov.cabnet.app/ops/bolt-api-visibility.php`
+- `public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php`
+- `gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php`
 
-HTML operator page:
+## URL
 
 ```text
 https://gov.cabnet.app/ops/bolt-api-visibility.php
 ```
 
-JSON snapshot endpoint:
+## Recommended test sequence
+
+1. Open the diagnostic page before the Bolt test ride.
+2. Use **Watch Filippos every 20s** only while performing the test.
+3. Capture/record one snapshot after each visible operational state:
+   - ride accepted/assigned
+   - passenger picked up / waiting
+   - trip started
+   - trip completed
+4. Compare:
+   - `Orders seen`
+   - `Sanitized samples`
+   - `Local recent rows`
+   - watch match badges for order, driver, and vehicle
+
+## Current v1.1 behaviour
+
+The first diagnostic version proved the page works and can record a private timeline. Screenshots from 2026-04-25 showed:
 
 ```text
-https://gov.cabnet.app/ops/bolt-api-visibility-run.php
+orders_seen: 1
+sanitized_samples: 0
+recorded: yes
+watch matches: no
 ```
 
-Suggested Filippos/EMX6874 probe:
+That means the dry-run sync result can report that Bolt returned/imported at least one order, while not exposing order-like arrays in the wrapper output for the diagnostic parser to summarize.
+
+Version 1.1 therefore adds a second read-only view:
 
 ```text
-https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=1&hours_back=24&sample_limit=20&watch_driver_uuid=57256761-d21b-4940-a3ca-bdcec5ef6af1&watch_vehicle_plate=EMX6874&label=filippos-emx6874-probe
+Recent local normalized Bolt bookings
 ```
 
-Suggested auto-refresh probe during the active ride:
+This reads the latest safe summary fields from `normalized_bookings` after the dry-run probe. It helps confirm what the sync imported without printing raw Bolt payloads.
 
-```text
-https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=1&hours_back=24&sample_limit=20&watch_driver_uuid=57256761-d21b-4940-a3ca-bdcec5ef6af1&watch_vehicle_plate=EMX6874&label=filippos-emx6874-probe&refresh=20
-```
+## Private artifacts
 
-## Private artifact output
-
-When `record=1`, sanitized timeline rows are appended to:
+When `record=1`, snapshots are appended to:
 
 ```text
 /home/cabnet/gov.cabnet.app_app/storage/artifacts/bolt-api-visibility/YYYY-MM-DD.jsonl
 ```
 
-This file is intentionally outside public webroot.
+These files are private server artifacts and should not be committed to Git.
 
-## Recommended live test sequence
-
-Use this only when Filippos and a mapped vehicle are available.
-
-1. Create/schedule the Bolt ride 40–60 minutes in the future where possible.
-2. Run and record one snapshot after Filippos accepts the ride.
-3. Run another snapshot after pickup/waiting.
-4. Run another snapshot after the trip starts.
-5. Run the final snapshot after completion.
-6. Compare `orders_seen`, status counts, and watch matches across the timeline.
-
-## Expected diagnostic result based on the 2026-04-25 test
-
-During accepted/picked-up/started stages, the current endpoint may show:
-
-```json
-"orders_seen": 0
-```
-
-After completion, it may show:
-
-```json
-"orders_seen": 1
-```
-
-If this pattern repeats, the project should not depend on that Bolt endpoint for live pre-departure EDXEIX submission unless Bolt exposes a different endpoint, webhook, or scheduled-job feed.
-
-## Files added
+## Known watch values for first test
 
 ```text
-gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
-public_html/gov.cabnet.app/ops/bolt-api-visibility.php
-public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php
-docs/BOLT_API_VISIBILITY_DIAGNOSTIC.md
+Driver: Filippos Giannakopoulos
+Bolt UUID: 57256761-d21b-4940-a3ca-bdcec5ef6af1
+Vehicle: EMX6874
+EDXEIX driver ID: 17585
+EDXEIX vehicle ID: 13799
 ```
 
-## SQL
+## Important boundary
 
-No SQL changes are required.
+This diagnostic must remain an observation tool only. It is not a live submit tool.
