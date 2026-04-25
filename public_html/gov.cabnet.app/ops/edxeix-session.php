@@ -1,9 +1,10 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX Session / Submit URL Readiness + Guarded Server-Side Save Form
+ * gov.cabnet.app — EDXEIX Session / Submit URL Readiness
  *
  * Guarded helper for final live-submit preparation.
- * GET is read-only. POST can save EDXEIX session/config values server-side only.
+ * GET is read-only. This page verifies server-side EDXEIX session/config state.
+ * Session refresh is handled by the private Firefox extension endpoint.
  * This page never prints cookies, CSRF tokens, or secrets and never calls EDXEIX.
  */
 
@@ -463,9 +464,7 @@ try {
     $configState = es_public_config_state($config);
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-        $postResult = es_handle_post($config, $configState);
-        $config = gov_live_load_config();
-        $configState = es_public_config_state($config);
+        throw new RuntimeException('Manual session save is disabled on this page. Use the CABnet EDXEIX Capture Firefox extension, which posts to /ops/edxeix-session-capture.php.');
     }
 
     $sessionDetails = es_read_session_details((string)$configState['edxeix_session_file']);
@@ -486,7 +485,7 @@ if (($_GET['format'] ?? '') === 'json') {
         'script' => 'ops/edxeix-session.php',
         'generated_at' => date('Y-m-d H:i:s'),
         'read_only_when_get' => $_SERVER['REQUEST_METHOD'] !== 'POST',
-        'writes_server_only_files_on_post' => $_SERVER['REQUEST_METHOD'] === 'POST',
+        'writes_server_only_files_on_post' => false,
         'calls_bolt' => false,
         'calls_edxeix' => false,
         'writes_database' => false,
@@ -497,7 +496,7 @@ if (($_GET['format'] ?? '') === 'json') {
         'post_result' => $postResult,
         'remaining_notes' => [
             'This page never displays cookie or CSRF values.',
-            'POST can save submit URL/cookie/CSRF to server-only files for authorized operators.',
+            'Use the CABnet EDXEIX Capture Firefox extension to refresh server-side cookie/CSRF values.',
             'Live EDXEIX HTTP transport is still blocked in the current live-submit gate.',
             'A real future Bolt candidate is still required for the first actual live submission test.',
         ],
@@ -533,11 +532,11 @@ if (($_GET['format'] ?? '') === 'json') {
 <main class="wrap">
     <section class="card hero <?= $error ? 'bad' : ($overallReady ? 'good' : '') ?>">
         <h1>EDXEIX Session / Submit URL Readiness</h1>
-        <p>Helper for production preparation. GET is diagnostic only. The guarded form can save EDXEIX session/config values server-side for authorized operators. It never prints secrets and never calls EDXEIX.</p>
+        <p>Helper for production preparation. This page is diagnostic/read-only for operators. Use the CABnet EDXEIX Capture Firefox extension to refresh the server-side EDXEIX session. It never prints secrets and never calls EDXEIX.</p>
         <div>
             <?= es_badge('NO SECRET OUTPUT', 'good') ?>
             <?= es_badge('NO EDXEIX CALL', 'good') ?>
-            <?= es_badge('POST SAVES SERVER-ONLY FILES', 'warn') ?>
+            <?= es_badge('FIREFOX EXTENSION REFRESHES SESSION', 'good') ?>
             <?= $overallReady ? es_badge('SESSION PREREQS READY', 'good') : es_badge('SESSION PREREQS NEED ATTENTION', 'warn') ?>
         </div>
         <?php if ($error): ?><p class="badline"><strong>Error:</strong> <?= es_h($error) ?></p><?php endif; ?>
@@ -560,54 +559,25 @@ if (($_GET['format'] ?? '') === 'json') {
         </div>
     </section>
 
-    <section class="card warn">
-        <h2>Guarded Server-Side Save Form</h2>
-        <p>This form is available because only authorized operators use the app. It saves values directly into server-only files and never displays them back. It does not enable live submission.</p>
-        <form method="post" autocomplete="off" spellcheck="false">
-            <div class="callout good">
-                <h3>Fast Paste + Auto-Extract Helper</h3>
-                <p class="small">Paste the full EDXEIX request headers and the EDXEIX form HTML/snippet below, then press <strong>Extract into fields</strong>. The browser fills the fields below so you can review lengths and save. Secret values are not printed after saving.</p>
-
-                <label for="request_headers_blob">Paste EDXEIX request headers</label>
-                <textarea class="helper-textarea" id="request_headers_blob" name="request_headers_blob" placeholder="Paste copied Request Headers here. The helper looks for the Cookie: header." autocomplete="off"></textarea>
-
-                <label for="form_html_blob">Paste EDXEIX form HTML / _token snippet</label>
-                <textarea class="helper-textarea" id="form_html_blob" name="form_html_blob" placeholder="Paste the &lt;form ... action=...&gt; and hidden _token input snippet here." autocomplete="off"></textarea>
-
-                <div class="actions">
-                    <button class="green" type="button" id="extract_values_btn">Extract into fields</button>
-                    <button type="button" class="btn dark" id="clear_helper_btn">Clear helper boxes</button>
-                </div>
-                <div id="extract_status" class="extract-status">Extraction status: waiting for pasted EDXEIX headers/form HTML.</div>
-                <p class="small"><strong>Safety:</strong> this helper runs in your browser only. The server still validates host, rejects placeholders, creates backups, and forces live flags disabled.</p>
-            </div>
-
-            <label for="edxeix_submit_url">EDXEIX submit URL</label>
-            <input type="url" id="edxeix_submit_url" name="edxeix_submit_url" placeholder="https://edxeix.yme.gov.gr/dashboard/lease-agreement" autocomplete="off">
-            <div class="field-note">Optional if already configured. Must be HTTPS and host must be edxeix.yme.gov.gr.</div>
-
-            <label for="edxeix_form_method">Form method</label>
-            <select id="edxeix_form_method" name="edxeix_form_method">
-                <option value="POST" selected>POST</option>
-                <option value="GET">GET</option>
-            </select>
-
-            <label for="cookie_header">Cookie header</label>
-            <textarea id="cookie_header" name="cookie_header" placeholder="Paste the full EDXEIX Cookie request header here. It will be saved server-side and never printed back." autocomplete="off"></textarea>
-            <div class="field-note">Optional only if updating URL alone. If updating session, paste both cookie and CSRF token.</div>
-
-            <label for="csrf_token">CSRF token</label>
-            <input type="password" id="csrf_token" name="csrf_token" placeholder="Paste EDXEIX CSRF token here" autocomplete="new-password">
-
-            <label for="confirm_phrase">Confirmation phrase</label>
-            <input type="text" id="confirm_phrase" name="confirm_phrase" placeholder="SAVE EDXEIX SESSION SERVER SIDE" autocomplete="off" required>
-            <div class="field-note">Type exactly: <code>SAVE EDXEIX SESSION SERVER SIDE</code></div>
-
-            <div class="actions">
-                <button class="green" type="submit">Save Server-Side Values</button>
-            </div>
-            <p class="small"><strong>Safety:</strong> saving these values does not enable live submission. The live and HTTP flags remain forced disabled by this form.</p>
-        </form>
+    <section class="card safe">
+        <h2>Firefox Extension Session Refresh</h2>
+        <p>The manual Cookie/CSRF input fields were removed to avoid confusion. The Firefox extension is now the preferred workflow: it captures the EDXEIX form token and cookies from the logged-in EDXEIX tab and saves them through the guarded capture endpoint.</p>
+        <div class="callout good">
+            <strong>Normal operator flow:</strong>
+            <ol class="list">
+                <li>Log in to EDXEIX.</li>
+                <li>Open <code>https://edxeix.yme.gov.gr/dashboard/lease-agreement/create</code>.</li>
+                <li>Click the <strong>CABnet EDXEIX Capture</strong> Firefox extension.</li>
+                <li>Click <strong>Capture from EDXEIX tab</strong>, then <strong>Save to gov.cabnet.app</strong>.</li>
+                <li>Return to this page and confirm <strong>Session cookie/CSRF ready</strong> and <strong>Submit URL configured</strong> both show <strong>yes</strong>.</li>
+            </ol>
+        </div>
+        <div class="actions">
+            <a class="btn" href="/ops/edxeix-session.php?format=json">Open Session JSON</a>
+            <a class="btn dark" href="/ops/edxeix-session-capture.php">Check Capture Endpoint</a>
+            <a class="btn orange" href="/ops/live-submit.php">Open Live Submit Gate</a>
+        </div>
+        <p class="small"><strong>Safety:</strong> saved Cookie and CSRF values are never printed back to the page. The capture endpoint still validates the EDXEIX host, rejects placeholders, creates backups, and forces live/HTTP submit flags disabled.</p>
     </section>
 
     <section class="two">
@@ -618,11 +588,11 @@ if (($_GET['format'] ?? '') === 'json') {
                 <tbody>
                     <tr><td><strong>live_submit.php exists</strong></td><td><?= es_bool_badge(!empty($configState['config_file_exists']), 'yes', 'no') ?></td><td><code><?= es_h($configState['config_file'] ?? '') ?></code></td></tr>
                     <tr><td><strong>live_submit.php readable</strong></td><td><?= es_bool_badge(!empty($configState['config_file_readable']), 'yes', 'no') ?></td><td>Must be readable by the cabnet PHP runtime.</td></tr>
-                    <tr><td><strong>live_submit.php writable</strong></td><td><?= es_bool_badge(!empty($configState['config_file_writable']), 'yes', 'no') ?></td><td>Required only for the web save form.</td></tr>
+                    <tr><td><strong>live_submit.php writable</strong></td><td><?= es_bool_badge(!empty($configState['config_file_writable']), 'yes', 'no') ?></td><td>Not required for this diagnostic page. The Firefox extension capture endpoint updates server-only files.</td></tr>
                     <tr><td><strong>EDXEIX submit URL</strong></td><td><?= es_bool_badge(!empty($configState['edxeix_submit_url_configured']), 'configured', 'missing') ?></td><td>Host: <?= es_h($configState['edxeix_submit_url_host'] ?: 'not configured') ?></td></tr>
                     <tr><td><strong>Form method</strong></td><td><?= es_badge((string)($configState['edxeix_form_method'] ?? 'POST'), 'neutral') ?></td><td>Expected method is normally POST.</td></tr>
-                    <tr><td><strong>Live flag</strong></td><td><?= !empty($configState['live_submit_enabled']) ? es_badge('enabled', 'warn') : es_badge('disabled', 'good') ?></td><td>Forced disabled by this form.</td></tr>
-                    <tr><td><strong>HTTP flag</strong></td><td><?= !empty($configState['http_submit_enabled']) ? es_badge('enabled', 'warn') : es_badge('disabled', 'good') ?></td><td>Forced disabled by this form.</td></tr>
+                    <tr><td><strong>Live flag</strong></td><td><?= !empty($configState['live_submit_enabled']) ? es_badge('enabled', 'warn') : es_badge('disabled', 'good') ?></td><td>Must remain disabled until the approved one-shot live test.</td></tr>
+                    <tr><td><strong>HTTP flag</strong></td><td><?= !empty($configState['http_submit_enabled']) ? es_badge('enabled', 'warn') : es_badge('disabled', 'good') ?></td><td>Must remain disabled until the approved one-shot live test.</td></tr>
                 </tbody>
             </table></div>
         </div>
@@ -646,87 +616,16 @@ if (($_GET['format'] ?? '') === 'json') {
     </section>
 
     <section class="card warn">
-        <h2>How to collect these values</h2>
+        <h2>When to refresh the EDXEIX session</h2>
         <ol class="list">
-            <li>Log in to EDXEIX in the browser and open the lease agreement creation form.</li>
-            <li>Use browser developer tools to inspect the form action URL and CSRF token field.</li>
-            <li>Use the Network tab to copy the relevant Cookie request header for the authenticated EDXEIX session.</li>
-            <li>Paste values into the guarded form above. Do not send them in chat, screenshots, GitHub, or email.</li>
-            <li>Reload this page and confirm submit URL + cookie + CSRF are ready.</li>
+            <li>Refresh after logging out and logging back in to EDXEIX.</li>
+            <li>Refresh before the first approved live submission test.</li>
+            <li>Refresh if this page shows the session as old, missing, placeholder, or not ready.</li>
+            <li>Do not paste Cookie or CSRF values into chat, screenshots, GitHub, or email.</li>
         </ol>
-        <p class="small">Backups are created automatically before overwriting server-only config/session files.</p>
+        <p class="small">The Firefox extension posts to <code>/ops/edxeix-session-capture.php</code>. Backups are created automatically before overwriting server-only config/session files.</p>
     </section>
 </main>
-
-<script>
-(function () {
-    function extractCookie(headers) {
-        headers = headers || '';
-        var match = headers.match(/(?:^|\n)\s*Cookie\s*:\s*([^\n\r]+)/i);
-        if (match && match[1]) return match[1].trim();
-        var trimmed = headers.trim();
-        if (trimmed.indexOf('=') !== -1 && !/Set-Cookie\s*:/i.test(trimmed) && !/Cookie\s*:/i.test(trimmed)) return trimmed;
-        return '';
-    }
-    function extractAction(html) {
-        html = html || '';
-        var match = html.match(/<form\b[^>]*\saction\s*=\s*["']([^"']+)["']/i);
-        if (match && match[1]) return match[1].trim();
-        match = html.match(/action\s*=\s*["'](https:\/\/edxeix\.yme\.gov\.gr\/[^"']+)["']/i);
-        if (match && match[1]) return match[1].trim();
-        if (/https:\/\/edxeix\.yme\.gov\.gr\/dashboard\/lease-agreement\b/i.test(html)) return 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
-        return '';
-    }
-    function extractCsrf(html) {
-        html = html || '';
-        var inputs = html.match(/<input\b[^>]*>/ig) || [];
-        for (var i = 0; i < inputs.length; i++) {
-            if (/name\s*=\s*["']_token["']/i.test(inputs[i])) {
-                var val = inputs[i].match(/value\s*=\s*["']([^"']+)["']/i);
-                if (val && val[1]) return val[1].trim();
-            }
-        }
-        var match = html.match(/name\s*=\s*["']_token["'][^\n\r>]*value\s*=\s*["']([^"']+)["']/i);
-        if (match && match[1]) return match[1].trim();
-        return '';
-    }
-    function setStatus(parts) {
-        var el = document.getElementById('extract_status');
-        if (!el) return;
-        el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
-    }
-    var extractBtn = document.getElementById('extract_values_btn');
-    if (extractBtn) {
-        extractBtn.addEventListener('click', function () {
-            var headersEl = document.getElementById('request_headers_blob');
-            var htmlEl = document.getElementById('form_html_blob');
-            var headers = headersEl ? headersEl.value : '';
-            var html = htmlEl ? htmlEl.value : '';
-            var cookie = extractCookie(headers);
-            var action = extractAction(html);
-            var csrf = extractCsrf(html);
-            if (action && document.getElementById('edxeix_submit_url')) document.getElementById('edxeix_submit_url').value = action;
-            if (cookie && document.getElementById('cookie_header')) document.getElementById('cookie_header').value = cookie;
-            if (csrf && document.getElementById('csrf_token')) document.getElementById('csrf_token').value = csrf;
-            setStatus([
-                '<strong>Submit URL:</strong> ' + (action ? 'found' : 'not found'),
-                '<strong>Cookie:</strong> ' + (cookie ? (cookie.length + ' chars') : 'not found'),
-                '<strong>CSRF:</strong> ' + (csrf ? (csrf.length + ' chars') : 'not found')
-            ]);
-        });
-    }
-    var clearBtn = document.getElementById('clear_helper_btn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function () {
-            var h = document.getElementById('request_headers_blob');
-            var f = document.getElementById('form_html_blob');
-            if (h) h.value = '';
-            if (f) f.value = '';
-            setStatus(['Extraction status: helper boxes cleared. Saved server-side values were not changed.']);
-        });
-    }
-})();
-</script>
 
 </body>
 </html>

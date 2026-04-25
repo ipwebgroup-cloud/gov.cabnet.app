@@ -1,46 +1,51 @@
-# Patch: Firefox extension verification buttons
+# Patch: EDXEIX Session Extension-Only UI
 
-## Summary
+## What changed
 
-Updates the private CABnet EDXEIX Session Capture Firefox extension to version `0.1.2`.
+Updated `/ops/edxeix-session.php` so the visible manual Cookie/CSRF form is removed from the operator workflow.
 
-The extension now has explicit buttons to open:
-
-- `https://gov.cabnet.app/ops/edxeix-session.php`
-- `https://gov.cabnet.app/ops/live-submit.php`
-
-This replaces relying on a normal popup link that may not appear to do anything in Firefox.
+The page now presents the Firefox extension as the normal session-refresh method and remains a diagnostic/read-only readiness page for operators.
 
 ## Files included
 
-- `tools/firefox-edxeix-session-capture/manifest.json`
-- `tools/firefox-edxeix-session-capture/popup.html`
-- `tools/firefox-edxeix-session-capture/popup.css`
-- `tools/firefox-edxeix-session-capture/popup.js`
-- `tools/firefox-edxeix-session-capture/README.md`
-- `docs/EDXEIX_FIREFOX_EXTENSION_VERIFY_BUTTONS.md`
+- `public_html/gov.cabnet.app/ops/edxeix-session.php`
+- `docs/EDXEIX_SESSION_EXTENSION_ONLY_UI.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 - `PATCH_README.md`
 
-## Upload / install
+## Upload path
 
-No server runtime file changed in this patch.
+Upload:
 
-Replace the local extension files under:
+```text
+public_html/gov.cabnet.app/ops/edxeix-session.php
+```
 
-`tools/firefox-edxeix-session-capture/`
+to:
 
-Then in Firefox:
-
-`about:debugging → This Firefox → Reload`
-
-or remove and load the temporary add-on again using `manifest.json`.
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session.php
+```
 
 ## SQL
 
 No SQL required.
 
-## Safety
+## Verify
 
-No Bolt request, EDXEIX request, database write, live HTTP transport, secret output, or live submission behavior is introduced.
+Open:
+
+```text
+https://gov.cabnet.app/ops/edxeix-session.php
+https://gov.cabnet.app/ops/edxeix-session.php?format=json
+```
+
+Expected:
+
+- No manual Cookie/CSRF input form is visible.
+- The page explains the Firefox extension workflow.
+- Session cookie/CSRF ready remains yes if already captured.
+- Submit URL configured remains yes.
+- Live flags remain disabled.
+- No EDXEIX call is performed.

@@ -8,11 +8,11 @@ The project is in safe production-prep state.
 - Readiness/future-test workflow: installed.
 - Mapping dashboard/editor: installed.
 - Live submit gate: installed but live HTTP transport is intentionally blocked.
-- EDXEIX submit URL: configured server-side.
+- EDXEIX submit URL: configured server-side as `https://edxeix.yme.gov.gr/dashboard/lease-agreement`.
 - EDXEIX cookie/CSRF session: saved server-side and placeholder-free.
-- EDXEIX session page: has guarded server-side save form and fast paste auto-extract helper.
-- Private Firefox EDXEIX Session Capture extension: installed in repo under `tools/firefox-edxeix-session-capture/`.
-- Firefox extension version: `0.1.2`, with fixed submit URL, no confirmation phrase, and explicit verification buttons.
+- Firefox extension: installed/working locally for operator session capture.
+- `/ops/edxeix-session-capture.php`: guarded extension endpoint installed.
+- `/ops/edxeix-session.php`: diagnostic/read-only operator page; manual Cookie/CSRF input fields removed to avoid confusion.
 - Real future Bolt candidates: 0.
 - Live-eligible rows: 0.
 - Live HTTP execution: no.
@@ -42,11 +42,10 @@ Leave Georgios Zachariou unmapped for now.
 
 1. Log in to EDXEIX.
 2. Open `https://edxeix.yme.gov.gr/dashboard/lease-agreement/create`.
-3. Click the CABnet EDXEIX Capture extension.
-4. Click `Capture from EDXEIX tab`.
-5. Click `Save to gov.cabnet.app`.
-6. Click `Open EDXEIX Session page` and verify the session is ready.
-7. Click `Open Live Submit Gate` and verify live HTTP execution remains blocked.
+3. Click the CABnet EDXEIX Capture Firefox extension.
+4. Click **Capture from EDXEIX tab**.
+5. Click **Save to gov.cabnet.app**.
+6. Verify `/ops/edxeix-session.php` and `/ops/live-submit.php`.
 
 ## Safety rules
 
