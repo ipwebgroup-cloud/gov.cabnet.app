@@ -1,0 +1,269 @@
+/*
+ * gov.cabnet.app — EDXEIX-style Operations UI polish v1.7
+ * Presentation layer only. No JavaScript, no workflow logic, no external dependencies.
+ */
+:root {
+    --bg: #eef2f6 !important;
+    --panel: #ffffff !important;
+    --ink: #101828 !important;
+    --muted: #475467 !important;
+    --line: #cfd8e3 !important;
+    --nav: #071428 !important;
+    --blue: #1d4ed8 !important;
+    --green: #087443 !important;
+    --orange: #b54708 !important;
+    --red: #b42318 !important;
+    --slate: #344054 !important;
+    --soft: #f8fafc !important;
+    --edx-gold: #c57a00;
+    --edx-header: #071428;
+    --edx-header-2: #0b1f3a;
+    --edx-surface: #ffffff;
+    --edx-paper: #f8fafc;
+    --edx-border: #d0d7e2;
+}
+
+body {
+    background:
+        linear-gradient(180deg, #f5f7fb 0, #eef2f6 280px, #e8edf4 100%) !important;
+    color: var(--ink) !important;
+    font-size: 15px;
+}
+
+.nav {
+    background: linear-gradient(180deg, var(--edx-header) 0%, var(--edx-header-2) 100%) !important;
+    min-height: 64px !important;
+    padding: 0 28px !important;
+    border-bottom: 3px solid var(--edx-gold) !important;
+    box-shadow: 0 8px 22px rgba(7, 20, 40, .18) !important;
+}
+
+.nav strong {
+    font-size: 17px !important;
+    letter-spacing: .01em;
+    padding-right: 12px;
+}
+
+.nav a {
+    font-size: 14px !important;
+    padding: 21px 2px 18px !important;
+    border-bottom: 3px solid transparent;
+    opacity: .94 !important;
+}
+
+.nav a:hover {
+    border-bottom-color: #f5b84b;
+    text-decoration: none !important;
+}
+
+.wrap {
+    width: min(1500px, calc(100% - 52px)) !important;
+    margin: 28px auto 64px !important;
+}
+
+.safety {
+    background: #ecfdf3 !important;
+    border: 1px solid #a6e9c4 !important;
+    border-left: 6px solid var(--green) !important;
+    border-radius: 10px !important;
+    padding: 14px 18px !important;
+    box-shadow: 0 4px 12px rgba(8, 116, 67, .06) !important;
+}
+
+.card {
+    border: 1px solid var(--edx-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, .055) !important;
+    background: var(--edx-surface) !important;
+    padding: 20px !important;
+}
+
+.hero {
+    border-left-width: 6px !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--edx-gold), rgba(197, 122, 0, 0));
+}
+
+h1, h2, h3 {
+    color: #001b44 !important;
+    letter-spacing: -.015em;
+}
+
+h1 {
+    font-size: clamp(28px, 3vw, 38px) !important;
+    line-height: 1.1 !important;
+}
+
+h2 {
+    border-bottom: 1px solid #e6ebf2;
+    padding-bottom: 10px;
+}
+
+p {
+    color: #344054 !important;
+}
+
+.metric {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+    border: 1px solid #ccd6e2 !important;
+    border-radius: 9px !important;
+    min-height: 92px !important;
+    position: relative;
+}
+
+.metric:after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #c57a00;
+    opacity: .45;
+}
+
+.metric strong {
+    color: #001b44 !important;
+    font-size: clamp(25px, 2.2vw, 34px) !important;
+    letter-spacing: .02em;
+}
+
+.metric span {
+    color: #344054 !important;
+}
+
+.badge {
+    border-radius: 6px !important;
+    padding: 5px 8px !important;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+    font-size: 11px !important;
+    border: 1px solid transparent;
+}
+
+.badge-good {
+    background: #e7f8ef !important;
+    color: #067647 !important;
+    border-color: #abe7c4 !important;
+}
+.badge-warn {
+    background: #fff4e5 !important;
+    color: #b54708 !important;
+    border-color: #ffd49a !important;
+}
+.badge-bad {
+    background: #fff0ee !important;
+    color: #b42318 !important;
+    border-color: #f7b4ad !important;
+}
+.badge-neutral {
+    background: #edf4ff !important;
+    color: #1849a9 !important;
+    border-color: #c7d7fe !important;
+}
+
+.btn {
+    border-radius: 6px !important;
+    padding: 10px 14px !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.12) inset, 0 1px 2px rgba(16,24,40,.12) !important;
+    letter-spacing: .005em;
+}
+
+.btn:hover {
+    filter: brightness(.96);
+    text-decoration: none !important;
+}
+
+.actions {
+    gap: 9px !important;
+}
+
+.step, .check-card {
+    border-radius: 10px !important;
+    border-color: #ccd6e2 !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%) !important;
+}
+
+.step-no {
+    background: #e8eefb !important;
+    color: #1849a9 !important;
+    border: 1px solid #c7d7fe;
+}
+
+.timeline li {
+    background: #fbfcfe !important;
+    border-color: #d4dce8 !important;
+    border-radius: 8px !important;
+}
+
+.timeline li:before {
+    background: #e8eefb !important;
+    color: #1849a9 !important;
+    border: 1px solid #c7d7fe;
+}
+
+.table-wrap {
+    border-color: #ccd6e2 !important;
+    border-radius: 8px !important;
+}
+
+table {
+    background: #fff !important;
+}
+
+th {
+    background: #eef3f9 !important;
+    color: #344054 !important;
+    font-size: 11px !important;
+    letter-spacing: .05em !important;
+}
+
+td {
+    color: #1d2939 !important;
+}
+
+tr:hover td {
+    background: #fbfcff;
+}
+
+code {
+    background: #eef4ff !important;
+    color: #163b7a !important;
+    border: 1px solid #d8e3f8;
+}
+
+.small {
+    color: #667085 !important;
+}
+
+.goodline { color: #067647 !important; }
+.warnline { color: #b54708 !important; }
+.badline { color: #b42318 !important; }
+
+@media (max-width: 760px) {
+    .wrap {
+        width: calc(100% - 24px) !important;
+        margin-top: 16px !important;
+    }
+    .nav {
+        padding: 0 14px !important;
+    }
+    .nav a {
+        padding-top: 18px !important;
+        padding-bottom: 15px !important;
+    }
+    .card {
+        padding: 16px !important;
+    }
+}

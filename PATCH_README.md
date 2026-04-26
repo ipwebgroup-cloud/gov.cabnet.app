@@ -1,53 +1,73 @@
-# gov.cabnet.app Patch — Bolt Preflight Review Assistant v1.6
+# gov.cabnet.app — Bolt Ops UI Polish v1.7
 
 ## What changed
 
-Adds:
+This patch adds a small EDXEIX-style visual polish layer for the two main operator pages:
+
+- `/ops/test-session.php`
+- `/ops/preflight-review.php`
+
+A shared CSS file is added at:
+
+- `/assets/css/gov-ops-edxeix.css`
+
+## Safety
+
+Presentation layer only.
+
+This patch does not:
+
+- call Bolt
+- call EDXEIX
+- stage jobs
+- update mappings
+- write database rows
+- enable live EDXEIX submission
+- change preflight or eligibility rules
+
+## Files included
 
 ```text
+public_html/gov.cabnet.app/assets/css/gov-ops-edxeix.css
+public_html/gov.cabnet.app/ops/test-session.php
 public_html/gov.cabnet.app/ops/preflight-review.php
-docs/BOLT_PREFLIGHT_REVIEW_ASSISTANT.md
+docs/GOV_OPS_UI_POLISH_V1_7.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-## Upload path
-
-Upload:
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/preflight-review.php
-```
-
-to:
-
-```text
+/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-edxeix.css
+/home/cabnet/public_html/gov.cabnet.app/ops/test-session.php
 /home/cabnet/public_html/gov.cabnet.app/ops/preflight-review.php
 ```
-
-Optional documentation files may be committed to the repo.
 
 ## SQL
 
 None.
 
-## Verify
+## Verification
 
 ```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/test-session.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/preflight-review.php
 ```
 
 Open:
 
 ```text
+https://gov.cabnet.app/ops/test-session.php
 https://gov.cabnet.app/ops/preflight-review.php
+https://gov.cabnet.app/ops/test-session.php?format=json
 https://gov.cabnet.app/ops/preflight-review.php?format=json
 ```
 
-## Expected result
+Expected:
 
-The page loads and reports the current preflight decision in plain language. It should currently show the system is clean but waiting for a real future Bolt candidate.
-
-## Safety
-
-No Bolt call. No EDXEIX call. No job staging. No mapping update. No database write. No live submission.
+- HTML pages load with the polished admin styling.
+- JSON endpoints remain valid.
+- Live submit remains off.
+- No workflow behavior changes.

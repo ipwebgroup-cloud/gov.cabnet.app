@@ -9,19 +9,30 @@ Project:
 
 Current state:
 - Pre-live blocked baseline.
-- Latest readiness observed: READY_FOR_REAL_BOLT_FUTURE_TEST.
-- Real future candidates observed: 0.
+- Readiness is clean: READY_FOR_REAL_BOLT_FUTURE_TEST.
+- Real future Bolt candidate count is 0.
+- Historical/terminal Bolt rows are visible and correctly blocked.
 - Live EDXEIX submit remains disabled.
-- v1.1 Bolt API Visibility Diagnostic exists.
-- v1.2 Bolt Dev Accelerator exists.
-- v1.3 Bolt Evidence Bundle exists.
-- v1.4 Bolt Evidence Report Export exists.
-- v1.5 Bolt Test Session Control exists.
-- v1.6 Bolt Preflight Review Assistant exists at `/ops/preflight-review.php`.
+- No EDXEIX HTTP submit is enabled.
+- No job staging should happen unless explicitly requested as dry-run/local only.
+
+Available ops pages:
+- /ops/test-session.php
+- /ops/preflight-review.php
+- /ops/dev-accelerator.php
+- /ops/evidence-bundle.php
+- /ops/evidence-report.php
+- /ops/readiness.php
+- /ops/future-test.php
+- /ops/mappings.php
+- /ops/bolt-api-visibility.php
+
+Most recent patch:
+- v1.7 Bolt Ops UI Polish.
+- Added /assets/css/gov-ops-edxeix.css.
+- Applied the EDXEIX-style presentation layer to /ops/test-session.php and /ops/preflight-review.php only.
+- Presentation-only. No logic changes.
 
 Next safest task:
-- Wait for a real future Bolt ride and use `/ops/test-session.php`.
-- Capture the ride stages.
-- Export `/ops/evidence-report.php?format=md`.
-- Review `/ops/preflight-review.php`.
-- Do not submit live to EDXEIX.
+- If a real future Bolt ride is available, use /ops/test-session.php and capture accepted, pickup, started, and completed stages.
+- If no real ride is available, continue GUI polish in the next small batch for /ops/dev-accelerator.php and /ops/evidence-bundle.php without changing logic.
