@@ -488,22 +488,41 @@ header('Content-Type: text/html; charset=utf-8');
     <style>
         :root{--bg:#f3f6fb;--panel:#fff;--ink:#07152f;--muted:#475569;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1500px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}p{color:var(--muted);line-height:1.45}.hero{border-left:7px solid var(--orange)}.hero.good{border-left-color:var(--green)}.hero.bad{border-left-color:var(--red)}.safety{background:#ecfdf3;border:1px solid #bbf7d0;border-left:7px solid var(--green);border-radius:14px;padding:16px;margin-bottom:18px}.safety strong{color:#166534}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:82px}.metric strong{display:block;font-size:30px;line-height:1.05;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{display:inline-block;padding:10px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);border:0;cursor:pointer;font-size:14px}.btn.good{background:var(--green)}.btn.warn{background:var(--orange)}.btn.dark{background:var(--slate)}label{display:block;font-size:13px;font-weight:700;color:var(--slate);margin:10px 0 5px}input{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}.form-grid{display:grid;grid-template-columns:220px 160px auto;gap:12px;align-items:end}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:900px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top;font-size:14px}th{background:#f1f5f9;color:#334155}.copybox{width:100%;min-height:520px;font-family:Consolas,Menlo,monospace;font-size:13px;line-height:1.4;white-space:pre;overflow:auto}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.badline{color:#991b1b}.goodline{color:#166534}.warnline{color:#b45309}@media(max-width:1100px){.grid,.two,.form-grid{grid-template-columns:1fr 1fr}}@media(max-width:760px){.grid,.two,.form-grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}}
     </style>
+    <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=1.9">
 </head>
 <body>
-<nav class="nav">
-    <strong>GC gov.cabnet.app</strong>
-    <a href="/ops/index.php">Operations Console</a>
-    <a href="/ops/dev-accelerator.php">Dev Accelerator</a>
-    <a href="/ops/evidence-bundle.php">Evidence Bundle</a>
-    <a href="/ops/evidence-report.php">Evidence Report</a>
-    <a href="/ops/readiness.php">Readiness</a>
-    <a href="/ops/future-test.php">Future Test</a>
-    <a href="/ops/mappings.php">Mappings</a>
-    <a href="/ops/jobs.php">Jobs</a>
-    <a href="/ops/bolt-api-visibility.php">Bolt Visibility</a>
-</nav>
-
-<main class="wrap">
+<div class="gov-topbar">
+    <div class="gov-brand">
+        <div class="gov-brand-crest">ΕΔ</div>
+        <div class="gov-brand-text">
+            <strong>gov.cabnet.app</strong>
+            <span>Bolt → EDXEIX operational console</span>
+        </div>
+    </div>
+    <div class="gov-top-links">
+        <a href="/ops/index.php">Αρχική</a>
+        <a href="/ops/readiness.php">Readiness</a>
+        <a href="/ops/test-session.php">Test Session</a>
+        <a href="/ops/preflight-review.php">Preflight Review</a>
+        <a class="gov-logout" href="/ops/index.php">Safe Ops</a>
+    </div>
+</div>
+<div class="gov-shell">
+    <aside class="gov-sidebar">
+        <h3>Evidence Report</h3>
+        <p>Markdown export for review</p>
+        <div class="gov-side-group"><div class="gov-side-group-title">Workflow control</div><a class="gov-side-link" href="/ops/test-session.php">Test Session Control</a><a class="gov-side-link" href="/ops/dev-accelerator.php">Dev Accelerator</a><a class="gov-side-link" href="/ops/preflight-review.php">Preflight Review</a><a class="gov-side-link" href="/ops/evidence-bundle.php">Evidence Bundle</a><a class="gov-side-link active" href="/ops/evidence-report.php">Evidence Report</a><a class="gov-side-link" href="/ops/readiness.php">Readiness</a><a class="gov-side-link" href="/ops/mappings.php">Mappings</a><a class="gov-side-link" href="/ops/jobs.php">Jobs</a><a class="gov-side-link" href="/ops/bolt-api-visibility.php">Bolt Visibility</a></div>
+        <div class="gov-side-note">Read-only / dry-run operator console. Live EDXEIX submission remains blocked.</div>
+    </aside>
+    <div class="gov-content">
+        <div class="gov-page-header">
+            <div>
+                <h1 class="gov-page-title">Εξαγωγή αναφοράς αποδεικτικών</h1>
+                <div class="gov-breadcrumbs">Αρχική / Διαχειριστικό / Εξαγωγή αναφοράς αποδεικτικών</div>
+            </div>
+            <div class="gov-tabs"><a class="gov-tab active" href="/ops/evidence-report.php">Αναφορά</a><a class="gov-tab" href="/ops/evidence-report.php?format=md">Markdown</a><a class="gov-tab" href="/ops/evidence-bundle.php">Αποδείξεις</a><a class="gov-tab" href="/ops/test-session.php">Συνεδρία</a></div>
+        </div>
+        <main class="wrap wrap-shell">
     <section class="safety">
         <strong>READ-ONLY MARKDOWN EXPORT.</strong>
         This page reads readiness state and existing sanitized Bolt visibility timeline entries only. It does not call Bolt, EDXEIX, or write data.
@@ -597,6 +616,8 @@ header('Content-Type: text/html; charset=utf-8');
         <p class="small">Select all text below and paste it into the chat after the real ride test. It contains no raw secrets or raw Bolt payloads.</p>
         <textarea class="copybox" readonly><?= ber_h($markdown) ?></textarea>
     </section>
-</main>
+        </main>
+    </div>
+</div>
 </body>
 </html>
