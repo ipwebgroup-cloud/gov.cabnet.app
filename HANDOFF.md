@@ -20,21 +20,22 @@ The project remains at a pre-live blocked baseline.
 - EDXEIX session capture works and session readiness has previously shown ready.
 - Manual Cookie/CSRF entry was removed from `/ops/edxeix-session.php`.
 - Live HTTP transport remains intentionally blocked.
-- Bolt API Visibility Diagnostic works and records private sanitized timeline snapshots.
-- Dev Accelerator v1.2 is uploaded, syntax-checked, committed, and shows `READY_FOR_REAL_BOLT_FUTURE_TEST`.
-- Evidence Bundle v1.3 is uploaded, syntax-checked, committed, and currently shows `WAITING_FOR_EVIDENCE` because no real ride snapshots exist yet for the selected date.
-- Evidence Report Export v1.4 adds `/ops/evidence-report.php`, a read-only Markdown/JSON report exporter for the existing sanitized timeline.
+- Bolt API Visibility Diagnostic v1.1 works and records private sanitized timeline snapshots.
+- Bolt Dev Accelerator v1.2 was uploaded, syntax-checked, and committed.
+- Bolt Evidence Bundle v1.3 was uploaded, syntax-checked, and committed.
+- Bolt Evidence Report Export v1.4 was uploaded, syntax-checked, and committed.
+- Bolt Test Session Control v1.5 adds `/ops/test-session.php` as a low-risk single workflow launcher.
 
-## Current observed readiness
+## Latest observed state from server screenshots/output
 
-- Verdict: `READY_FOR_REAL_BOLT_FUTURE_TEST`
-- Real future candidates: `0`
-- Driver mappings: `1/2`
-- Vehicle mappings: `2/15`
-- LAB rows/jobs: `0`
-- Local submission jobs: `0`
-- Live attempts: `0`
-- Live EDXEIX submit: disabled
+- Readiness verdict: `READY_FOR_REAL_BOLT_FUTURE_TEST`.
+- Driver mappings: `1/2`.
+- Vehicle mappings: `2/15`.
+- Real future candidates: `0`.
+- LAB rows/jobs: `0`.
+- Local submission jobs: `0`.
+- Live attempts indicated: `0`.
+- Evidence Bundle was waiting for evidence because no sanitized snapshots existed yet for the date.
 
 ## Known mappings
 
@@ -48,13 +49,27 @@ The project remains at a pre-live blocked baseline.
 
 Leave Georgios Zachariou unmapped until his exact EDXEIX driver ID is independently confirmed.
 
+## Current workflow pages
+
+```text
+/ops/test-session.php          v1.5 workflow launcher
+/ops/dev-accelerator.php       v1.2 capture cockpit
+/ops/evidence-bundle.php       v1.3 evidence summary
+/ops/evidence-report.php       v1.4 Markdown/JSON report exporter
+/ops/bolt-api-visibility.php   sanitized visibility diagnostic
+/ops/future-test.php           guided future test checklist
+/ops/readiness.php             readiness audit UI
+/ops/mappings.php              guarded mapping dashboard
+/ops/jobs.php                  jobs visibility
+```
+
 ## Next safest step
 
-Use `/ops/dev-accelerator.php` during a real future/scheduled Bolt ride with Filippos and EMX6874. Record snapshots after:
+Use `/ops/test-session.php` as the main entry point during a real future/scheduled Bolt ride with Filippos and EMX6874. Record snapshots after:
 
 1. accepted/assigned
 2. pickup/waiting
 3. trip started
 4. completed
 
-Then open `/ops/evidence-report.php` and paste the generated Markdown report into the chat.
+Then open `/ops/evidence-report.php?format=md`, copy the Markdown report, and paste it into the next chat.

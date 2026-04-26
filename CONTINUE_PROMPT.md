@@ -16,25 +16,26 @@ Source of truth order:
 
 Current state:
 - Pre-live blocked baseline.
-- Ops guard is active.
-- EDXEIX session capture works.
-- EDXEIX live submit remains disabled.
-- Readiness currently shows `READY_FOR_REAL_BOLT_FUTURE_TEST`.
-- Real future candidates are currently `0`.
-- Dev Accelerator v1.2 works.
-- Evidence Bundle v1.3 works and currently shows `WAITING_FOR_EVIDENCE` until real test snapshots are captured.
-- Evidence Report Export v1.4 adds `/ops/evidence-report.php` for copy/paste Markdown and JSON evidence reports.
+- Live EDXEIX submit remains disabled.
+- Readiness currently indicates `READY_FOR_REAL_BOLT_FUTURE_TEST`.
+- Current blocker: no real future Bolt candidate yet.
+- Bolt API Visibility Diagnostic v1.1 works.
+- Bolt Dev Accelerator v1.2 works.
+- Bolt Evidence Bundle v1.3 works and currently waits for evidence when no snapshots exist.
+- Bolt Evidence Report Export v1.4 works.
+- Bolt Test Session Control v1.5 adds `/ops/test-session.php` as the primary low-risk workflow launcher.
 
-Important pages:
-- `/ops/dev-accelerator.php`
-- `/ops/evidence-bundle.php`
-- `/ops/evidence-report.php`
-- `/ops/bolt-api-visibility.php`
-- `/ops/future-test.php`
-- `/ops/readiness.php`
-- `/bolt_edxeix_preflight.php?limit=30`
+Important workflow:
+1. Open `/ops/test-session.php`.
+2. Confirm readiness.
+3. During a real future Bolt ride, use the capture buttons to record accepted/assigned, pickup/waiting, trip-started, and completed evidence.
+4. Open `/ops/evidence-bundle.php` to inspect evidence.
+5. Open `/ops/evidence-report.php?format=md`, copy the report, and paste it into chat.
+6. Review `/bolt_edxeix_preflight.php?limit=30` only after evidence exists.
+7. Do not submit live.
 
-Next safest task:
-- During a real future/scheduled Bolt ride with Filippos + EMX6874, use `/ops/dev-accelerator.php` to capture accepted/assigned, pickup/waiting, trip started, and completed stages.
-- Then open `/ops/evidence-report.php` and paste the Markdown report into the chat.
-- Do not submit live to EDXEIX.
+Known mappings:
+- Filippos Giannakopoulos: Bolt UUID `57256761-d21b-4940-a3ca-bdcec5ef6af1`, EDXEIX driver ID `17585`.
+- EMX6874: EDXEIX vehicle ID `13799`.
+- EHA2545: EDXEIX vehicle ID `5949`.
+- Leave Georgios Zachariou unmapped until exact EDXEIX driver ID is confirmed.
