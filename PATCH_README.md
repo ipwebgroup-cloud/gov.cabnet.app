@@ -1,65 +1,85 @@
-# gov.cabnet.app Patch — Bolt API Visibility Diagnostic v1.1
+# gov.cabnet.app Patch — Bolt Dev Accelerator v1.2
 
-## Purpose
+## What changed
 
-Enhance the installed Bolt API Visibility Diagnostic after server screenshots confirmed the page works but showed:
+Adds a new safe development/operator cockpit:
 
 ```text
-orders_seen: 1
-sanitized_samples: 0
-watch matches: no
+/ops/dev-accelerator.php
 ```
 
-This patch keeps the diagnostic read-only and adds a local normalized bookings summary so Andreas can see what the dry-run sync imported without exposing raw Bolt payloads.
-
-## Safety
-
-- EDXEIX live submission remains disabled.
-- No EDXEIX HTTP submission is added.
-- No queue jobs are staged.
-- No SQL migration is required.
-- No raw Bolt payloads, passenger details, API keys, cookies, CSRF values, or session data are printed.
+The page speeds up the next real future Bolt test by consolidating readiness checks, fast timeline capture buttons, auto-watch links, JSON status output, and copy/paste verification URLs.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/bolt-api-visibility.php
-gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
-docs/BOLT_API_VISIBILITY_DIAGNOSTIC.md
-PATCH_README.md
+public_html/gov.cabnet.app/ops/dev-accelerator.php
+docs/BOLT_DEV_ACCELERATOR.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-`public_html/gov.cabnet.app/ops/bolt-api-visibility-run.php` is unchanged from v1.0 and does not need re-upload unless missing.
+## Exact upload paths
 
-## Upload paths
+Upload these files to:
 
 ```text
-public_html/gov.cabnet.app/ops/bolt-api-visibility.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/bolt-api-visibility.php
+public_html/gov.cabnet.app/ops/dev-accelerator.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/dev-accelerator.php
 
-gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
-→ /home/cabnet/gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php
+docs/BOLT_DEV_ACCELERATOR.md
+→ repo docs only / optional documentation copy
+
+HANDOFF.md
+→ repo root HANDOFF.md
+
+CONTINUE_PROMPT.md
+→ repo root CONTINUE_PROMPT.md
+
+PATCH_README.md
+→ repo root PATCH_README.md or keep locally as patch notes
 ```
 
-## SQL
+## SQL to run
+
+None.
+
+## Verification URLs
 
 ```text
-No SQL changes required.
+https://gov.cabnet.app/ops/dev-accelerator.php
+https://gov.cabnet.app/ops/dev-accelerator.php?format=json
+https://gov.cabnet.app/ops/bolt-api-visibility.php
+https://gov.cabnet.app/ops/future-test.php
+https://gov.cabnet.app/ops/readiness.php
 ```
 
-## Verification
+## Verification command
 
-Open:
+```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/dev-accelerator.php
+```
+
+## Expected result
+
+- `/ops/dev-accelerator.php` loads.
+- The page shows readiness/passport status.
+- The page exposes fast capture buttons for accepted, pickup/waiting, started, and completed ride states.
+- Default page load does not call Bolt.
+- Capture buttons run only the existing Bolt visibility dry-run diagnostic.
+- No live EDXEIX submission is enabled.
+- No queue jobs are staged.
+- No mappings are modified.
+
+## Git commit title
 
 ```text
-https://gov.cabnet.app/ops/bolt-api-visibility.php?run=1&record=0&hours_back=24&sample_limit=20
+Add Bolt dev accelerator cockpit
 ```
 
-Expected additions:
+## Git commit description
 
-- Current snapshot shows `Local recent rows`.
-- Page includes `Dry-run sync explanation`.
-- Page includes `Recent local normalized Bolt bookings`.
-- JSON endpoint includes `diagnostic_version: 1.1.0`.
+```text
+Adds a safe operator/development cockpit for the next real future Bolt ride test. The page consolidates readiness status, dry-run visibility capture buttons, auto-watch links, JSON output, and verification URLs while keeping live EDXEIX submission disabled.
+```

@@ -20,14 +20,23 @@ Current state:
 - EDXEIX session capture works.
 - EDXEIX live submit remains disabled.
 - Bolt API Visibility Diagnostic v1.0 was uploaded and committed on 2026-04-25.
+- Bolt API Visibility Diagnostic v1.1 added local normalized booking summaries to explain dry-run cases where `orders_seen > 0` but sanitized samples are unavailable.
 - Server screenshots showed the diagnostic works and records private sanitized timeline entries.
-- Observed output: `orders_seen: 1`, `sanitized_samples: 0`, watch matches `NO`.
+- Observed output at that time: `orders_seen: 1`, `sanitized_samples: 0`, watch matches `NO`.
 
 Most recent patch:
-- Bolt API Visibility Diagnostic v1.1.
-- Adds read-only local normalized booking summaries to explain cases where the dry-run sync reports orders but does not expose order-like arrays for sanitized samples.
+- Bolt Dev Accelerator v1.2.
+- Adds `/ops/dev-accelerator.php`.
+- The page consolidates readiness status, fast dry-run capture buttons, auto-watch link, JSON output, known mapping reminders, real future candidate status, and copy/paste URLs.
+- It does not enable live EDXEIX submission.
+- It does not stage jobs.
+- It does not edit mappings.
+- It does not call Bolt on default page load.
+- Optional capture buttons call the existing Bolt visibility diagnostic dry-run path only.
 
 Next safest task:
-- During a real future/scheduled Bolt ride with Filippos + EMX6874, use `/ops/bolt-api-visibility.php` with recording enabled and auto-refresh.
-- Capture accepted/assigned, pickup/waiting, trip started, and completed states.
+- Upload the v1.2 patch.
+- Open `/ops/dev-accelerator.php`.
+- During a real future/scheduled Bolt ride with Filippos + EMX6874, capture the accepted/assigned, pickup/waiting, trip started, and completed states.
+- Compare the accelerator, Bolt visibility diagnostic, future-test checklist, and preflight JSON.
 - Do not submit live to EDXEIX.

@@ -13,6 +13,7 @@ The project remains at a pre-live blocked baseline.
 - Keep `http_submit_enabled` false.
 - Do not submit historical, cancelled, terminal, expired, invalid, or past Bolt trips.
 - Do not expose real secrets, cookies, CSRF values, API keys, DB passwords, or raw session files.
+- Treat all new tooling as read-only, dry-run, diagnostic, queue visibility, or preflight-only unless Andreas explicitly asks for live-submit work.
 
 ## Current confirmed state
 
@@ -21,21 +22,32 @@ The project remains at a pre-live blocked baseline.
 - Manual Cookie/CSRF entry was removed from `/ops/edxeix-session.php`.
 - Live HTTP transport remains intentionally blocked.
 - Bolt API Visibility Diagnostic v1.0 was uploaded and committed on 2026-04-25.
+- Bolt API Visibility Diagnostic v1.1 added local normalized booking visibility.
 - Screenshots confirmed the diagnostic page works and records private sanitized timeline snapshots.
 - The screenshots showed `orders_seen: 1`, `sanitized_samples: 0`, and watch matches `NO` for Filippos/EMX6874 while no active future test was available.
 
-## This patch
+## Latest patch
 
-Bolt API Visibility Diagnostic v1.1 adds:
+Bolt Dev Accelerator v1.2 adds:
 
-- `diagnostic_version: 1.1.0`
-- read-only latest `normalized_bookings` summaries
-- `Local recent rows` metric
-- `Dry-run sync explanation` section
-- `Recent local normalized Bolt bookings` table
-- timeline local row/status visibility
+```text
+/ops/dev-accelerator.php
+```
 
-This explains the case where dry-run sync reports `orders_seen > 0` but does not expose order-like arrays for sanitized samples.
+Purpose:
+
+- Speed up the next real future Bolt ride test.
+- Keep readiness, capture buttons, auto-watch, JSON status, and verification URLs on one page.
+- Avoid jumping between multiple pages while the ride state changes.
+
+Safety:
+
+- Default page load does not call Bolt.
+- Optional capture buttons call the existing Bolt visibility diagnostic dry-run path only.
+- No EDXEIX submission.
+- No job staging.
+- No mapping edits.
+- No raw Bolt payload printing.
 
 ## Known mappings
 
@@ -51,11 +63,26 @@ Leave Georgios Zachariou unmapped until his exact EDXEIX driver ID is independen
 
 ## Next safest step
 
-Use `/ops/bolt-api-visibility.php` during a real future/scheduled Bolt ride with Filippos and EMX6874. Record snapshots after:
+Upload Bolt Dev Accelerator v1.2 and open:
+
+```text
+https://gov.cabnet.app/ops/dev-accelerator.php
+```
+
+Then, during a real future/scheduled Bolt ride with Filippos and EMX6874, use the accelerator capture buttons after:
 
 1. accepted/assigned
 2. pickup/waiting
 3. trip started
 4. completed
 
-Then compare `Orders seen`, `Sanitized samples`, `Local recent rows`, and watch match badges.
+Compare:
+
+- Orders seen
+- Sanitized samples
+- Local recent rows
+- Watch match badges
+- Real future candidate state
+- Preflight JSON only
+
+Do not submit live to EDXEIX.
