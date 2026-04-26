@@ -1,16 +1,21 @@
-# Patch README — Bolt Ops UI Polish v1.9
+# Patch README — GOV Ops Admin Shell v2.0
 
 ## Summary
 
-Extends the EDXEIX-style shell/layout to Dev Accelerator, Evidence Bundle, and Evidence Report.
+Adds EDXEIX-style read-only companion pages for administration visibility:
+- Admin Control
+- Readiness Control
+- Mapping Review
+- Jobs Review
 
 ## Files
 
 - `public_html/gov.cabnet.app/assets/css/gov-ops-edxeix.css`
-- `public_html/gov.cabnet.app/ops/dev-accelerator.php`
-- `public_html/gov.cabnet.app/ops/evidence-bundle.php`
-- `public_html/gov.cabnet.app/ops/evidence-report.php`
-- `docs/GOV_OPS_UI_POLISH_V1_9.md`
+- `public_html/gov.cabnet.app/ops/admin-control.php`
+- `public_html/gov.cabnet.app/ops/readiness-control.php`
+- `public_html/gov.cabnet.app/ops/mapping-control.php`
+- `public_html/gov.cabnet.app/ops/jobs-control.php`
+- `docs/GOV_OPS_ADMIN_SHELL_V2_0.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
@@ -18,14 +23,6 @@ Extends the EDXEIX-style shell/layout to Dev Accelerator, Evidence Bundle, and E
 
 None.
 
-## Verification
-
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/dev-accelerator.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/evidence-bundle.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/evidence-report.php
-```
-
 ## Safety
 
-No Bolt calls are added. No EDXEIX calls are added. No jobs are staged. No mappings are updated. Live submit remains blocked.
+Presentation/read-only companion pages only. No live submission, no EDXEIX HTTP call, no Bolt call added, no queue staging, and no mapping updates.

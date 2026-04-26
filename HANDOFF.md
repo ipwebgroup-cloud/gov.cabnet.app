@@ -1,13 +1,14 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v1.9:
-- Real ride is not currently available.
+Current state after v2.0:
 - Live EDXEIX submission remains disabled.
-- Ops UI is being polished to match the EDXEIX-style portal.
-- v1.8 applied the shell to Test Session and Preflight Review.
-- v1.9 extends the shell to Dev Accelerator, Evidence Bundle, and Evidence Report.
+- Real future Bolt ride is still unavailable.
+- v1.8/v1.9 applied EDXEIX-style shell to the real-test workflow pages.
+- v2.0 adds EDXEIX-style read-only companion admin pages:
+  - /ops/admin-control.php
+  - /ops/readiness-control.php
+  - /ops/mapping-control.php
+  - /ops/jobs-control.php
+- Original pages are preserved.
 
-Primary safe testing URL:
-`https://gov.cabnet.app/ops/test-session.php`
-
-Do not enable live submission unless Andreas explicitly asks for a live-submit update after a real eligible future Bolt trip passes preflight.
+Do not enable live submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.

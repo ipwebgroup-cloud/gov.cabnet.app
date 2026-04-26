@@ -176,3 +176,24 @@ code, .mono { font-family:Consolas, Menlo, monospace; background:#f1f4fa; border
     .gov-tabs { margin-top:12px; }
     .workflow, .grid, .three, .two { grid-template-columns:1fr; }
 }
+
+
+/* v2.0 admin companion page helpers */
+.gov-admin-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:14px; }
+.gov-admin-link {
+    display:block;
+    border:1px solid #d8dde7;
+    background:#fff;
+    border-radius:4px;
+    padding:16px;
+    text-decoration:none;
+    color:#27385f;
+    box-shadow: var(--shadow);
+}
+.gov-admin-link:hover { border-color:#4f5ea7; }
+.gov-admin-link strong { display:block; font-size:18px; margin-bottom:8px; color:#27385f; }
+.gov-admin-link span { color:#59657a; }
+.kv { display:grid; grid-template-columns:220px minmax(0,1fr); gap:8px 14px; }
+.kv div { padding:7px 0; border-bottom:1px solid #eef1f5; }
+.kv .k { color:#667085; font-weight:700; }
+@media(max-width: 860px){ .gov-admin-grid, .kv { grid-template-columns:1fr; } }
