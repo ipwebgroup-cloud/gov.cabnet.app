@@ -13,47 +13,28 @@ The project remains at a pre-live blocked baseline.
 - Keep `http_submit_enabled` false.
 - Do not submit historical, cancelled, terminal, expired, invalid, or past Bolt trips.
 - Do not expose real secrets, cookies, CSRF values, API keys, DB passwords, or raw session files.
-- Use diagnostics, visibility, readiness, evidence capture, and preflight review only.
 
-## Current confirmed state as of 2026-04-26
+## Current confirmed state
 
 - Ops console is guarded under `/ops/`.
 - EDXEIX session capture works and session readiness has previously shown ready.
 - Manual Cookie/CSRF entry was removed from `/ops/edxeix-session.php`.
 - Live HTTP transport remains intentionally blocked.
-- Bolt API Visibility Diagnostic v1.1 works and records private sanitized timeline snapshots.
-- Bolt Dev Accelerator v1.2 was uploaded, syntax-checked, and committed.
-- Screenshots confirmed:
-  - `/ops/dev-accelerator.php` loads.
-  - `/ops/dev-accelerator.php?format=json` returns valid JSON.
-  - `/ops/readiness.php` shows `READY_FOR_REAL_BOLT_FUTURE_TEST`.
-  - `/ops/future-test.php` shows the system is clean and waiting for a real future Bolt ride.
-  - `/ops/bolt-api-visibility.php` loads.
-- Latest visible readiness indicators:
-  - dry-run enabled: yes
-  - Bolt config present: yes
-  - EDXEIX config present: yes
-  - mapped drivers: 1/2
-  - mapped vehicles: 2/15
-  - real future candidates: 0
-  - local submission jobs: 0
-  - LAB rows/jobs: 0
-  - live attempts indicated: 0
+- Bolt API Visibility Diagnostic works and records private sanitized timeline snapshots.
+- Dev Accelerator v1.2 is uploaded, syntax-checked, committed, and shows `READY_FOR_REAL_BOLT_FUTURE_TEST`.
+- Evidence Bundle v1.3 is uploaded, syntax-checked, committed, and currently shows `WAITING_FOR_EVIDENCE` because no real ride snapshots exist yet for the selected date.
+- Evidence Report Export v1.4 adds `/ops/evidence-report.php`, a read-only Markdown/JSON report exporter for the existing sanitized timeline.
 
-## This patch
+## Current observed readiness
 
-Bolt Evidence Bundle v1.3 adds:
-
-- `/ops/evidence-bundle.php`
-- read-only session evidence summary
-- readiness passport
-- sanitized Bolt visibility timeline summary
-- stage coverage for accepted/assigned, pickup/waiting, trip started, completed
-- watch match summary for driver, vehicle, and optional order fragment
-- copy/paste recap for faster chat/debugging
-- JSON output at `/ops/evidence-bundle.php?format=json`
-
-The Evidence Bundle does not call Bolt, does not call EDXEIX, does not stage jobs, does not update mappings, and does not write database rows.
+- Verdict: `READY_FOR_REAL_BOLT_FUTURE_TEST`
+- Real future candidates: `0`
+- Driver mappings: `1/2`
+- Vehicle mappings: `2/15`
+- LAB rows/jobs: `0`
+- Local submission jobs: `0`
+- Live attempts: `0`
+- Live EDXEIX submit: disabled
 
 ## Known mappings
 
@@ -76,6 +57,4 @@ Use `/ops/dev-accelerator.php` during a real future/scheduled Bolt ride with Fil
 3. trip started
 4. completed
 
-Then open `/ops/evidence-bundle.php` to review the full sanitized session report.
-
-Only if a real future candidate appears, open `/bolt_edxeix_preflight.php?limit=30` for preflight preview. Stop before live submission.
+Then open `/ops/evidence-report.php` and paste the generated Markdown report into the chat.

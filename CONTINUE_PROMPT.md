@@ -19,20 +19,22 @@ Current state:
 - Ops guard is active.
 - EDXEIX session capture works.
 - EDXEIX live submit remains disabled.
-- Bolt API Visibility Diagnostic v1.1 works and records private sanitized timeline entries.
-- Bolt Dev Accelerator v1.2 was uploaded, syntax-checked, and committed.
-- Screenshots confirmed readiness is `READY_FOR_REAL_BOLT_FUTURE_TEST`.
-- System is clean and waiting for a real future Bolt trip.
-- Current visible counts: mapped drivers 1/2, mapped vehicles 2/15, real future candidates 0, local submission jobs 0, LAB rows/jobs 0, live attempts 0.
+- Readiness currently shows `READY_FOR_REAL_BOLT_FUTURE_TEST`.
+- Real future candidates are currently `0`.
+- Dev Accelerator v1.2 works.
+- Evidence Bundle v1.3 works and currently shows `WAITING_FOR_EVIDENCE` until real test snapshots are captured.
+- Evidence Report Export v1.4 adds `/ops/evidence-report.php` for copy/paste Markdown and JSON evidence reports.
 
-Most recent patch:
-- Bolt Evidence Bundle v1.3.
-- Adds `/ops/evidence-bundle.php`.
-- Summarizes sanitized Bolt visibility snapshots, readiness state, stage coverage, watch matches, and a copy/paste recap.
-- It is read-only and does not call Bolt, call EDXEIX, stage jobs, update mappings, write database rows, or enable live submission.
+Important pages:
+- `/ops/dev-accelerator.php`
+- `/ops/evidence-bundle.php`
+- `/ops/evidence-report.php`
+- `/ops/bolt-api-visibility.php`
+- `/ops/future-test.php`
+- `/ops/readiness.php`
+- `/bolt_edxeix_preflight.php?limit=30`
 
 Next safest task:
-- Upload and verify `/ops/evidence-bundle.php`.
-- During a real future/scheduled Bolt ride with Filippos + EMX6874, use `/ops/dev-accelerator.php` to capture accepted/assigned, pickup/waiting, trip-started, and completed snapshots.
-- Then open `/ops/evidence-bundle.php` to review evidence.
+- During a real future/scheduled Bolt ride with Filippos + EMX6874, use `/ops/dev-accelerator.php` to capture accepted/assigned, pickup/waiting, trip started, and completed stages.
+- Then open `/ops/evidence-report.php` and paste the Markdown report into the chat.
 - Do not submit live to EDXEIX.
