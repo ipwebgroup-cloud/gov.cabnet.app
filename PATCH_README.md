@@ -1,90 +1,53 @@
-# Patch: Bolt Test Session Control v1.5
+# gov.cabnet.app Patch — Bolt Preflight Review Assistant v1.6
 
 ## What changed
 
-Adds a low-risk workflow launcher:
+Adds:
 
 ```text
-public_html/gov.cabnet.app/ops/test-session.php
-```
-
-This gives the operator one page for the real future Bolt test workflow:
-
-- readiness passport
-- capture links for accepted / pickup / started / completed
-- auto-watch link
-- evidence bundle link
-- evidence report Markdown link
-- preflight JSON link
-- JSON status endpoint
-
-## Safety
-
-The new page itself:
-
-- does not call Bolt
-- does not call EDXEIX
-- does not stage jobs
-- does not update mappings
-- does not write database rows or files
-- does not enable live submission
-
-The capture buttons link to the existing Dev Accelerator dry-run probes.
-
-## Files included
-
-```text
-public_html/gov.cabnet.app/ops/test-session.php
-docs/BOLT_TEST_SESSION_CONTROL.md
+public_html/gov.cabnet.app/ops/preflight-review.php
+docs/BOLT_PREFLIGHT_REVIEW_ASSISTANT.md
 HANDOFF.md
 CONTINUE_PROMPT.md
-PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 Upload:
 
 ```text
-public_html/gov.cabnet.app/ops/test-session.php
+public_html/gov.cabnet.app/ops/preflight-review.php
 ```
 
 to:
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app/ops/test-session.php
+/home/cabnet/public_html/gov.cabnet.app/ops/preflight-review.php
 ```
 
-Optional docs/repo files:
-
-```text
-docs/BOLT_TEST_SESSION_CONTROL.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+Optional documentation files may be committed to the repo.
 
 ## SQL
 
 None.
 
-## Verification
+## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/test-session.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/preflight-review.php
 ```
 
-URLs:
+Open:
 
 ```text
-https://gov.cabnet.app/ops/test-session.php
-https://gov.cabnet.app/ops/test-session.php?format=json
+https://gov.cabnet.app/ops/preflight-review.php
+https://gov.cabnet.app/ops/preflight-review.php?format=json
 ```
 
 ## Expected result
 
-- Page loads cleanly.
-- JSON endpoint returns valid JSON.
-- It shows current readiness state.
-- It confirms live submit is disabled.
-- It provides one safe workflow to capture and export evidence.
+The page loads and reports the current preflight decision in plain language. It should currently show the system is clean but waiting for a real future Bolt candidate.
+
+## Safety
+
+No Bolt call. No EDXEIX call. No job staging. No mapping update. No database write. No live submission.
