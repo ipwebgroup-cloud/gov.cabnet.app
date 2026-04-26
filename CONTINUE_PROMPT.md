@@ -19,24 +19,20 @@ Current state:
 - Ops guard is active.
 - EDXEIX session capture works.
 - EDXEIX live submit remains disabled.
-- Bolt API Visibility Diagnostic v1.0 was uploaded and committed on 2026-04-25.
-- Bolt API Visibility Diagnostic v1.1 added local normalized booking summaries to explain dry-run cases where `orders_seen > 0` but sanitized samples are unavailable.
-- Server screenshots showed the diagnostic works and records private sanitized timeline entries.
-- Observed output at that time: `orders_seen: 1`, `sanitized_samples: 0`, watch matches `NO`.
+- Bolt API Visibility Diagnostic v1.1 works and records private sanitized timeline entries.
+- Bolt Dev Accelerator v1.2 was uploaded, syntax-checked, and committed.
+- Screenshots confirmed readiness is `READY_FOR_REAL_BOLT_FUTURE_TEST`.
+- System is clean and waiting for a real future Bolt trip.
+- Current visible counts: mapped drivers 1/2, mapped vehicles 2/15, real future candidates 0, local submission jobs 0, LAB rows/jobs 0, live attempts 0.
 
 Most recent patch:
-- Bolt Dev Accelerator v1.2.
-- Adds `/ops/dev-accelerator.php`.
-- The page consolidates readiness status, fast dry-run capture buttons, auto-watch link, JSON output, known mapping reminders, real future candidate status, and copy/paste URLs.
-- It does not enable live EDXEIX submission.
-- It does not stage jobs.
-- It does not edit mappings.
-- It does not call Bolt on default page load.
-- Optional capture buttons call the existing Bolt visibility diagnostic dry-run path only.
+- Bolt Evidence Bundle v1.3.
+- Adds `/ops/evidence-bundle.php`.
+- Summarizes sanitized Bolt visibility snapshots, readiness state, stage coverage, watch matches, and a copy/paste recap.
+- It is read-only and does not call Bolt, call EDXEIX, stage jobs, update mappings, write database rows, or enable live submission.
 
 Next safest task:
-- Upload the v1.2 patch.
-- Open `/ops/dev-accelerator.php`.
-- During a real future/scheduled Bolt ride with Filippos + EMX6874, capture the accepted/assigned, pickup/waiting, trip started, and completed states.
-- Compare the accelerator, Bolt visibility diagnostic, future-test checklist, and preflight JSON.
+- Upload and verify `/ops/evidence-bundle.php`.
+- During a real future/scheduled Bolt ride with Filippos + EMX6874, use `/ops/dev-accelerator.php` to capture accepted/assigned, pickup/waiting, trip-started, and completed snapshots.
+- Then open `/ops/evidence-bundle.php` to review evidence.
 - Do not submit live to EDXEIX.

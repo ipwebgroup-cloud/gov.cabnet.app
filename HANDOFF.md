@@ -13,41 +13,47 @@ The project remains at a pre-live blocked baseline.
 - Keep `http_submit_enabled` false.
 - Do not submit historical, cancelled, terminal, expired, invalid, or past Bolt trips.
 - Do not expose real secrets, cookies, CSRF values, API keys, DB passwords, or raw session files.
-- Treat all new tooling as read-only, dry-run, diagnostic, queue visibility, or preflight-only unless Andreas explicitly asks for live-submit work.
+- Use diagnostics, visibility, readiness, evidence capture, and preflight review only.
 
-## Current confirmed state
+## Current confirmed state as of 2026-04-26
 
 - Ops console is guarded under `/ops/`.
 - EDXEIX session capture works and session readiness has previously shown ready.
 - Manual Cookie/CSRF entry was removed from `/ops/edxeix-session.php`.
 - Live HTTP transport remains intentionally blocked.
-- Bolt API Visibility Diagnostic v1.0 was uploaded and committed on 2026-04-25.
-- Bolt API Visibility Diagnostic v1.1 added local normalized booking visibility.
-- Screenshots confirmed the diagnostic page works and records private sanitized timeline snapshots.
-- The screenshots showed `orders_seen: 1`, `sanitized_samples: 0`, and watch matches `NO` for Filippos/EMX6874 while no active future test was available.
+- Bolt API Visibility Diagnostic v1.1 works and records private sanitized timeline snapshots.
+- Bolt Dev Accelerator v1.2 was uploaded, syntax-checked, and committed.
+- Screenshots confirmed:
+  - `/ops/dev-accelerator.php` loads.
+  - `/ops/dev-accelerator.php?format=json` returns valid JSON.
+  - `/ops/readiness.php` shows `READY_FOR_REAL_BOLT_FUTURE_TEST`.
+  - `/ops/future-test.php` shows the system is clean and waiting for a real future Bolt ride.
+  - `/ops/bolt-api-visibility.php` loads.
+- Latest visible readiness indicators:
+  - dry-run enabled: yes
+  - Bolt config present: yes
+  - EDXEIX config present: yes
+  - mapped drivers: 1/2
+  - mapped vehicles: 2/15
+  - real future candidates: 0
+  - local submission jobs: 0
+  - LAB rows/jobs: 0
+  - live attempts indicated: 0
 
-## Latest patch
+## This patch
 
-Bolt Dev Accelerator v1.2 adds:
+Bolt Evidence Bundle v1.3 adds:
 
-```text
-/ops/dev-accelerator.php
-```
+- `/ops/evidence-bundle.php`
+- read-only session evidence summary
+- readiness passport
+- sanitized Bolt visibility timeline summary
+- stage coverage for accepted/assigned, pickup/waiting, trip started, completed
+- watch match summary for driver, vehicle, and optional order fragment
+- copy/paste recap for faster chat/debugging
+- JSON output at `/ops/evidence-bundle.php?format=json`
 
-Purpose:
-
-- Speed up the next real future Bolt ride test.
-- Keep readiness, capture buttons, auto-watch, JSON status, and verification URLs on one page.
-- Avoid jumping between multiple pages while the ride state changes.
-
-Safety:
-
-- Default page load does not call Bolt.
-- Optional capture buttons call the existing Bolt visibility diagnostic dry-run path only.
-- No EDXEIX submission.
-- No job staging.
-- No mapping edits.
-- No raw Bolt payload printing.
+The Evidence Bundle does not call Bolt, does not call EDXEIX, does not stage jobs, does not update mappings, and does not write database rows.
 
 ## Known mappings
 
@@ -63,26 +69,13 @@ Leave Georgios Zachariou unmapped until his exact EDXEIX driver ID is independen
 
 ## Next safest step
 
-Upload Bolt Dev Accelerator v1.2 and open:
-
-```text
-https://gov.cabnet.app/ops/dev-accelerator.php
-```
-
-Then, during a real future/scheduled Bolt ride with Filippos and EMX6874, use the accelerator capture buttons after:
+Use `/ops/dev-accelerator.php` during a real future/scheduled Bolt ride with Filippos and EMX6874. Record snapshots after:
 
 1. accepted/assigned
 2. pickup/waiting
 3. trip started
 4. completed
 
-Compare:
+Then open `/ops/evidence-bundle.php` to review the full sanitized session report.
 
-- Orders seen
-- Sanitized samples
-- Local recent rows
-- Watch match badges
-- Real future candidate state
-- Preflight JSON only
-
-Do not submit live to EDXEIX.
+Only if a real future candidate appears, open `/bolt_edxeix_preflight.php?limit=30` for preflight preview. Stop before live submission.
