@@ -1,13 +1,13 @@
-# Patch README — EDXEIX Session / Form GET Probe v2.7
+# Patch README — EDXEIX Redirect-Follow GET Probe v2.8
 
 ## Summary
 
-Adds a read-only EDXEIX Session / Form GET Probe page.
+Adds a read-only EDXEIX Redirect-Follow GET Probe page.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/edxeix-session-probe.php`
-- `docs/EDXEIX_SESSION_FORM_GET_PROBE_V2_7.md`
+- `public_html/gov.cabnet.app/ops/edxeix-redirect-probe.php`
+- `docs/EDXEIX_REDIRECT_GET_PROBE_V2_8.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
@@ -15,11 +15,11 @@ Adds a read-only EDXEIX Session / Form GET Probe page.
 
 Upload:
 
-`public_html/gov.cabnet.app/ops/edxeix-session-probe.php`
+`public_html/gov.cabnet.app/ops/edxeix-redirect-probe.php`
 
 to:
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-probe.php`
+`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-redirect-probe.php`
 
 ## SQL
 
@@ -27,4 +27,4 @@ None.
 
 ## Safety
 
-Default page load is local metadata only. `probe=1` performs GET only. It does not POST to EDXEIX, does not call Bolt, does not stage jobs, does not update mappings, does not write database rows, and does not expose cookies/tokens/raw HTML.
+Default load is local metadata only. `probe=1` and `probe=1&follow=1` perform GET only. No EDXEIX POST, no Bolt call, no job staging, no mapping updates, no database writes, no file writes, no secrets/raw HTML printed, and no live submission.

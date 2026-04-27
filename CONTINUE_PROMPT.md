@@ -1,13 +1,11 @@
 Sophion, continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Current state:
-- v2.7 adds `/ops/edxeix-session-probe.php`.
+- v2.8 adds `/ops/edxeix-redirect-probe.php`.
 - Default page load is local metadata only.
-- `?probe=1` performs a read-only GET to the configured EDXEIX target and never POSTs.
-- Live EDXEIX submit remains disabled.
+- `?probe=1` performs GET only.
+- `?probe=1&follow=1` follows redirects with GET only.
+- No EDXEIX POST, no job staging, no mapping update, no DB/file write, no live submission.
 - There is no eligible live candidate yet.
 
-Continue safely:
-- Do not enable live EDXEIX submission.
-- Do not stage jobs from completed/historical/terminal rows.
-- Next work may update the route index/nav links or design the final submit handler guarded behind explicit approval.
+Continue safely. Do not enable live EDXEIX submission.
