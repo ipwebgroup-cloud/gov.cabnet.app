@@ -1,25 +1,19 @@
-# Patch README — EDXEIX Target Matrix v2.9
+# Patch README — EDXEIX Session Refresh Checklist v3.0
 
 ## Summary
 
-Adds a read-only EDXEIX Target URL Probe Matrix page.
+Adds a read-only/checklist-only EDXEIX Session Refresh Checklist page.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/edxeix-target-matrix.php`
-- `docs/EDXEIX_TARGET_MATRIX_V2_9.md`
+- `public_html/gov.cabnet.app/ops/edxeix-session-refresh-checklist.php`
+- `docs/EDXEIX_SESSION_REFRESH_CHECKLIST_V3_0.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
 ## Upload path
 
-Upload:
-
-`public_html/gov.cabnet.app/ops/edxeix-target-matrix.php`
-
-to:
-
-`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-target-matrix.php`
+Upload `public_html/gov.cabnet.app/ops/edxeix-session-refresh-checklist.php` to `/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-refresh-checklist.php`.
 
 ## SQL
 
@@ -27,4 +21,4 @@ None.
 
 ## Safety
 
-Default load is local metadata only. `probe=1&follow=1` performs GET-only requests. No EDXEIX POST, no Bolt call, no job staging, no mapping updates, no database writes, no file writes, no secrets/raw HTML printed, and no live submission.
+Checklist-only. No Bolt call, no EDXEIX call, no POST, no database write, no file write, no job staging, no mapping update, no secret output, and no live submission.
