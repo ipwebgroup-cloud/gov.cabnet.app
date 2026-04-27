@@ -1,16 +1,25 @@
-# Patch README — GOV Ops Route Links v2.4
+# Patch README — Bolt Completed Visibility Analysis v2.5
 
 ## Summary
 
-Adds visible `/ops/route-index.php` links to `/ops/home.php` and `/ops/admin-control.php`.
+Adds a read-only Completed-Order Visibility Analysis page.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/home.php`
-- `public_html/gov.cabnet.app/ops/admin-control.php`
-- `docs/GOV_OPS_ROUTE_LINKS_V2_4.md`
+- `public_html/gov.cabnet.app/ops/completed-visibility.php`
+- `docs/BOLT_COMPLETED_VISIBILITY_ANALYSIS_V2_5.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
+
+## Upload path
+
+Upload:
+
+`public_html/gov.cabnet.app/ops/completed-visibility.php`
+
+to:
+
+`/home/cabnet/public_html/gov.cabnet.app/ops/completed-visibility.php`
 
 ## SQL
 
@@ -18,4 +27,4 @@ None.
 
 ## Safety
 
-Navigation only. No Bolt call. No EDXEIX call. No database write. No job staging. No mapping update. Live submission remains disabled.
+No Bolt call. No EDXEIX call. No database read/write. No job staging. No mapping update. Live submission remains disabled.

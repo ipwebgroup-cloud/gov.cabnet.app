@@ -1,16 +1,16 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v2.4:
+Current state after v2.5:
 - Live EDXEIX submission remains disabled.
-- No real future Bolt ride is available yet.
-- `/ops/home.php` is the polished EDXEIX-style operator landing page.
-- `/ops/route-index.php` is the route/safety matrix.
-- v2.4 adds Route Index links into Ops Home and Admin Control.
+- Real Bolt test on 2026-04-27 captured evidence.
+- Evidence indicates watched ride appeared only after completion/auto-watch, not during accepted/pickup/started stages.
+- Preflight correctly blocked all rows as not future-safe and terminal/historical.
+- v2.5 adds `/ops/completed-visibility.php` to document this finding.
 
-Primary safe entry URL:
+Primary safe entry:
 `https://gov.cabnet.app/ops/home.php`
 
-Route/safety matrix:
-`https://gov.cabnet.app/ops/route-index.php`
+Completed-order visibility analysis:
+`https://gov.cabnet.app/ops/completed-visibility.php`
 
 Do not enable live submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.

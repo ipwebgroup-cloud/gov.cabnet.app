@@ -1,10 +1,12 @@
 Sophion, continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Current state:
-- v2.4 adds Route Index links into `/ops/home.php` and `/ops/admin-control.php`.
-- `/ops/home.php` is the preferred polished entry point.
-- `/ops/route-index.php` is the route/safety matrix.
+- v2.5 adds `/ops/completed-visibility.php`.
+- The 2026-04-27 real Bolt test indicates the current Bolt visibility path exposed the watched ride only after completion, not before.
+- Preflight blocked all rows correctly.
 - Live EDXEIX submit remains disabled.
-- No real future Bolt ride is available yet.
 
-Continue safely with presentation polish, read-only diagnostics, or evidence tooling. Do not enable live EDXEIX submission.
+Continue safely:
+- Do not enable live EDXEIX submission.
+- Do not stage jobs from completed/historical/terminal rows.
+- Next work should investigate alternative Bolt active/future trip visibility or continue documentation/presentation polish.
