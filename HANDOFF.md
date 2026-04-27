@@ -1,18 +1,16 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v2.8:
+Current state after v2.9:
 - Live EDXEIX submission remains disabled.
-- v2.7 proved the configured EDXEIX target is reachable but returned a 302 with no form confirmation.
-- v2.8 adds `/ops/edxeix-redirect-probe.php` for GET-only redirect-follow inspection.
-- Default page load does not call EDXEIX.
-- `?probe=1` performs GET only.
-- `?probe=1&follow=1` follows redirects, still GET only.
+- v2.8 showed EDXEIX is reachable with GET+follow, but current route appears to land on login/public shell rather than the authenticated lease form.
+- v2.9 adds `/ops/edxeix-target-matrix.php` to probe all known target candidates with GET-only requests and classify them.
 - No POST or live submit exists in this patch.
+- No eligible live Bolt candidate exists yet.
 
 Primary safe entry:
 `https://gov.cabnet.app/ops/home.php`
 
-Redirect GET probe:
-`https://gov.cabnet.app/ops/edxeix-redirect-probe.php`
+Target matrix:
+`https://gov.cabnet.app/ops/edxeix-target-matrix.php`
 
 Do not enable live submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.
