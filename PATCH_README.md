@@ -1,13 +1,13 @@
-# Patch README — GOV Ops Home v2.1
+# Patch README — GOV Ops Index Home Link v2.2
 
 ## Summary
 
-Adds `/ops/home.php` as a polished EDXEIX-style operator landing page.
+Adds a visible navigation bridge from the original `/ops/index.php` console to the new EDXEIX-style `/ops/home.php`.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/home.php`
-- `docs/GOV_OPS_HOME_V2_1.md`
+- `public_html/gov.cabnet.app/ops/index.php`
+- `docs/GOV_OPS_INDEX_HOME_LINK_V2_2.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
@@ -15,11 +15,11 @@ Adds `/ops/home.php` as a polished EDXEIX-style operator landing page.
 
 Upload:
 
-`public_html/gov.cabnet.app/ops/home.php`
+`public_html/gov.cabnet.app/ops/index.php`
 
 to:
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/home.php`
+`/home/cabnet/public_html/gov.cabnet.app/ops/index.php`
 
 ## SQL
 
@@ -27,4 +27,4 @@ None.
 
 ## Safety
 
-No Bolt call. No EDXEIX call. No job staging. No mapping update. No database write. Live submission remains disabled.
+No redirect. No Bolt call. No EDXEIX call. No job staging. No mapping update. No database write. Live submission remains disabled.
