@@ -1,13 +1,13 @@
-# Patch README — EDXEIX Final Submit Gate v3.3
+# Patch README — EDXEIX Disabled Live Submit Harness v3.4
 
 ## Summary
 
-Adds a read-only EDXEIX Final Submission Gate page.
+Adds a disabled live-submit harness / approval runbook page.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/edxeix-final-submit-gate.php`
-- `docs/EDXEIX_FINAL_SUBMIT_GATE_V3_3.md`
+- `public_html/gov.cabnet.app/ops/edxeix-disabled-live-submit-harness.php`
+- `docs/EDXEIX_DISABLED_LIVE_SUBMIT_HARNESS_V3_4.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
@@ -15,11 +15,11 @@ Adds a read-only EDXEIX Final Submission Gate page.
 
 Upload:
 
-`public_html/gov.cabnet.app/ops/edxeix-final-submit-gate.php`
+`public_html/gov.cabnet.app/ops/edxeix-disabled-live-submit-harness.php`
 
 to:
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-final-submit-gate.php`
+`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-disabled-live-submit-harness.php`
 
 ## SQL
 
