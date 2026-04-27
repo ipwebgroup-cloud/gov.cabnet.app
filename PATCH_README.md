@@ -1,19 +1,30 @@
-# Patch README — EDXEIX Submit Readiness Probe v2.6
+# Patch README — EDXEIX Session / Form GET Probe v2.7
 
 ## Summary
-Adds a read-only submit-preparation page at `/ops/edxeix-submit-readiness.php`.
+
+Adds a read-only EDXEIX Session / Form GET Probe page.
 
 ## Files
-- `public_html/gov.cabnet.app/ops/edxeix-submit-readiness.php`
-- `docs/EDXEIX_SUBMIT_READINESS_V2_6.md`
+
+- `public_html/gov.cabnet.app/ops/edxeix-session-probe.php`
+- `docs/EDXEIX_SESSION_FORM_GET_PROBE_V2_7.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
 ## Upload path
-Upload `public_html/gov.cabnet.app/ops/edxeix-submit-readiness.php` to `/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-readiness.php`.
+
+Upload:
+
+`public_html/gov.cabnet.app/ops/edxeix-session-probe.php`
+
+to:
+
+`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-probe.php`
 
 ## SQL
+
 None.
 
 ## Safety
-No Bolt call. No EDXEIX POST. No job staging. No mapping update. No database write. Live submission remains disabled.
+
+Default page load is local metadata only. `probe=1` performs GET only. It does not POST to EDXEIX, does not call Bolt, does not stage jobs, does not update mappings, does not write database rows, and does not expose cookies/tokens/raw HTML.

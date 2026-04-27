@@ -1,9 +1,13 @@
 Sophion, continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Current state:
-- v2.6 adds `/ops/edxeix-submit-readiness.php`.
-- The page verifies local EDXEIX submit preparation without posting to EDXEIX.
+- v2.7 adds `/ops/edxeix-session-probe.php`.
+- Default page load is local metadata only.
+- `?probe=1` performs a read-only GET to the configured EDXEIX target and never POSTs.
 - Live EDXEIX submit remains disabled.
-- Existing rows are historical/completed/cancelled/not future-safe and must not be submitted.
+- There is no eligible live candidate yet.
 
-Continue safely. Do not enable live submission unless explicitly requested after preflight passes for a real eligible future Bolt trip.
+Continue safely:
+- Do not enable live EDXEIX submission.
+- Do not stage jobs from completed/historical/terminal rows.
+- Next work may update the route index/nav links or design the final submit handler guarded behind explicit approval.
