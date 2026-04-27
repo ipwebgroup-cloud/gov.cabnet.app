@@ -1,12 +1,9 @@
 Sophion, continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Current state:
-- v2.5 adds `/ops/completed-visibility.php`.
-- The 2026-04-27 real Bolt test indicates the current Bolt visibility path exposed the watched ride only after completion, not before.
-- Preflight blocked all rows correctly.
+- v2.6 adds `/ops/edxeix-submit-readiness.php`.
+- The page verifies local EDXEIX submit preparation without posting to EDXEIX.
 - Live EDXEIX submit remains disabled.
+- Existing rows are historical/completed/cancelled/not future-safe and must not be submitted.
 
-Continue safely:
-- Do not enable live EDXEIX submission.
-- Do not stage jobs from completed/historical/terminal rows.
-- Next work should investigate alternative Bolt active/future trip visibility or continue documentation/presentation polish.
+Continue safely. Do not enable live submission unless explicitly requested after preflight passes for a real eligible future Bolt trip.

@@ -1,16 +1,12 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v2.5:
+Current state after v2.6:
 - Live EDXEIX submission remains disabled.
-- Real Bolt test on 2026-04-27 captured evidence.
-- Evidence indicates watched ride appeared only after completion/auto-watch, not during accepted/pickup/started stages.
-- Preflight correctly blocked all rows as not future-safe and terminal/historical.
-- v2.5 adds `/ops/completed-visibility.php` to document this finding.
+- Real Bolt test indicated current visibility appears after completion, not before.
+- Existing historical/completed/cancelled rows are blocked by preflight.
+- v2.6 adds `/ops/edxeix-submit-readiness.php` to verify local submit preparation without submitting.
 
-Primary safe entry:
-`https://gov.cabnet.app/ops/home.php`
-
-Completed-order visibility analysis:
-`https://gov.cabnet.app/ops/completed-visibility.php`
+Primary safe entry: `https://gov.cabnet.app/ops/home.php`
+Submit readiness probe: `https://gov.cabnet.app/ops/edxeix-submit-readiness.php`
 
 Do not enable live submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.
