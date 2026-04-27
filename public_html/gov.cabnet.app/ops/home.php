@@ -1,10 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX-style Ops Home
+ * gov.cabnet.app — EDXEIX-style Ops Home v2.4
  *
  * Read-only operator landing page.
  * Does not call Bolt, does not call EDXEIX, does not stage jobs,
  * does not update mappings, and does not write database rows.
+ *
+ * v2.4 update:
+ * - Adds direct Route Index / Safety Matrix links.
  */
 
 declare(strict_types=1);
@@ -133,6 +136,7 @@ $payload = [
     'links' => [
         'html' => '/ops/home.php',
         'json' => '/ops/home.php?format=json',
+        'route_index' => '/ops/route-index.php',
         'test_session' => '/ops/test-session.php',
         'admin_control' => '/ops/admin-control.php',
         'readiness_control' => '/ops/readiness-control.php',
@@ -157,7 +161,7 @@ if ($format === 'json') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
     <title>Ops Home | gov.cabnet.app</title>
-    <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.1">
+    <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.4">
 </head>
 <body>
 <div class="gov-topbar">
@@ -173,6 +177,7 @@ if ($format === 'json') {
         <a href="/ops/admin-control.php">Administration</a>
         <a href="/ops/test-session.php">Test Session</a>
         <a href="/ops/preflight-review.php">Preflight Review</a>
+        <a href="/ops/route-index.php">Route Index</a>
         <a class="gov-logout" href="/ops/index.php">Original Console</a>
     </div>
 </div>
@@ -198,6 +203,7 @@ if ($format === 'json') {
             <a class="gov-side-link" href="/ops/readiness-control.php">Readiness Control</a>
             <a class="gov-side-link" href="/ops/mapping-control.php">Mapping Review</a>
             <a class="gov-side-link" href="/ops/jobs-control.php">Jobs Review</a>
+            <a class="gov-side-link" href="/ops/route-index.php">Route Index</a>
         </div>
 
         <div class="gov-side-note">Live EDXEIX submission remains blocked. This page is read-only.</div>
@@ -213,6 +219,7 @@ if ($format === 'json') {
                 <a class="gov-tab active" href="/ops/home.php">Καρτέλα</a>
                 <a class="gov-tab" href="/ops/test-session.php">Test Session</a>
                 <a class="gov-tab" href="/ops/admin-control.php">Administration</a>
+                <a class="gov-tab" href="/ops/route-index.php">Route Index</a>
                 <a class="gov-tab" href="/ops/index.php">Original</a>
             </div>
         </div>
@@ -241,7 +248,7 @@ if ($format === 'json') {
                 <div class="actions">
                     <a class="btn good" href="/ops/test-session.php">Open Test Session</a>
                     <a class="btn" href="/ops/admin-control.php">Open Admin Control</a>
-                    <a class="btn dark" href="/ops/home.php?format=json">Open JSON</a>
+                    <a class="btn dark" href="/ops/route-index.php">Route Index</a>
                     <a class="btn warn" href="/ops/preflight-review.php">Preflight Review</a>
                 </div>
             </section>
@@ -258,7 +265,7 @@ if ($format === 'json') {
                 <a class="gov-admin-link" href="/ops/dev-accelerator.php"><strong>Dev Accelerator</strong><span>Dry-run capture buttons for accepted, pickup, started, and completed snapshots.</span></a>
                 <a class="gov-admin-link" href="/ops/preflight-review.php"><strong>Preflight Review</strong><span>Plain-language explanation of current preflight state and blockers.</span></a>
                 <a class="gov-admin-link" href="/ops/evidence-bundle.php"><strong>Evidence Bundle</strong><span>Review sanitized visibility snapshots after a real test ride.</span></a>
-                <a class="gov-admin-link" href="/ops/evidence-report.php?format=md"><strong>Evidence Markdown</strong><span>Copy/paste report for implementation review.</span></a>
+                <a class="gov-admin-link" href="/ops/route-index.php"><strong>Route Index</strong><span>Safety matrix for operator, evidence, admin, JSON, and guarded action routes.</span></a>
                 <a class="gov-admin-link" href="/ops/admin-control.php"><strong>Admin Control</strong><span>Read-only administration hub for readiness, mappings, and jobs.</span></a>
             </section>
 
@@ -291,7 +298,7 @@ if ($format === 'json') {
                         <p>When a real ride is available, start from Test Session Control.</p>
                         <div class="actions">
                             <a class="btn good" href="/ops/test-session.php">Open Test Session</a>
-                            <a class="btn dark" href="/ops/readiness-control.php">Readiness Control</a>
+                            <a class="btn dark" href="/ops/route-index.php">Route Index</a>
                         </div>
                     <?php else: ?>
                         <p class="badline"><strong>Resolve readiness blockers before testing.</strong></p>

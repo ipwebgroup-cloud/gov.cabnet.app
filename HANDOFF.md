@@ -1,11 +1,11 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v2.3:
+Current state after v2.4:
 - Live EDXEIX submission remains disabled.
 - No real future Bolt ride is available yet.
 - `/ops/home.php` is the polished EDXEIX-style operator landing page.
-- `/ops/index.php` links to `/ops/home.php` but is not redirected.
-- v2.3 adds `/ops/route-index.php`, a static/read-only route safety matrix.
+- `/ops/route-index.php` is the route/safety matrix.
+- v2.4 adds Route Index links into Ops Home and Admin Control.
 
 Primary safe entry URL:
 `https://gov.cabnet.app/ops/home.php`
