@@ -1,13 +1,13 @@
-# Patch README — Extension Session Write Verification v3.1
+# Patch README — EDXEIX Form Contract Verifier v3.2
 
 ## Summary
 
-Adds a read-only Extension Session Write Verification page.
+Adds a read-only EDXEIX Form Contract Verifier page.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/extension-session-write-verification.php`
-- `docs/EXTENSION_SESSION_WRITE_VERIFICATION_V3_1.md`
+- `public_html/gov.cabnet.app/ops/edxeix-form-contract.php`
+- `docs/EDXEIX_FORM_CONTRACT_VERIFIER_V3_2.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
@@ -15,11 +15,11 @@ Adds a read-only Extension Session Write Verification page.
 
 Upload:
 
-`public_html/gov.cabnet.app/ops/extension-session-write-verification.php`
+`public_html/gov.cabnet.app/ops/edxeix-form-contract.php`
 
 to:
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/extension-session-write-verification.php`
+`/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-form-contract.php`
 
 ## SQL
 
@@ -27,4 +27,4 @@ None.
 
 ## Safety
 
-No Bolt call. No EDXEIX call. No POST. No DB read/write. No file write. No job staging. No mapping update. No raw session JSON/cookie/token output. No live submission.
+No Bolt call. No EDXEIX call. No POST. Reads local config/session metadata and recent normalized bookings only. No database writes. No file writes. No job staging. No mapping update. No secret or passenger payload values printed. No live submission.
