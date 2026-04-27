@@ -1,8 +1,9 @@
 Sophion, continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Current state:
-- v2.2 adds a visible link from `/ops/index.php` to `/ops/home.php`.
-- `/ops/index.php` is not redirected.
+- v2.3 adds `/ops/route-index.php` as a static/read-only route safety matrix.
+- `/ops/home.php` is the preferred polished entry point.
+- `/ops/index.php` links to `/ops/home.php` but is not redirected.
 - Live EDXEIX submit remains disabled.
 - No real future Bolt ride is available yet.
 

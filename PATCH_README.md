@@ -1,13 +1,13 @@
-# Patch README — GOV Ops Index Home Link v2.2
+# Patch README — GOV Ops Route Index v2.3
 
 ## Summary
 
-Adds a visible navigation bridge from the original `/ops/index.php` console to the new EDXEIX-style `/ops/home.php`.
+Adds a static/read-only Ops Route Index and Safety Matrix page.
 
 ## Files
 
-- `public_html/gov.cabnet.app/ops/index.php`
-- `docs/GOV_OPS_INDEX_HOME_LINK_V2_2.md`
+- `public_html/gov.cabnet.app/ops/route-index.php`
+- `docs/GOV_OPS_ROUTE_INDEX_V2_3.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
@@ -15,11 +15,11 @@ Adds a visible navigation bridge from the original `/ops/index.php` console to t
 
 Upload:
 
-`public_html/gov.cabnet.app/ops/index.php`
+`public_html/gov.cabnet.app/ops/route-index.php`
 
 to:
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/index.php`
+`/home/cabnet/public_html/gov.cabnet.app/ops/route-index.php`
 
 ## SQL
 
@@ -27,4 +27,4 @@ None.
 
 ## Safety
 
-No redirect. No Bolt call. No EDXEIX call. No job staging. No mapping update. No database write. Live submission remains disabled.
+No Bolt call. No EDXEIX call. No database read/write. No job staging. No mapping update. Live submission remains disabled.
