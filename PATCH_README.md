@@ -1,76 +1,51 @@
-# gov.cabnet.app Patch v3.6 — Bolt Mail Intake CLI Cron
+# Patch README — gov.cabnet.app v3.7 Mail Intake → Preflight Candidate Bridge
 
-## What changed
+## What this patch adds
 
-Adds a private CLI scanner for automated cron-based import of Bolt `Ride details` emails from `bolt-bridge@gov.cabnet.app` into the existing `bolt_mail_intake` table.
+- Private reusable bridge class:
+  - `gov.cabnet.app_app/src/Mail/BoltMailIntakeBookingBridge.php`
+- Guarded Ops page:
+  - `public_html/gov.cabnet.app/ops/mail-preflight.php`
+- Additive SQL index:
+  - `gov.cabnet.app_sql/2026_05_05_bolt_mail_preflight_bridge.sql`
+- Documentation:
+  - `docs/BOLT_MAIL_PREFLIGHT_BRIDGE.md`
 
-## Files included
+## Safety
 
-- `gov.cabnet.app_app/cli/import_bolt_mail.php`
-- `gov.cabnet.app_app/cron/cron-examples-mail-intake.txt`
-- `docs/BOLT_MAIL_INTAKE_CRON.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
+This patch does not create submission jobs and does not submit to EDXEIX.
+
+It only creates local `normalized_bookings` rows when an operator manually approves a valid `future_candidate` mail intake row.
 
 ## Upload paths
 
 ```text
-/home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php
-/home/cabnet/gov.cabnet.app_app/cron/cron-examples-mail-intake.txt
+/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailIntakeBookingBridge.php
+/home/cabnet/public_html/gov.cabnet.app/ops/mail-preflight.php
+/home/cabnet/gov.cabnet.app_sql/2026_05_05_bolt_mail_preflight_bridge.sql
 ```
-
-Docs/continuity files are for repository/project tracking.
 
 ## SQL
 
-No SQL changes in v3.6.
-
-Requires v3.5 SQL table:
-
-```text
-bolt_mail_intake
+```bash
+mysql DB_NAME < /home/cabnet/gov.cabnet.app_sql/2026_05_05_bolt_mail_preflight_bridge.sql
 ```
 
-## Verify syntax
+## Verify PHP syntax
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailIntakeBookingBridge.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-preflight.php
 ```
 
-## Manual CLI test
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php --limit=250 --days=30 --json
-```
-
-Expected after v3.5 test rows already imported:
+## Verify URL
 
 ```text
-ok: true
-duplicates: 2 or more
-errors: 0
-```
-
-## Recommended cron
-
-```cron
-*/2 * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php --limit=250 --days=30 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_intake.log 2>&1
+https://gov.cabnet.app/ops/mail-preflight.php?key=YOUR_INTERNAL_API_KEY
 ```
 
 ## Expected result
 
-New Bolt pre-ride emails forwarded into `bolt-bridge@gov.cabnet.app` are imported automatically into `bolt_mail_intake`.
+Current historical test rows remain blocked and cannot be converted.
 
-Historical/expired emails become `blocked_past`.
-Future valid emails become `future_candidate`.
-
-Live EDXEIX submission remains disabled.
-
-## Git commit title
-
-Add Bolt mail intake CLI cron scanner
-
-## Git commit description
-
-Adds a private CLI command and cron example for automatically scanning the bolt-bridge Maildir and importing Bolt Ride details emails into the local mail intake table. The command performs intake only and does not stage jobs or submit to EDXEIX.
+The next valid future Bolt pre-ride email should appear as a future candidate and can be manually approved for local preflight booking creation.

@@ -1,27 +1,27 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v3.6:
-- Gmail filtered forwarding from `mykonoscab@gmail.com` to `bolt-bridge@gov.cabnet.app` was configured for Bolt `Ride details` emails.
-- Roundcube/Webmail and server Maildir delivery were confirmed for `bolt-bridge@gov.cabnet.app`.
-- v3.5 added the `bolt_mail_intake` table, Maildir scanner, Bolt pre-ride email parser, importer, and guarded Ops screen at `/ops/mail-intake.php`.
-- phpMyAdmin migration succeeded and `bolt_mail_intake` exists.
-- Manual scan imported 2 candidate emails with 2 inserted, 0 duplicates, 0 errors.
-- Imported test rows parsed successfully and were correctly marked `blocked_past` because their pickup times were already historical.
-- v3.6 adds private CLI/cron scanner `gov.cabnet.app_app/cli/import_bolt_mail.php` and cron examples.
+Current state after v3.7:
+- Gmail forwarding from `mykonoscab@gmail.com` to `bolt-bridge@gov.cabnet.app` is configured for Bolt Ride details emails.
+- `bolt-bridge@gov.cabnet.app` mailbox receives forwarded Bolt emails.
+- Maildir scanner and parser are deployed.
+- Cron imports mail every 2 minutes into `bolt_mail_intake`.
+- Duplicate protection is working.
+- Historical/past ride emails are parsed but blocked as `blocked_past`.
+- v3.7 adds a guarded Mail Intake → Preflight Candidate Bridge.
+- `/ops/mail-preflight.php` can preview `future_candidate` rows and manually create local `normalized_bookings` rows for EDXEIX preflight review only.
+- The bridge re-checks the future guard at approval time.
+- The bridge requires driver/vehicle/start-point mapping before local booking creation.
+- No submission jobs are created by this patch.
 - Live EDXEIX submission remains disabled.
-- No live-submit handler should be added unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.
 
-Primary safe entry:
-`https://gov.cabnet.app/ops/home.php`
+Primary safe entries:
+- `https://gov.cabnet.app/ops/home.php`
+- `https://gov.cabnet.app/ops/mail-intake.php?key=INTERNAL_KEY`
+- `https://gov.cabnet.app/ops/mail-preflight.php?key=INTERNAL_KEY`
+- `https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30`
 
-Mail intake review:
-`https://gov.cabnet.app/ops/mail-intake.php?key=SERVER_INTERNAL_KEY`
+Critical safety rule:
+Do not enable live EDXEIX submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes mail intake, local booking creation, mapping checks, and EDXEIX preflight review.
 
-CLI intake scanner:
-`/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php --limit=250 --days=30`
-
-Recommended production cron:
-`*/2 * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php --limit=250 --days=30 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_intake.log 2>&1`
-
-Security note:
-Rotate `app.internal_api_key` and DB password before/at go-live because sensitive values were exposed during deployment support.
+Credentials note:
+The internal API key and DB password were visible during operator setup/testing. Rotate both before final live posture.
