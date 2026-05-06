@@ -1,39 +1,53 @@
-# gov.cabnet.app Patch v4.2 — Bolt Mail Dry-run Evidence
+# gov.cabnet.app Patch v4.3 — Bolt Mail Auto Dry-run Evidence
 
 ## What changed
 
-Adds a local dry-run evidence layer for Bolt mail preflight bookings.
+Adds a guarded automation layer that can auto-create local `source='bolt_mail'` preflight bookings from valid active `future_candidate` mail rows and record dry-run evidence snapshots.
 
 ## Files included
 
-- `gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php`
-- `public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php`
-- `gov.cabnet.app_sql/2026_05_06_bolt_mail_dry_run_evidence.sql`
-- `docs/BOLT_MAIL_DRY_RUN_EVIDENCE.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
+```text
+gov.cabnet.app_app/src/Mail/BoltMailAutoDryRunService.php
+gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php
+public_html/gov.cabnet.app/ops/mail-auto-dry-run.php
+docs/BOLT_MAIL_AUTO_DRY_RUN.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
 
 ## Upload paths
 
-- `/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php`
-- `/home/cabnet/gov.cabnet.app_sql/2026_05_06_bolt_mail_dry_run_evidence.sql`
+```text
+/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailAutoDryRunService.php
+/home/cabnet/gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php
+/home/cabnet/public_html/gov.cabnet.app/ops/mail-auto-dry-run.php
+```
 
 ## SQL
 
-```bash
-DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
-mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_06_bolt_mail_dry_run_evidence.sql
-```
-
-## Verify syntax
-
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php
-```
+No new SQL. Requires v4.2 table `bolt_mail_dry_run_evidence`.
 
 ## Safety
 
-No Bolt call, no EDXEIX call, no submission job, no live submit.
+No Bolt API call. No EDXEIX call. No `submission_jobs`. No `submission_attempts`. No live submit.
+
+## Verify
+
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailAutoDryRunService.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-auto-dry-run.php
+```
+
+Preview:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php --preview-only --json
+```
+
+Run:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php --limit=50 --json
+```

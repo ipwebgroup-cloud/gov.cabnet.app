@@ -1,25 +1,36 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
+# HANDOFF — gov.cabnet.app Bolt Mail Bridge v4.3
 
-Current state after v4.2:
+Current state:
 
-- Gmail/Bolt mail forwarding to `bolt-bridge@gov.cabnet.app` is working.
-- Maildir scanner cron runs every 1 minute.
-- Future guard is 2 minutes for near-real-time production intake.
-- Mail intake parser imports Bolt `Ride details` emails into `bolt_mail_intake`.
-- Past, expired, stale, and too-soon rows are blocked.
-- Stale future candidates are automatically expired by cron.
-- Synthetic mail test harness exists for payment-free testing.
-- Mail Preflight can manually create local `normalized_bookings` rows from valid future candidates.
-- v4.2 adds a dry-run evidence layer that records a local payload/mapping/safety snapshot in `bolt_mail_dry_run_evidence`.
-- Live EDXEIX submission remains disabled.
-- No live-submit POST path should be added unless Andreas explicitly requests it after real future-trip validation.
+- Gmail/Bolt pre-ride emails forward to `bolt-bridge@gov.cabnet.app`.
+- Maildir importer runs every minute.
+- `bolt_mail_intake` parses and classifies emails.
+- Future guard is configured at 2 minutes.
+- Stale open candidates are expired automatically.
+- Synthetic test harness is available.
+- Mail Preflight can create local `source='bolt_mail'` normalized bookings manually.
+- v4.2 dry-run evidence table/page can record payload evidence without EDXEIX calls.
+- v4.3 adds an optional auto worker to create local preflight bookings and dry-run evidence from valid active `future_candidate` rows.
 
-Primary safe URLs:
+Safety:
 
-- `/ops/mail-status.php?key=...`
-- `/ops/mail-intake.php?key=...`
-- `/ops/mail-preflight.php?key=...`
-- `/ops/mail-synthetic-test.php?key=...`
-- `/ops/mail-dry-run-evidence.php?key=...`
+- `app.dry_run=true`.
+- `edxeix.live_submit_enabled=false`.
+- v4.3 refuses to run if dry-run is off or live submit is enabled.
+- No `submission_jobs` or `submission_attempts` are created by mail automation.
+- No live EDXEIX POST exists in this path.
 
-Do not expose config secrets. Rotate the currently exposed internal key, DB password, and Bolt credentials before final live operation.
+New files:
+
+- `gov.cabnet.app_app/src/Mail/BoltMailAutoDryRunService.php`
+- `gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php`
+- `public_html/gov.cabnet.app/ops/mail-auto-dry-run.php`
+
+Next safe step:
+
+1. Upload v4.3.
+2. Syntax check files.
+3. Run CLI with `--preview-only --json`.
+4. Use Synthetic Test to create a future candidate.
+5. Run auto dry-run worker.
+6. Verify local booking + dry-run evidence exist and `submission_jobs` remains empty.
