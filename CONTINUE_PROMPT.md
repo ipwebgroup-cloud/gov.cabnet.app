@@ -6,13 +6,14 @@ Current state:
 - Cron imports Bolt pre-ride emails every 1 minute.
 - `future_start_guard_minutes` is 2 for near-real-time intake.
 - Stale future candidates are automatically expired.
-- Mail Status and Mail Preflight are installed.
-- v4.0 adds the synthetic mail test harness at `/ops/mail-synthetic-test.php?key=INTERNAL_KEY` and CLI `/home/cabnet/gov.cabnet.app_app/cli/create_synthetic_bolt_mail.php`.
+- Mail Status, Mail Intake, Mail Preflight, and Synthetic Test are installed.
+- v4.1 updated `/ops/mail-status.php` to show active unlinked candidates, linked local bookings, synthetic rows, stale open rows, and submission job/attempt safety counts.
+- Synthetic test flow has successfully proven mail intake, future-candidate classification, mapping preview, local normalized booking creation, no submission job creation, and cleanup.
 
 Next safe step:
-- Use the synthetic harness to create/import a future candidate.
+- Use Synthetic Test or a real future Bolt email to create a current `future_candidate`.
 - Preview it in Mail Preflight.
-- Optionally create one local normalized preflight booking.
+- Create one local normalized preflight booking only if needed.
 - Confirm no `submission_jobs` and no `submission_attempts` are created.
 
 Do not enable live EDXEIX submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.

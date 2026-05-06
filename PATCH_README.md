@@ -1,48 +1,54 @@
-# Patch README — gov.cabnet.app v4.0 Synthetic Bolt Mail Test Harness
+# Patch v4.1 — Bolt Mail Status Clarity
 
 ## What changed
 
-Adds a safe synthetic Bolt `Ride details` email generator so parser/preflight testing can continue without rider-app payment transactions.
+Replaces `/ops/mail-status.php` with a read-only dashboard that separates active candidates, linked local preflight rows, synthetic test rows, stale open rows, local mail-created bookings, and submission job/attempt counts.
 
 ## Files included
 
-- `gov.cabnet.app_app/src/Mail/BoltSyntheticMailFactory.php`
-- `gov.cabnet.app_app/cli/create_synthetic_bolt_mail.php`
-- `public_html/gov.cabnet.app/ops/mail-synthetic-test.php`
-- `docs/BOLT_SYNTHETIC_MAIL_TEST.md`
+- `public_html/gov.cabnet.app/ops/mail-status.php`
+- `docs/BOLT_MAIL_STATUS_CLARITY.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
 
 ## Upload paths
 
-- `/home/cabnet/gov.cabnet.app_app/src/Mail/BoltSyntheticMailFactory.php`
-- `/home/cabnet/gov.cabnet.app_app/cli/create_synthetic_bolt_mail.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/mail-synthetic-test.php`
+Upload:
+
+- `/home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php`
+
+Optional repo/docs:
+
+- `docs/BOLT_MAIL_STATUS_CLARITY.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
 
 ## SQL
 
-No SQL migration is required.
+No SQL required.
 
-## Verification
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltSyntheticMailFactory.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/create_synthetic_bolt_mail.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-synthetic-test.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php
 ```
 
 Open:
 
-```text
-https://gov.cabnet.app/ops/mail-synthetic-test.php?key=YOUR_INTERNAL_API_KEY
-```
+`https://gov.cabnet.app/ops/mail-status.php?key=INTERNAL_KEY`
 
-Or CLI:
+## Expected result
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/create_synthetic_bolt_mail.php --lead=15 --duration=30 --import-now
-```
+The dashboard remains read-only and shows:
 
-## Safety
+- active unlinked future candidates
+- linked future rows
+- mail-created bookings
+- synthetic rows
+- open submission jobs
+- submission attempts
+- stale open intake rows
 
-This patch does not call Bolt, does not call EDXEIX, does not stage jobs, and does not submit live.
+No Bolt, EDXEIX, submission, or database write actions are performed by this page.
