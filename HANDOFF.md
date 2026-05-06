@@ -1,26 +1,18 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current state after v3.8:
+Current state after v3.9:
+- Gmail forwarding to `bolt-bridge@gov.cabnet.app` is working.
+- Maildir intake cron runs every minute.
+- Bolt Ride details emails are parsed into `bolt_mail_intake`.
+- `future_start_guard_minutes` is now set to 2 for near-real-time production timing.
 - Live EDXEIX submission remains disabled.
-- Gmail filtered forwarding from `mykonoscab@gmail.com` to `bolt-bridge@gov.cabnet.app` is working.
-- `bolt-bridge@gov.cabnet.app` receives Bolt Ride details emails in Maildir.
-- v3.5 added `bolt_mail_intake` and parsed forwarded Bolt Ride details emails.
-- v3.6 added private CLI cron scanner `gov.cabnet.app_app/cli/import_bolt_mail.php`.
-- Cron runs every 2 minutes and logs to `/home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_intake.log`.
-- v3.7 added guarded Mail Intake → Preflight Candidate Bridge at `/ops/mail-preflight.php`.
-- v3.8 adds read-only Mail Status dashboard at `/ops/mail-status.php`.
+- v3.9 adds stale candidate expiry to the mail intake cron.
+- Old `future_candidate`, `blocked_too_soon`, or open `needs_review` rows with pickup time in the past are automatically converted to `blocked_past` if they are not linked to a normalized booking.
+- This prevents stale future candidates from being manually approved after pickup time passes.
 
-Confirmed current behavior:
-- Two forwarded test emails parsed successfully.
-- Both are `blocked_past`.
-- Duplicate protection works.
-- Cron repeats with errors=0.
-- No normalized bookings from mail intake exist yet because no valid `future_candidate` exists.
+Primary safe pages:
+- `https://gov.cabnet.app/ops/mail-status.php?key=...`
+- `https://gov.cabnet.app/ops/mail-intake.php?key=...`
+- `https://gov.cabnet.app/ops/mail-preflight.php?key=...`
 
-Primary safe entries:
-- `https://gov.cabnet.app/ops/mail-status.php?key=INTERNAL_KEY`
-- `https://gov.cabnet.app/ops/mail-intake.php?key=INTERNAL_KEY`
-- `https://gov.cabnet.app/ops/mail-preflight.php?key=INTERNAL_KEY`
-- `https://gov.cabnet.app/ops/home.php`
-
-Do not enable live submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes mail intake, mapping checks, preflight, and EDXEIX session/form readiness.
+Do not enable live submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight and EDXEIX session/form access remains confirmed.

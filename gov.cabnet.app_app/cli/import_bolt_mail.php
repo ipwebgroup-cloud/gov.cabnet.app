@@ -4,6 +4,7 @@
  *
  * Production-safe cron entry for bolt-bridge@gov.cabnet.app.
  * Imports Bolt Ride details emails into bolt_mail_intake only.
+ * Expires stale open intake rows after each run so old future candidates cannot remain actionable.
  * Does not create EDXEIX jobs and does not submit anything live.
  *
  * Usage:
@@ -15,6 +16,7 @@
 declare(strict_types=1);
 
 use Bridge\Mail\BoltMaildirScanner;
+use Bridge\Mail\BoltMailIntakeMaintenance;
 use Bridge\Mail\BoltPreRideEmailParser;
 use Bridge\Mail\BoltPreRideImporter;
 
@@ -34,7 +36,7 @@ $options = getopt('', ['limit::', 'days::', 'json', 'help']);
 if (isset($options['help'])) {
     echo "Bolt Mail Intake CLI\n";
     echo "Usage: php import_bolt_mail.php [--limit=250] [--days=30] [--json]\n";
-    echo "Safety: imports mail intake rows only; no EDXEIX jobs; no live submit.\n";
+    echo "Safety: imports mail intake rows only; expires stale candidates; no EDXEIX jobs; no live submit.\n";
     exit(0);
 }
 
@@ -72,8 +74,11 @@ try {
     $scanner = new BoltMaildirScanner($maildir);
     $parser = new BoltPreRideEmailParser($timezone);
     $importer = new BoltPreRideImporter($db, $parser, $timezone, $futureGuard);
+    $maintenance = new BoltMailIntakeMaintenance($db, $timezone);
 
     $summary = $importer->importFromScanner($scanner, $limit, $days);
+    $expired = $maintenance->expirePastOpenRows();
+
     $result['ok'] = true;
     $result['summary'] = [
         'files' => (int)($summary['files'] ?? 0),
@@ -81,6 +86,7 @@ try {
         'duplicates' => (int)($summary['duplicates'] ?? 0),
         'rejected' => (int)($summary['rejected'] ?? 0),
         'errors' => (int)($summary['errors'] ?? 0),
+        'expired_open_rows' => $expired,
     ];
 } catch (Throwable $e) {
     $result['error'] = $e->getMessage();
@@ -99,8 +105,9 @@ if ($json) {
             . ' inserted=' . $s['inserted']
             . ' duplicates=' . $s['duplicates']
             . ' rejected=' . $s['rejected']
+            . ' expired=' . $s['expired_open_rows']
             . ' errors=' . $s['errors'] . PHP_EOL;
-        echo 'Safety: mail intake only; no EDXEIX jobs; no live submit.' . PHP_EOL;
+        echo 'Safety: mail intake only; stale candidates expired; no EDXEIX jobs; no live submit.' . PHP_EOL;
     } else {
         echo 'ERROR: ' . $result['error'] . PHP_EOL;
     }

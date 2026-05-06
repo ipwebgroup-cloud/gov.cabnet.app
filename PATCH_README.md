@@ -1,52 +1,36 @@
-# gov.cabnet.app v3.8 Patch — Bolt Mail Status Dashboard
+# gov.cabnet.app patch v3.9 — Mail intake stale candidate expiry
 
-## Changed/added files
+## What changed
 
-```text
-public_html/gov.cabnet.app/ops/mail-status.php
-docs/BOLT_MAIL_STATUS_DASHBOARD.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+Adds automatic stale-row expiry to the private Bolt mail intake cron command.
 
-## Upload path
+## Files included
 
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php
-```
+- `gov.cabnet.app_app/src/Mail/BoltMailIntakeMaintenance.php`
+- `gov.cabnet.app_app/cli/import_bolt_mail.php`
+- `docs/BOLT_MAIL_INTAKE_EXPIRY.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
-Optional documentation/repo files:
-```text
-docs/BOLT_MAIL_STATUS_DASHBOARD.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+## Upload paths
+
+- `/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailIntakeMaintenance.php`
+- `/home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php`
 
 ## SQL
 
-No SQL required.
+No SQL migration is required.
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailIntakeMaintenance.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php --limit=250 --days=30 --json
 ```
 
-Open:
-
-```text
-https://gov.cabnet.app/ops/mail-status.php?key=YOUR_INTERNAL_API_KEY
-```
+Expected JSON includes `expired_open_rows`.
 
 ## Safety
 
-This is read-only:
-- no mailbox scan
-- no import
-- no booking creation
-- no jobs
-- no Bolt call
-- no EDXEIX call
-- no live submit
+No EDXEIX jobs are created. No live submit is performed.
