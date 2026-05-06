@@ -1,19 +1,13 @@
 Sophion, continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Current state:
-- Live EDXEIX submit remains disabled.
-- Gmail forwarding to `bolt-bridge@gov.cabnet.app` is working.
-- Cron imports Bolt pre-ride emails every 1 minute.
-- `future_start_guard_minutes` is 2 for near-real-time intake.
-- Stale future candidates are automatically expired.
-- Mail Status, Mail Intake, Mail Preflight, and Synthetic Test are installed.
-- v4.1 updated `/ops/mail-status.php` to show active unlinked candidates, linked local bookings, synthetic rows, stale open rows, and submission job/attempt safety counts.
-- Synthetic test flow has successfully proven mail intake, future-candidate classification, mapping preview, local normalized booking creation, no submission job creation, and cleanup.
+- Mail intake is active and near-real-time.
+- Cron imports the `bolt-bridge@gov.cabnet.app` Maildir every 1 minute.
+- Future guard is 2 minutes.
+- Stale future candidates auto-expire.
+- Synthetic payment-free testing works.
+- Mail Preflight can create local `source='bolt_mail'` normalized bookings manually.
+- v4.2 adds a dry-run evidence page/table for recording local payload/mapping/safety snapshots without creating submission jobs.
+- Live EDXEIX submission remains disabled.
 
-Next safe step:
-- Use Synthetic Test or a real future Bolt email to create a current `future_candidate`.
-- Preview it in Mail Preflight.
-- Create one local normalized preflight booking only if needed.
-- Confirm no `submission_jobs` and no `submission_attempts` are created.
-
-Do not enable live EDXEIX submission unless Andreas explicitly requests it after a real eligible future Bolt trip passes preflight.
+Continue safely. Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update after a real eligible future trip passes preflight and dry-run evidence.

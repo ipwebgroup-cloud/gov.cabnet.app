@@ -1,54 +1,39 @@
-# Patch v4.1 — Bolt Mail Status Clarity
+# gov.cabnet.app Patch v4.2 — Bolt Mail Dry-run Evidence
 
 ## What changed
 
-Replaces `/ops/mail-status.php` with a read-only dashboard that separates active candidates, linked local preflight rows, synthetic test rows, stale open rows, local mail-created bookings, and submission job/attempt counts.
+Adds a local dry-run evidence layer for Bolt mail preflight bookings.
 
 ## Files included
 
-- `public_html/gov.cabnet.app/ops/mail-status.php`
-- `docs/BOLT_MAIL_STATUS_CLARITY.md`
+- `gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php`
+- `public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php`
+- `gov.cabnet.app_sql/2026_05_06_bolt_mail_dry_run_evidence.sql`
+- `docs/BOLT_MAIL_DRY_RUN_EVIDENCE.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 - `PATCH_README.md`
 
 ## Upload paths
 
-Upload:
-
-- `/home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php`
-
-Optional repo/docs:
-
-- `docs/BOLT_MAIL_STATUS_CLARITY.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
+- `/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php`
+- `/home/cabnet/gov.cabnet.app_sql/2026_05_06_bolt_mail_dry_run_evidence.sql`
 
 ## SQL
 
-No SQL required.
-
-## Verify
-
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php
+DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
+mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_06_bolt_mail_dry_run_evidence.sql
 ```
 
-Open:
+## Verify syntax
 
-`https://gov.cabnet.app/ops/mail-status.php?key=INTERNAL_KEY`
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php
+```
 
-## Expected result
+## Safety
 
-The dashboard remains read-only and shows:
-
-- active unlinked future candidates
-- linked future rows
-- mail-created bookings
-- synthetic rows
-- open submission jobs
-- submission attempts
-- stale open intake rows
-
-No Bolt, EDXEIX, submission, or database write actions are performed by this page.
+No Bolt call, no EDXEIX call, no submission job, no live submit.
