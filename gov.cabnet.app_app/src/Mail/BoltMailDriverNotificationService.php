@@ -570,9 +570,9 @@ final class BoltMailDriverNotificationService
             'Pickup' => $pickup,
             'Drop-off' => $dropoff,
             'Start time' => $this->value($row, 'start_time_raw'),
-            'Estimated pick-up time' => $pickupTime,
-            'Estimated end time' => $endTime,
-            'Estimated price' => $price,
+            'Pick-up time' => $pickupTime,
+            'End time' => $endTime,
+            'Price' => $price,
         ];
 
         $detailsHtml = '';
@@ -610,7 +610,7 @@ final class BoltMailDriverNotificationService
             . '<tr>'
             . '<td style="width:33.33%;padding:7px;vertical-align:top;"><div style="background:#f8fcff;border:1px solid #d7e9f3;border-radius:12px;padding:13px 12px;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:bold;">Driver</div><div style="font-size:15px;color:#0f172a;font-weight:bold;margin-top:4px;">' . $this->eh($driverName) . '</div></div></td>'
             . '<td style="width:33.33%;padding:7px;vertical-align:top;"><div style="background:#f8fcff;border:1px solid #d7e9f3;border-radius:12px;padding:13px 12px;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:bold;">Vehicle</div><div style="font-size:15px;color:#0f172a;font-weight:bold;margin-top:4px;">' . $this->eh($vehiclePlate) . '</div></div></td>'
-            . '<td style="width:33.33%;padding:7px;vertical-align:top;"><div style="background:#f8fcff;border:1px solid #d7e9f3;border-radius:12px;padding:13px 12px;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:bold;">Estimated total</div><div style="font-size:15px;color:#0f172a;font-weight:bold;margin-top:4px;">' . $this->eh($totalLine) . '</div></div></td>'
+            . '<td style="width:33.33%;padding:7px;vertical-align:top;"><div style="background:#f8fcff;border:1px solid #d7e9f3;border-radius:12px;padding:13px 12px;"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:bold;">Total</div><div style="font-size:15px;color:#0f172a;font-weight:bold;margin-top:4px;">' . $this->eh($totalLine) . '</div></div></td>'
             . '</tr></table>'
             . '</td></tr>'
             . '<tr><td style="padding:8px 26px 4px 26px;">'
@@ -624,13 +624,13 @@ final class BoltMailDriverNotificationService
             . '</td></tr>'
             . '<tr><td style="padding:18px 26px 4px 26px;">'
             . '<div style="background:#f8fcff;border:1px solid #d7e9f3;border-radius:14px;overflow:hidden;">'
-            . '<div style="background:#0f172a;color:#ffffff;padding:14px 16px;font-size:17px;font-weight:bold;">VAT / TAX included in estimated total</div>'
+            . '<div style="background:#0f172a;color:#ffffff;padding:14px 16px;font-size:17px;font-weight:bold;">VAT / TAX included in total</div>'
             . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;font-size:14px;">'
-            . '<tr><td style="padding:12px 14px;border-bottom:1px solid #e6eef5;color:#64748b;font-weight:bold;">Estimated total, VAT included</td><td style="padding:12px 14px;border-bottom:1px solid #e6eef5;text-align:right;color:#0f172a;font-weight:bold;">' . $this->eh($totalLine) . '</td></tr>'
+            . '<tr><td style="padding:12px 14px;border-bottom:1px solid #e6eef5;color:#64748b;font-weight:bold;">Total, VAT included</td><td style="padding:12px 14px;border-bottom:1px solid #e6eef5;text-align:right;color:#0f172a;font-weight:bold;">' . $this->eh($totalLine) . '</td></tr>'
             . '<tr><td style="padding:12px 14px;border-bottom:1px solid #e6eef5;color:#64748b;font-weight:bold;">Net amount before VAT</td><td style="padding:12px 14px;border-bottom:1px solid #e6eef5;text-align:right;color:#0f172a;">' . $this->eh($netLine) . '</td></tr>'
             . '<tr><td style="padding:12px 14px;color:#64748b;font-weight:bold;">VAT / TAX included (' . $this->eh(number_format($vatPercent, 2, '.', '')) . '%)</td><td style="padding:12px 14px;text-align:right;color:#0f172a;">' . $this->eh($vatLine) . '</td></tr>'
             . '</table>'
-            . '<div style="padding:0 14px 14px 14px;color:#64748b;font-size:12px;line-height:1.45;">VAT is calculated as included in the estimated total at 13%. If the final Bolt amount changes, the final tax values should be recalculated from the completed ride total.</div>'
+            . '<div style="padding:0 14px 14px 14px;color:#64748b;font-size:12px;line-height:1.45;">VAT is calculated as included in the total at 13%. If the final Bolt amount changes, the tax values should be recalculated from the completed ride total.</div>'
             . '</div>'
             . '</td></tr>'
             . '<tr><td style="padding:18px 26px 8px 26px;text-align:center;">'
