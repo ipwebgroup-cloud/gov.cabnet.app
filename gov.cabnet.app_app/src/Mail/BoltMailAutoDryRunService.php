@@ -4,6 +4,7 @@ namespace Bridge\Mail;
 
 use Bridge\Config;
 use Bridge\Database;
+use Bridge\Receipts\AadeReceiptAutoIssuer;
 use RuntimeException;
 use Throwable;
 
@@ -11,6 +12,7 @@ final class BoltMailAutoDryRunService
 {
     private BoltMailIntakeBookingBridge $bookingBridge;
     private BoltMailDryRunEvidenceService $evidenceService;
+    private AadeReceiptAutoIssuer $aadeReceiptIssuer;
 
     public function __construct(
         private readonly Database $db,
@@ -18,6 +20,7 @@ final class BoltMailAutoDryRunService
     ) {
         $this->bookingBridge = new BoltMailIntakeBookingBridge($db, $config);
         $this->evidenceService = new BoltMailDryRunEvidenceService($db->connection(), $config->all());
+        $this->aadeReceiptIssuer = new AadeReceiptAutoIssuer($db, $config);
     }
 
     public function run(int $limit = 25, bool $previewOnly = false, string $createdBy = 'auto-cron'): array
@@ -33,6 +36,11 @@ final class BoltMailAutoDryRunService
             'evidence_recorded' => 0,
             'evidence_existing' => 0,
             'blocked' => 0,
+            'aade_receipt_attempted' => 0,
+            'aade_receipt_issued' => 0,
+            'aade_receipt_emailed' => 0,
+            'aade_receipt_skipped' => 0,
+            'aade_receipt_failed' => 0,
             'errors' => 0,
         ];
         $items = [];
@@ -67,6 +75,7 @@ final class BoltMailAutoDryRunService
                 'status' => 'pending',
                 'message' => '',
                 'blockers' => [],
+                'aade_receipt' => null,
             ];
 
             try {
@@ -117,6 +126,9 @@ final class BoltMailAutoDryRunService
                     $item['evidence_id'] = (int)$existingEvidence['id'];
                     $item['status'] = 'evidence_exists';
                     $item['message'] = 'Dry-run evidence already exists for this local booking.';
+                    if (!$previewOnly) {
+                        $this->processAadeReceipt($bookingId, $createdBy, $summary, $item);
+                    }
                     $items[] = $item;
                     continue;
                 }
@@ -142,7 +154,8 @@ final class BoltMailAutoDryRunService
                 $summary['evidence_recorded']++;
                 $item['evidence_id'] = $evidenceId;
                 $item['status'] = 'evidence_recorded';
-                $item['message'] = 'Local booking and dry-run evidence are ready. No submission job was created.';
+                $item['message'] = 'Local booking, dry-run evidence, and AADE receipt automation were evaluated. No EDXEIX submission job was created.';
+                $this->processAadeReceipt($bookingId, $createdBy, $summary, $item);
                 $items[] = $item;
             } catch (Throwable $e) {
                 $summary['errors']++;
@@ -170,10 +183,47 @@ final class BoltMailAutoDryRunService
                 'future_guard_minutes' => (int)$this->config->get('edxeix.future_start_guard_minutes', 2),
                 'no_bolt_call' => true,
                 'no_edxeix_call' => true,
+                'calls_aade_mydata_when_enabled' => (bool)$this->config->get('receipts.aade_mydata.auto_send_invoices', false),
                 'no_submission_jobs_created' => true,
                 'no_live_submit' => true,
             ] + $jobs,
         ];
+    }
+
+
+    /**
+     * @param array<string,mixed> $summary
+     * @param array<string,mixed> $item
+     */
+    private function processAadeReceipt(int $bookingId, string $createdBy, array &$summary, array &$item): void
+    {
+        $result = $this->aadeReceiptIssuer->issueAndEmailForBooking($bookingId, $createdBy);
+        $item['aade_receipt'] = $result;
+
+        if (empty($result['enabled'])) {
+            $summary['aade_receipt_skipped']++;
+            return;
+        }
+
+        if (!empty($result['attempted'])) {
+            $summary['aade_receipt_attempted']++;
+        } else {
+            $summary['aade_receipt_skipped']++;
+        }
+
+        if (!empty($result['issued'])) {
+            $summary['aade_receipt_issued']++;
+        }
+        if (!empty($result['emailed'])) {
+            $summary['aade_receipt_emailed']++;
+        }
+
+        $status = (string)($result['status'] ?? '');
+        if (in_array($status, ['aade_failed', 'error', 'issued_email_not_sent'], true)) {
+            $summary['aade_receipt_failed']++;
+            $summary['errors']++;
+            $item['blockers'][] = 'aade_receipt_' . $status;
+        }
     }
 
     public function status(): array

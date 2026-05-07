@@ -1,40 +1,24 @@
-# gov.cabnet.app v5.7 AADE/myDATA First Controlled SendInvoices Gate
+# gov.cabnet.app v5.8 Automatic AADE Receipt Issuance Patch
 
-## Files
+## Files included
 
-- `gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php`
-- `gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php`
-- `gov.cabnet.app_config_examples/aade_mydata_first_send_gate.example.php`
-- `docs/BOLT_AADE_FIRST_CONTROLLED_SEND_GATE_V5_7.md`
+- `gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php`
+- `gov.cabnet.app_app/src/Mail/BoltMailAutoDryRunService.php`
+- `gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php`
+- `gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php`
+- `gov.cabnet.app_config_examples/aade_auto_receipt.example.php`
+- `docs/BOLT_AADE_AUTO_RECEIPT_ISSUANCE_V5_8.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
 ## SQL
 
-None.
+No new SQL required. Uses existing `receipt_issuance_attempts` and `bolt_mail_driver_notifications` columns.
 
-## Verify
+## Upload paths
 
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php
-```
+Upload files directly to the matching live paths under `/home/cabnet`.
 
-## Preview
+## Safety
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=16
-```
-
-## Manual send gate
-
-SendInvoices remains blocked unless:
-
-- `receipts.aade_mydata.allow_send_invoices=true`
-- `mail.driver_notifications.receipt_copy_enabled=false`
-- `mail.driver_notifications.receipt_pdf_mode=aade_mydata`
-- no prior issued receipt exists for the booking
-- no prior issued receipt exists for the XML hash
-- exact confirmation phrase is supplied
-
-No automatic send is added.
+Automatic AADE/myDATA issuance is enabled only by explicit private config flags. It does not call EDXEIX and does not create `submission_jobs` or `submission_attempts`.

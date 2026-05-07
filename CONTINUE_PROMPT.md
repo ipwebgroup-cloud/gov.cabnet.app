@@ -1,5 +1,1 @@
-Continue gov.cabnet.app Bolt → EDXEIX bridge from v5.7.
-
-The project now has AADE/myDATA production connectivity and a manual SendInvoices payload builder. v5.7 hardens the first controlled SendInvoices gate with config enablement, exact confirmation phrase, duplicate checks by booking and XML hash, and suppressed raw AADE output.
-
-Keep receipt_copy_enabled=false and receipt_pdf_mode=aade_mydata until official AADE issuance succeeds and official PDF/receipt attachment handling is complete. Keep live EDXEIX guarded/session-disconnected.
+Continue the gov.cabnet.app Bolt -> EDXEIX bridge from v5.8. The current focus is automatic AADE/myDATA receipt issuance for real Bolt mail orders. AADE production connectivity is confirmed; accountant approved the payload/classification; automatic SendInvoices is controlled by `receipts.aade_mydata.auto_send_invoices=true`; official driver receipt emails are controlled by `mail.driver_notifications.official_receipt_email_enabled=true`. Live EDXEIX remains guarded/session-disconnected and must not be enabled without explicit approval.

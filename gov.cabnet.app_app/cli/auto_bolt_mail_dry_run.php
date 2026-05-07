@@ -2,9 +2,10 @@
 /**
  * gov.cabnet.app — Bolt mail auto preflight/dry-run evidence worker v4.3
  *
- * Auto-creates local normalized_bookings rows for valid future_candidate mail rows
- * and records dry-run evidence snapshots. It never creates submission_jobs and
- * never POSTs to EDXEIX.
+ * Auto-creates local normalized_bookings rows for valid future_candidate mail rows,
+ * records dry-run evidence snapshots, and may automatically issue AADE/myDATA
+ * receipts when the AADE auto-send config is explicitly enabled. It never
+ * creates submission_jobs and never POSTs to EDXEIX.
  */
 
 declare(strict_types=1);
@@ -26,7 +27,7 @@ $options = getopt('', ['limit::', 'preview-only', 'json', 'help']);
 if (isset($options['help'])) {
     echo "Bolt Mail Auto Dry-run Worker\n";
     echo "Usage: php auto_bolt_mail_dry_run.php [--limit=25] [--preview-only] [--json]\n";
-    echo "Safety: creates local normalized bookings and dry-run evidence only; no submission_jobs; no EDXEIX POST.\n";
+    echo "Safety: creates local normalized bookings/dry-run evidence; can issue AADE receipts only when configured; no submission_jobs; no EDXEIX POST.\n";
     exit(0);
 }
 
@@ -66,9 +67,14 @@ if ($json) {
             . ' linked_existing=' . $s['linked_existing_bookings']
             . ' evidence_recorded=' . $s['evidence_recorded']
             . ' evidence_existing=' . $s['evidence_existing']
+            . ' aade_attempted=' . ($s['aade_receipt_attempted'] ?? 0)
+            . ' aade_issued=' . ($s['aade_receipt_issued'] ?? 0)
+            . ' aade_emailed=' . ($s['aade_receipt_emailed'] ?? 0)
+            . ' aade_skipped=' . ($s['aade_receipt_skipped'] ?? 0)
+            . ' aade_failed=' . ($s['aade_receipt_failed'] ?? 0)
             . ' blocked=' . $s['blocked']
             . ' errors=' . $s['errors'] . PHP_EOL;
-        echo 'Safety: local preflight bookings + dry-run evidence only; no submission_jobs; no EDXEIX POST.' . PHP_EOL;
+        echo 'Safety: local preflight bookings + dry-run evidence + configured AADE receipts only; no submission_jobs; no EDXEIX POST.' . PHP_EOL;
     } else {
         echo 'ERROR: ' . $result['error'] . PHP_EOL;
     }

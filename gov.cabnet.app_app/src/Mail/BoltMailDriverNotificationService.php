@@ -132,6 +132,280 @@ final class BoltMailDriverNotificationService
         ];
     }
 
+
+    /**
+     * Sends the official AADE/myDATA issued receipt PDF after SendInvoices succeeds.
+     * This bypasses receipt_copy_enabled because the generated/static fallback is
+     * disabled; it only sends a PDF populated with official AADE MARK/UID/QR data.
+     *
+     * @param array<string,mixed> $row
+     * @param array<string,mixed> $aadeReceipt
+     * @return array{status:string,recipient:?string,reason:?string,error:?string,pdf_path?:string}
+     */
+    public function sendAadeIssuedReceiptForIntake(int $intakeId, array $row, array $aadeReceipt): array
+    {
+        if ($intakeId < 1) {
+            return ['status' => 'skipped', 'recipient' => null, 'reason' => 'invalid_intake_id', 'error' => null];
+        }
+        if (!$this->isEnabled()) {
+            return ['status' => 'skipped', 'recipient' => null, 'reason' => 'driver_notifications_disabled', 'error' => null];
+        }
+        if (!filter_var($this->config['official_receipt_email_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return ['status' => 'skipped', 'recipient' => null, 'reason' => 'official_receipt_email_disabled', 'error' => null];
+        }
+        if ($this->looksLikeSyntheticOrTest($row)) {
+            return ['status' => 'skipped', 'recipient' => null, 'reason' => 'test_or_synthetic_email_suppressed', 'error' => null];
+        }
+
+        $existing = $this->db->fetchOne(
+            "SELECT recipient_email, receipt_status FROM bolt_mail_driver_notifications WHERE intake_id=? ORDER BY id DESC LIMIT 1",
+            [$intakeId],
+            'i'
+        );
+        if (is_array($existing) && (string)($existing['receipt_status'] ?? '') === 'sent') {
+            return [
+                'status' => 'skipped',
+                'recipient' => $existing['recipient_email'] !== null ? (string)$existing['recipient_email'] : null,
+                'reason' => 'receipt_already_sent',
+                'error' => null,
+            ];
+        }
+
+        $driverName = trim((string)($row['driver_name'] ?? ''));
+        $driverIdentifier = trim((string)($row['driver_identifier'] ?? $row['driver_uuid'] ?? $row['external_driver_id'] ?? ''));
+        $vehiclePlate = $this->normalizePlate((string)($row['vehicle_plate'] ?? ''));
+        $messageHash = trim((string)($row['message_hash'] ?? ''));
+        $recipient = is_array($existing) && filter_var((string)($existing['recipient_email'] ?? ''), FILTER_VALIDATE_EMAIL)
+            ? (string)$existing['recipient_email']
+            : $this->resolveRecipientEmail($driverName, $driverIdentifier);
+
+        $subject = $this->buildAadeReceiptSubject($row, $aadeReceipt);
+        if ($recipient === '') {
+            $this->upsertReceiptAudit($intakeId, $messageHash, $driverName, $vehiclePlate, null, $subject, 'failed', 'driver_email_not_found_in_bolt_directory', null, $aadeReceipt);
+            return ['status' => 'failed', 'recipient' => null, 'reason' => null, 'error' => 'driver_email_not_found_in_bolt_directory'];
+        }
+        if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+            $this->upsertReceiptAudit($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'failed', 'invalid_driver_email', null, $aadeReceipt);
+            return ['status' => 'failed', 'recipient' => $recipient, 'reason' => null, 'error' => 'invalid_driver_email'];
+        }
+
+        $fromEmail = trim((string)($this->config['from_email'] ?? 'bolt-bridge@gov.cabnet.app'));
+        $fromName = trim((string)($this->config['from_name'] ?? 'Cabnet Bolt Bridge'));
+        if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+            return ['status' => 'failed', 'recipient' => $recipient, 'reason' => null, 'error' => 'invalid_from_email'];
+        }
+
+        try {
+            $pdfBytes = $this->buildAadeIssuedReceiptPdf($intakeId, $row, $aadeReceipt);
+            $pdfName = $this->aadeReceiptPdfFilename($intakeId, $aadeReceipt);
+            $pdfPath = $this->storeAadeReceiptPdf($pdfBytes, $pdfName);
+            $send = $this->sendReceiptEmailWithPdfBytes($recipient, $subject, $intakeId, $row, $fromEmail, $fromName, $pdfBytes, $pdfName, 'bolt-mail-driver-aade-mydata-receipt-pdf');
+        } catch (Throwable $e) {
+            $this->upsertReceiptAudit($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'failed', $e->getMessage(), null, $aadeReceipt);
+            return ['status' => 'failed', 'recipient' => $recipient, 'reason' => null, 'error' => $e->getMessage()];
+        }
+
+        if (($send['status'] ?? '') !== 'sent') {
+            $this->upsertReceiptAudit($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'failed', (string)($send['error'] ?? $send['reason'] ?? 'receipt_email_send_failed'), null, $aadeReceipt);
+            return ['status' => 'failed', 'recipient' => $recipient, 'reason' => null, 'error' => (string)($send['error'] ?? $send['reason'] ?? 'receipt_email_send_failed')];
+        }
+
+        $this->upsertReceiptAudit($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'sent', null, (new DateTimeImmutable('now', $this->timezone))->format('Y-m-d H:i:s'), $aadeReceipt);
+        return ['status' => 'sent', 'recipient' => $recipient, 'reason' => null, 'error' => null, 'pdf_path' => $pdfPath];
+    }
+
+    /** @param array<string,mixed> $row @param array<string,mixed> $aadeReceipt */
+    private function buildAadeReceiptSubject(array $row, array $aadeReceipt): string
+    {
+        $prefix = trim((string)($this->config['aade_receipt_subject_prefix'] ?? 'AADE receipt'));
+        if ($prefix === '') {
+            $prefix = 'AADE receipt';
+        }
+        $mark = trim((string)($aadeReceipt['mark'] ?? ''));
+        $route = trim($this->shortLocation((string)($row['pickup_address'] ?? '')) . ' → ' . $this->shortLocation((string)($row['dropoff_address'] ?? '')));
+        $subject = $prefix;
+        if ($mark !== '') {
+            $subject .= ' | MARK ' . $mark;
+        }
+        if ($route !== '→' && $route !== '') {
+            $subject .= ' | ' . $route;
+        }
+        return $this->stripHeaderUnsafe($subject);
+    }
+
+    /** @param array<string,mixed> $row @param array<string,mixed> $aadeReceipt */
+    private function buildAadeIssuedReceiptPdf(int $intakeId, array $row, array $aadeReceipt): string
+    {
+        $currency = 'EUR';
+        $gross = $this->moneyFromReceipt($aadeReceipt, 'total_amount');
+        $net = $this->moneyFromReceipt($aadeReceipt, 'net_amount');
+        $vat = $this->moneyFromReceipt($aadeReceipt, 'vat_amount');
+        $vatRate = (float)($aadeReceipt['vat_rate'] ?? $this->receiptVatPercent());
+        $mark = trim((string)($aadeReceipt['mark'] ?? ''));
+        $uid = trim((string)($aadeReceipt['uid'] ?? ''));
+        $qrUrl = trim((string)($aadeReceipt['qr_url'] ?? ''));
+        $series = trim((string)($aadeReceipt['series'] ?? 'BOLT'));
+        $aa = trim((string)($aadeReceipt['aa'] ?? ''));
+        $docType = trim((string)($aadeReceipt['document_type'] ?? '11.2'));
+        $issuedAt = trim((string)($aadeReceipt['issued_at'] ?? date('Y-m-d H:i:s')));
+
+        $pdf = new InternalReceiptPdfBuilder('LUX LIMO / MYKONOS CAB - AADE myDATA Receipt');
+        $pdf->addPage();
+
+        $logoPath = $this->localAssetPath((string)($this->config['receipt_logo_path'] ?? '/home/cabnet/public_html/gov.cabnet.app/assets/logos/lux-limo-logo.jpeg'));
+        if ($logoPath !== '') {
+            $pdf->imageJpeg($logoPath, 382, 735, 145, 0);
+        }
+        $stampPath = $this->localAssetPath((string)($this->config['receipt_stamp_path'] ?? '/home/cabnet/public_html/gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg'));
+        if ($stampPath !== '') {
+            $pdf->imageJpeg($stampPath, 365, 80, 135, 0);
+        }
+
+        $pdf->setFont('Helvetica', 'B', 18);
+        $pdf->text(48, 760, 'LUX LIMO I.K.E.');
+        $pdf->setFont('Helvetica', '', 9);
+        $pdf->text(48, 744, 'AFM/VAT: 802653254');
+        $pdf->text(48, 731, 'Tourist Office - Mykonos 84600, Greece');
+        $pdf->text(48, 718, 'Phone / WhatsApp: (+30) 694 654 0444');
+
+        $pdf->setFont('Helvetica', 'B', 15);
+        $pdf->text(48, 682, 'AADE myDATA RECEIPT');
+        $pdf->setFont('Helvetica', '', 9);
+        $pdf->text(48, 666, 'Official AADE/myDATA transmission completed. Receipt data is based on MARK/UID returned by AADE.');
+
+        $pdf->roundedRect(360, 626, 170, 74, 6, [238, 246, 250], [190, 210, 220]);
+        $pdf->setFont('Helvetica', 'B', 9);
+        $pdf->text(374, 680, 'AADE MARK');
+        $pdf->setFont('Helvetica', 'B', 10);
+        $pdf->textWrap(374, 664, 140, 11, $this->pdfSafeText($mark !== '' ? $mark : '-'), 8);
+        $pdf->setFont('Helvetica', 'B', 9);
+        $pdf->text(374, 640, 'Series / AA: ' . $this->pdfSafeText($series . ' / ' . $aa));
+        $pdf->text(374, 626, 'Type: ' . $this->pdfSafeText($docType));
+
+        $y = 615;
+        $pdf->sectionTitle(48, $y, 'Transfer details');
+        $y -= 24;
+        foreach ([
+            ['Passenger', $this->value($row, 'customer_name')],
+            ['Customer mobile', $this->value($row, 'customer_mobile')],
+            ['Driver', $this->value($row, 'driver_name')],
+            ['Vehicle', $this->value($row, 'vehicle_plate')],
+            ['Pickup', $this->value($row, 'pickup_address')],
+            ['Drop-off', $this->value($row, 'dropoff_address')],
+            ['Pick-up time', $this->value($row, 'estimated_pickup_time_raw')],
+            ['End time', $this->driverCopyEstimatedEndTime($row)],
+        ] as [$label, $value]) {
+            $pdf->tableRow(48, $y, 500, (string)$label, $this->pdfSafeText((string)$value));
+            $y -= 24;
+        }
+
+        $y -= 8;
+        $pdf->sectionTitle(48, $y, 'VAT / TAX included in total');
+        $y -= 26;
+        $pdf->moneyRow(48, $y, 500, 'Net amount before VAT', $this->formatMoney($net, $currency));
+        $y -= 24;
+        $pdf->moneyRow(48, $y, 500, 'VAT / TAX included (' . number_format($vatRate, 2, '.', '') . '%)', $this->formatMoney($vat, $currency));
+        $y -= 24;
+        $pdf->moneyRow(48, $y, 500, 'Total, VAT included', $this->formatMoney($gross, $currency), true);
+
+        $pdf->sectionTitle(48, 215, 'AADE myDATA verification');
+        $payload = $qrUrl !== '' ? $qrUrl : ('AADE|MARK=' . $mark . '|UID=' . $uid . '|INTAKE=' . $intakeId);
+        $pdf->drawQrCode(substr($payload, 0, 100), 48, 78, 96);
+        $pdf->setFont('Helvetica', '', 7);
+        $pdf->text(152, 196, 'UID: ' . $this->pdfSafeText($uid !== '' ? $uid : '-'));
+        $pdf->textWrap(152, 182, 380, 10, 'QR URL / verification payload: ' . $this->pdfSafeText($payload), 7);
+        $pdf->text(152, 138, 'Issued at: ' . $this->pdfSafeText($issuedAt));
+        $pdf->text(152, 126, 'Bridge intake ID: #' . $intakeId);
+
+        $pdf->setFont('Helvetica', '', 7);
+        $pdf->text(48, 42, 'Generated by gov.cabnet.app after AADE/myDATA SendInvoices success. No EDXEIX submission is performed by this receipt email.');
+
+        return $pdf->output();
+    }
+
+    /** @param array<string,mixed> $aadeReceipt */
+    private function moneyFromReceipt(array $aadeReceipt, string $key): float
+    {
+        $raw = $aadeReceipt[$key] ?? '0.00';
+        return round((float)str_replace(',', '.', (string)$raw), 2);
+    }
+
+    /** @param array<string,mixed> $aadeReceipt */
+    private function aadeReceiptPdfFilename(int $intakeId, array $aadeReceipt): string
+    {
+        $mark = trim((string)($aadeReceipt['mark'] ?? ''));
+        $base = $mark !== '' ? 'aade-mark-' . $mark : 'aade-receipt-intake-' . $intakeId;
+        return $this->safeAttachmentFilename($base . '.pdf');
+    }
+
+    private function storeAadeReceiptPdf(string $pdfBytes, string $pdfName): string
+    {
+        $dir = '/home/cabnet/gov.cabnet.app_app/storage/receipt_attachments/aade';
+        if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
+            throw new \RuntimeException('Unable to create AADE receipt attachment directory.');
+        }
+        $path = $dir . '/' . $this->safeAttachmentFilename($pdfName);
+        if (file_put_contents($path, $pdfBytes, LOCK_EX) === false) {
+            throw new \RuntimeException('Unable to write AADE receipt PDF.');
+        }
+        @chmod($path, 0640);
+        return $path;
+    }
+
+    /** @param array<string,mixed> $aadeReceipt */
+    private function upsertReceiptAudit(int $intakeId, string $messageHash, string $driverName, string $vehiclePlate, ?string $recipient, string $subject, string $status, ?string $error, ?string $sentAt, array $aadeReceipt): void
+    {
+        $totals = [
+            'gross' => $this->moneyFromReceipt($aadeReceipt, 'total_amount'),
+            'net' => $this->moneyFromReceipt($aadeReceipt, 'net_amount'),
+            'vat' => $this->moneyFromReceipt($aadeReceipt, 'vat_amount'),
+        ];
+        $existing = $this->db->fetchOne('SELECT id FROM bolt_mail_driver_notifications WHERE intake_id=? ORDER BY id DESC LIMIT 1', [$intakeId], 'i');
+        if (is_array($existing)) {
+            $this->db->execute(
+                'UPDATE bolt_mail_driver_notifications SET recipient_email=COALESCE(recipient_email, ?), receipt_subject=?, receipt_status=?, receipt_skip_reason=?, receipt_error_message=?, receipt_sent_at=?, receipt_vat_rate=?, receipt_total_amount=?, receipt_net_amount=?, receipt_vat_amount=?, updated_at=? WHERE id=?',
+                [
+                    $recipient,
+                    $subject,
+                    $status,
+                    $status === 'sent' ? null : ($error ?? 'official_receipt_not_sent'),
+                    $status === 'sent' ? null : $error,
+                    $sentAt,
+                    (string)($aadeReceipt['vat_rate'] ?? $this->receiptVatPercent()),
+                    number_format($totals['gross'], 2, '.', ''),
+                    number_format($totals['net'], 2, '.', ''),
+                    number_format($totals['vat'], 2, '.', ''),
+                    (new DateTimeImmutable('now', $this->timezone))->format('Y-m-d H:i:s'),
+                    (int)$existing['id'],
+                ],
+                'sssssssssssi'
+            );
+            return;
+        }
+
+        $this->insertNotification([
+            'intake_id' => $intakeId,
+            'message_hash' => $messageHash !== '' ? $messageHash : null,
+            'driver_name' => $driverName !== '' ? $driverName : null,
+            'vehicle_plate' => $vehiclePlate !== '' ? $vehiclePlate : null,
+            'recipient_email' => $recipient,
+            'email_subject' => 'AADE receipt only',
+            'notification_status' => 'skipped',
+            'skip_reason' => 'main_notification_missing',
+            'error_message' => null,
+            'sent_at' => null,
+            'receipt_subject' => $subject,
+            'receipt_status' => $status,
+            'receipt_skip_reason' => $status === 'sent' ? null : ($error ?? 'official_receipt_not_sent'),
+            'receipt_error_message' => $status === 'sent' ? null : $error,
+            'receipt_sent_at' => $sentAt,
+            'receipt_vat_rate' => (string)($aadeReceipt['vat_rate'] ?? $this->receiptVatPercent()),
+            'receipt_total_amount' => number_format($totals['gross'], 2, '.', ''),
+            'receipt_net_amount' => number_format($totals['net'], 2, '.', ''),
+            'receipt_vat_amount' => number_format($totals['vat'], 2, '.', ''),
+        ]);
+    }
+
     private function isEnabled(): bool
     {
         return filter_var($this->config['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
