@@ -1,61 +1,59 @@
-# gov.cabnet.app v4.8 Credential Rotation + Final Dry-run Handoff Patch
+# gov.cabnet.app v4.9 — Final Dry-run Production Freeze Patch
 
 ## What changed
 
-Adds a credential-rotation status page and no-secret acknowledgement CLI marker. Updates launch readiness to display the credential rotation gate.
+Adds a final dry-run production freeze gate:
 
-## Files included
-
-```text
-public_html/gov.cabnet.app/ops/credential-rotation.php
-public_html/gov.cabnet.app/ops/launch-readiness.php
-gov.cabnet.app_app/cli/mark_credential_rotation.php
-docs/BOLT_CREDENTIAL_ROTATION_V4_8.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+- `public_html/gov.cabnet.app/ops/production-freeze.php`
+- `gov.cabnet.app_app/cli/freeze_dry_run_production.php`
+- `docs/BOLT_PRODUCTION_FREEZE_V4_9.md`
+- updated `HANDOFF.md`
+- updated `CONTINUE_PROMPT.md`
 
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/credential-rotation.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/credential-rotation.php
+public_html/gov.cabnet.app/ops/production-freeze.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/production-freeze.php
 
-public_html/gov.cabnet.app/ops/launch-readiness.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/launch-readiness.php
-
-gov.cabnet.app_app/cli/mark_credential_rotation.php
-→ /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php
+gov.cabnet.app_app/cli/freeze_dry_run_production.php
+→ /home/cabnet/gov.cabnet.app_app/cli/freeze_dry_run_production.php
 ```
 
-Docs are for repo/package continuity.
+Docs are for repository/package continuity.
 
 ## SQL
 
 None.
 
-## Verify
+## Verify syntax
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/credential-rotation.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/launch-readiness.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/production-freeze.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/freeze_dry_run_production.php
 ```
 
-Open:
+## Open
 
 ```text
-https://gov.cabnet.app/ops/credential-rotation.php?key=INTERNAL_API_KEY
-https://gov.cabnet.app/ops/launch-readiness.php?key=INTERNAL_API_KEY
+https://gov.cabnet.app/ops/production-freeze.php?key=INTERNAL_API_KEY
+https://gov.cabnet.app/ops/production-freeze.php?key=INTERNAL_API_KEY&format=json
 ```
 
-After manual credential rotation:
+## Freeze dry-run posture
+
+After reviewing the page, run:
 
 ```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php --ops-key --bolt --edxeix --mailbox --by=Andreas
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/freeze_dry_run_production.php --by=Andreas
+```
+
+Expected marker:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/security/production_dry_run_freeze.json
 ```
 
 ## Safety
 
-This patch does not enable live EDXEIX submission. The new ops page is read-only. The CLI creates only a no-secret acknowledgement marker.
+This patch does not enable live submit, call Bolt, call EDXEIX, import mail, send driver email, create bookings, create evidence, create jobs, create attempts, or store secrets.
