@@ -517,6 +517,13 @@ final class BoltMailDriverNotificationService
         }
 
         $mode = $this->receiptPdfMode();
+        if ($mode === 'aade_mydata') {
+            // Legal-production receipt mode. Do not fall back to generated or
+            // static PDFs: a receipt must only be emailed after AADE/myDATA
+            // issuance succeeds and the official MARK/UID/QR values are stored.
+            return ['status' => 'skipped', 'reason' => 'aade_mydata_receipt_not_issued', 'error' => null];
+        }
+
         if ($mode === 'generated') {
             try {
                 $pdfBytes = $this->buildGeneratedReceiptPdf($intakeId, $row);
@@ -696,7 +703,7 @@ final class BoltMailDriverNotificationService
     private function receiptPdfMode(): string
     {
         $mode = strtolower(trim((string)($this->config['receipt_pdf_mode'] ?? 'generated')));
-        return in_array($mode, ['generated', 'static', 'official', 'html'], true) ? $mode : 'generated';
+        return in_array($mode, ['generated', 'static', 'official', 'html', 'aade_mydata'], true) ? $mode : 'generated';
     }
 
     /** @param array<string,mixed> $row */

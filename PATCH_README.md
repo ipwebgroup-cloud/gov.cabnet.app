@@ -1,53 +1,77 @@
-# gov.cabnet.app v5.4 - Dynamic Driver Receipt PDF Generator
+# gov.cabnet.app v5.5 — AADE/myDATA Test Adapter Readiness
 
 ## What changed
 
-The second driver receipt email now attaches a dynamically generated ride-specific PDF instead of a fixed/static PDF.
+This patch adds the safe foundation for official AADE/myDATA receipt issuance:
 
-The PDF includes the parsed Bolt ride details, VAT/TAX 13% breakdown, total, LUX LIMO branding/stamp where available, and a bridge verification QR/hash block.
+- AADE/myDATA client wrapper with no-secret readiness output.
+- CLI readiness and optional connectivity ping.
+- Read-only ops readiness page.
+- Additive receipt issuance audit table.
+- Driver receipt service hard-blocks `aade_mydata` mode from falling back to generated/static PDFs.
 
 ## Files included
 
 ```text
+gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php
+gov.cabnet.app_app/cli/aade_mydata_readiness.php
 gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
-gov.cabnet.app_config_examples/generated_receipt_pdf.example.php
-docs/BOLT_DYNAMIC_DRIVER_RECEIPT_PDF_V5_4.md
-PATCH_README.md
+public_html/gov.cabnet.app/ops/aade-mydata-readiness.php
+gov.cabnet.app_sql/2026_05_07_receipt_issuance_attempts.sql
+gov.cabnet.app_config_examples/aade_mydata.example.php
+docs/BOLT_AADE_MYDATA_TEST_ADAPTER_V5_5.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-## Upload path
+## Upload paths
 
 ```text
+gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php
+→ /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php
+
+gov.cabnet.app_app/cli/aade_mydata_readiness.php
+→ /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_readiness.php
+
 gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
 → /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+
+public_html/gov.cabnet.app/ops/aade-mydata-readiness.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/aade-mydata-readiness.php
+
+gov.cabnet.app_sql/2026_05_07_receipt_issuance_attempts.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_07_receipt_issuance_attempts.sql
 ```
 
 ## SQL
 
-No SQL required.
-
-## Config
-
-Set under `mail.driver_notifications`:
-
-```php
-'receipt_copy_enabled' => true,
-'receipt_pdf_mode' => 'generated',
-'receipt_pdf_attachment_required' => true,
-'receipt_vat_rate_percent' => 13,
-'generated_receipt_pdf_filename_prefix' => 'lux-limo-transfer-receipt',
-'receipt_logo_path' => '/home/cabnet/public_html/gov.cabnet.app/assets/logos/lux-limo-logo.jpeg',
-'receipt_stamp_path' => '/home/cabnet/public_html/gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg',
+```bash
+DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
+mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_07_receipt_issuance_attempts.sql
 ```
 
-## Verify
+## Verify syntax
 
 ```bash
+php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_readiness.php
 php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/aade-mydata-readiness.php
+```
+
+## CLI readiness
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_readiness.php
+```
+
+## Connectivity ping
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_readiness.php --ping --record --by=Andreas
 ```
 
 ## Safety
 
-No live EDXEIX submit is enabled. No Bolt/EDXEIX calls, jobs, attempts, booking changes, or dry-run evidence changes are performed by this patch.
+This patch does not enable receipt emails, send AADE invoices, call EDXEIX, create EDXEIX jobs/attempts, import mail, or change live-submit gates.
