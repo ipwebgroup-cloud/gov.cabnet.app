@@ -18,14 +18,16 @@ return [
             'reply_to' => 'bolt-bridge@gov.cabnet.app',
             'bcc' => '',
             'subject_prefix' => 'Bolt pre-ride details',
-            'driver_emails' => [
-                'Filippos Giannakopoulos' => 'REPLACE_WITH_DRIVER_EMAIL',
-                'Nikolaos Vidakis' => 'REPLACE_WITH_DRIVER_EMAIL',
-            ],
-            'vehicle_plate_emails' => [
-                'EHA2545' => 'REPLACE_WITH_DRIVER_EMAIL',
-                'EMX6874' => 'REPLACE_WITH_DRIVER_EMAIL',
-            ],
+
+            // Preferred production mode: resolve driver email from mapping_drivers.driver_email,
+            // which is populated by the Bolt Driver Directory sync/API response.
+            'resolve_from_bolt_driver_directory' => true,
+            'sync_reference_on_miss' => true,
+            'sync_reference_hours_back' => 720,
+
+            // Emergency fallback only. Leave empty unless the Bolt API does not expose an email.
+            'manual_driver_emails' => [],
+            'manual_vehicle_plate_emails' => [],
         ],
     ],
 ];

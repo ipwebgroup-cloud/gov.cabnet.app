@@ -1,45 +1,41 @@
-# v4.5 Bolt Mail Driver Notification Patch
+# gov.cabnet.app v4.5.1 — Bolt Driver Directory Email Sync
 
-## What changed
+This patch supersedes the manual driver-email mapping approach from v4.5.
 
-Adds a safe driver email copy layer for newly imported Bolt pre-ride emails.
+## Install
 
-When enabled in server-only config, each newly inserted real Bolt mail intake row sends one plain-text driver copy based on configured driver name or vehicle plate email mappings.
-
-## Files included
-
-```text
-gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
-gov.cabnet.app_app/src/Mail/BoltPreRideImporter.php
-gov.cabnet.app_app/cli/import_bolt_mail.php
-public_html/gov.cabnet.app/ops/mail-intake.php
-public_html/gov.cabnet.app/ops/mail-driver-notifications.php
-gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_notifications.sql
-gov.cabnet.app_config/config.php.example
-gov.cabnet.app_config_examples/driver_notifications.example.php
-docs/BOLT_MAIL_DRIVER_NOTIFICATIONS_V4_5.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
-
-## SQL to run
+Upload these files to their matching live paths, then run both SQL migrations if v4.5 was not already installed:
 
 ```bash
 DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
 mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_notifications.sql
+mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_driver_directory_email_columns.sql
 ```
 
-## Server-only config to add
+Run syntax checks:
 
-Merge the `mail.driver_notifications` section into:
-
-```text
-/home/cabnet/gov.cabnet.app_config/config.php
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/lib/bolt_sync_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltPreRideImporter.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-driver-notifications.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-intake.php
 ```
 
-Keep real driver emails server-side only. Do not commit or paste them into chat.
+Run driver directory sync:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720
+```
+
+## Config
+
+Use the `mail.driver_notifications` block in `gov.cabnet.app_config_examples/driver_notifications.example.php`.
+
+Do not list every driver manually. Leave manual fallback arrays empty unless the Bolt API does not expose a driver email.
 
 ## Safety
 
-This patch does not create EDXEIX jobs, attempts, or POSTs. Live EDXEIX submission remains off.
+This patch sends email copies only. It does not create EDXEIX jobs, attempts, or live submissions.

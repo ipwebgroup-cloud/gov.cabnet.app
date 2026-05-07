@@ -845,6 +845,80 @@ if (!function_exists('gov_bolt_pick')) {
     }
 }
 
+
+if (!function_exists('gov_bolt_deep_pick')) {
+    function gov_bolt_deep_pick($payload, array $keys, $default = null)
+    {
+        if (!is_array($payload)) {
+            return $default;
+        }
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $payload) && $payload[$key] !== null && $payload[$key] !== '') {
+                return $payload[$key];
+            }
+        }
+
+        foreach ($payload as $value) {
+            if (is_array($value)) {
+                $found = gov_bolt_deep_pick($value, $keys, null);
+                if ($found !== null && $found !== '') {
+                    return $found;
+                }
+            }
+        }
+
+        return $default;
+    }
+}
+
+if (!function_exists('gov_bolt_extract_email_from_payload')) {
+    function gov_bolt_extract_email_from_payload(array $payload): string
+    {
+        $direct = gov_bolt_deep_pick($payload, [
+            'driver_email',
+            'email',
+            'email_address',
+            'contact_email',
+            'user_email',
+        ], '');
+
+        if (is_string($direct)) {
+            $direct = trim($direct);
+            if ($direct !== '' && filter_var($direct, FILTER_VALIDATE_EMAIL)) {
+                return $direct;
+            }
+        }
+
+        $stack = [$payload];
+        while ($stack) {
+            $item = array_pop($stack);
+            if (!is_array($item)) {
+                continue;
+            }
+            foreach ($item as $key => $value) {
+                if (is_array($value)) {
+                    $stack[] = $value;
+                    continue;
+                }
+                if (!is_string($value)) {
+                    continue;
+                }
+                $keyText = strtolower((string)$key);
+                if (!str_contains($keyText, 'email')) {
+                    continue;
+                }
+                $candidate = trim($value);
+                if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_EMAIL)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return '';
+    }
+}
+
 if (!function_exists('gov_bolt_ts_range')) {
     function gov_bolt_ts_range(int $hoursBack = 24): array
     {
@@ -952,6 +1026,8 @@ if (!function_exists('gov_bolt_normalize_driver')) {
         $uuid = (string)gov_bolt_pick($driver, ['driver_uuid', 'uuid', 'id', 'driver_id'], '');
         $name = (string)gov_bolt_pick($driver, ['driver_name', 'full_name', 'name'], '');
         $phone = (string)gov_bolt_pick($driver, ['driver_phone', 'phone'], '');
+        $email = gov_bolt_extract_email_from_payload($driver);
+        $individualIdentifier = (string)gov_bolt_deep_pick($driver, ['individual_identifier', 'individual_uuid', 'person_uuid', 'user_uuid', 'user_id'], '');
         $plate = '';
         $activeVehicleUuid = '';
         $activeVehicle = gov_bolt_pick($driver, ['active_vehicle', 'vehicle'], []);
@@ -968,8 +1044,11 @@ if (!function_exists('gov_bolt_normalize_driver')) {
             'external_driver_id' => $uuid,
             'external_id' => $uuid,
             'driver_uuid' => $uuid,
+            'driver_identifier' => $uuid,
+            'individual_identifier' => $individualIdentifier,
             'external_driver_name' => $name,
             'driver_phone' => $phone,
+            'driver_email' => $email,
             'active_vehicle_uuid' => $activeVehicleUuid,
             'active_vehicle_plate' => $plate,
             'raw_payload_json' => gov_bridge_json_encode_db($driver),

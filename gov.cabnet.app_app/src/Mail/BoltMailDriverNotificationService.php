@@ -66,7 +66,7 @@ final class BoltMailDriverNotificationService
 
         $recipient = $this->resolveRecipientEmail($driverName, $vehiclePlate);
         if ($recipient === '') {
-            return $this->recordSkipped($intakeId, $messageHash, $driverName, $vehiclePlate, null, $subject, 'driver_email_not_configured');
+            return $this->recordSkipped($intakeId, $messageHash, $driverName, $vehiclePlate, null, $subject, 'driver_email_not_found_in_bolt_directory');
         }
 
         if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
@@ -138,8 +138,160 @@ final class BoltMailDriverNotificationService
 
     private function resolveRecipientEmail(string $driverName, string $vehiclePlate): string
     {
-        $driverEmails = is_array($this->config['driver_emails'] ?? null) ? $this->config['driver_emails'] : [];
-        $plateEmails = is_array($this->config['vehicle_plate_emails'] ?? null) ? $this->config['vehicle_plate_emails'] : [];
+        $recipient = $this->resolveRecipientEmailFromBoltDirectory($driverName, $vehiclePlate);
+        if ($recipient !== '') {
+            return $recipient;
+        }
+
+        if ($this->shouldSyncReferenceOnMiss()) {
+            $this->syncBoltReferenceDirectory();
+            $recipient = $this->resolveRecipientEmailFromBoltDirectory($driverName, $vehiclePlate);
+            if ($recipient !== '') {
+                return $recipient;
+            }
+        }
+
+        // Emergency fallback only. Normal production behavior should resolve from
+        // mapping_drivers.driver_email, which is synced from the Bolt driver API.
+        return $this->resolveRecipientEmailFromManualFallback($driverName, $vehiclePlate);
+    }
+
+    private function resolveRecipientEmailFromBoltDirectory(string $driverName, string $vehiclePlate): string
+    {
+        $columns = $this->tableColumns('mapping_drivers');
+        if (!isset($columns['driver_email'])) {
+            return '';
+        }
+
+        $driverName = trim($driverName);
+        if ($driverName !== '') {
+            $nameColumns = array_values(array_filter([
+                isset($columns['external_driver_name']) ? 'external_driver_name' : null,
+                isset($columns['driver_name']) ? 'driver_name' : null,
+                isset($columns['name']) ? 'name' : null,
+            ]));
+
+            foreach ($nameColumns as $nameColumn) {
+                $row = $this->fetchDriverDirectoryRow('`' . $nameColumn . '` = ?', [$driverName], 's', $columns);
+                $email = $this->emailFromDirectoryRow($row);
+                if ($email !== '') {
+                    return $email;
+                }
+            }
+        }
+
+        $plate = $this->normalizePlate($vehiclePlate);
+        if ($plate !== '' && isset($columns['active_vehicle_plate'])) {
+            $row = $this->fetchDriverDirectoryRow(
+                "UPPER(REPLACE(REPLACE(`active_vehicle_plate`, ' ', ''), '-', '')) = ?",
+                [$plate],
+                's',
+                $columns
+            );
+            $email = $this->emailFromDirectoryRow($row);
+            if ($email !== '') {
+                return $email;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string,bool> $columns
+     * @param array<int,mixed> $params
+     */
+    private function fetchDriverDirectoryRow(string $whereSql, array $params, string $types, array $columns): ?array
+    {
+        $select = ['driver_email'];
+        if (isset($columns['raw_payload_json'])) {
+            $select[] = 'raw_payload_json';
+        }
+        if (isset($columns['last_seen_at'])) {
+            $order = '`last_seen_at` DESC, `id` DESC';
+        } elseif (isset($columns['updated_at'])) {
+            $order = '`updated_at` DESC, `id` DESC';
+        } else {
+            $order = '`id` DESC';
+        }
+
+        $activeSql = '';
+        if (isset($columns['is_active'])) {
+            $activeSql = ' AND `is_active` = 1';
+        }
+
+        return $this->db->fetchOne(
+            'SELECT `' . implode('`,`', $select) . '` FROM mapping_drivers WHERE ' . $whereSql . $activeSql . ' ORDER BY ' . $order . ' LIMIT 1',
+            $params,
+            $types
+        );
+    }
+
+    private function emailFromDirectoryRow(?array $row): string
+    {
+        if (!is_array($row)) {
+            return '';
+        }
+
+        $email = trim((string)($row['driver_email'] ?? ''));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+
+        $raw = trim((string)($row['raw_payload_json'] ?? ''));
+        if ($raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $email = $this->findEmailInPayload($decoded);
+                if ($email !== '') {
+                    return $email;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function shouldSyncReferenceOnMiss(): bool
+    {
+        return filter_var($this->config['sync_reference_on_miss'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function syncBoltReferenceDirectory(): void
+    {
+        $lib = dirname(__DIR__, 2) . '/lib/bolt_sync_lib.php';
+        if (is_file($lib)) {
+            require_once $lib;
+        }
+
+        if (!function_exists('gov_bolt_sync_reference')) {
+            return;
+        }
+
+        $hoursBack = (int)($this->config['sync_reference_hours_back'] ?? 720);
+        $hoursBack = max(24, min(8760, $hoursBack));
+
+        try {
+            gov_bolt_sync_reference($hoursBack, false);
+        } catch (Throwable) {
+            // Notification lookup must never block mail intake. A failed Bolt
+            // reference refresh simply falls through to the normal skipped audit.
+        }
+    }
+
+    private function resolveRecipientEmailFromManualFallback(string $driverName, string $vehiclePlate): string
+    {
+        $driverEmails = is_array($this->config['manual_driver_emails'] ?? null) ? $this->config['manual_driver_emails'] : [];
+        $plateEmails = is_array($this->config['manual_vehicle_plate_emails'] ?? null) ? $this->config['manual_vehicle_plate_emails'] : [];
+
+        // Backward compatibility with the first v4.5 config draft. These keys are
+        // intentionally treated as manual fallback only, not the preferred method.
+        if (!$driverEmails && is_array($this->config['driver_emails'] ?? null)) {
+            $driverEmails = $this->config['driver_emails'];
+        }
+        if (!$plateEmails && is_array($this->config['vehicle_plate_emails'] ?? null)) {
+            $plateEmails = $this->config['vehicle_plate_emails'];
+        }
 
         $driverKey = $this->normalizeKey($driverName);
         foreach ($driverEmails as $name => $email) {
@@ -155,6 +307,55 @@ final class BoltMailDriverNotificationService
             }
         }
 
+        return '';
+    }
+
+    /** @return array<string,bool> */
+    private function tableColumns(string $table): array
+    {
+        static $cache = [];
+        if (isset($cache[$table])) {
+            return $cache[$table];
+        }
+
+        $rows = $this->db->fetchAll('SHOW COLUMNS FROM `' . str_replace('`', '``', $table) . '`');
+        $columns = [];
+        foreach ($rows as $row) {
+            $field = (string)($row['Field'] ?? '');
+            if ($field !== '') {
+                $columns[$field] = true;
+            }
+        }
+        $cache[$table] = $columns;
+        return $columns;
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function findEmailInPayload(array $payload): string
+    {
+        $stack = [$payload];
+        while ($stack) {
+            $item = array_pop($stack);
+            if (!is_array($item)) {
+                continue;
+            }
+            foreach ($item as $key => $value) {
+                if (is_array($value)) {
+                    $stack[] = $value;
+                    continue;
+                }
+                if (!is_string($value)) {
+                    continue;
+                }
+                if (!str_contains(strtolower((string)$key), 'email')) {
+                    continue;
+                }
+                $candidate = trim($value);
+                if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_EMAIL)) {
+                    return $candidate;
+                }
+            }
+        }
         return '';
     }
 

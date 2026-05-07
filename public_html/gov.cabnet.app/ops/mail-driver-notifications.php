@@ -3,6 +3,7 @@
  * gov.cabnet.app — Bolt Mail Driver Notifications
  *
  * Read-only dashboard for the driver email copy layer.
+ * Resolves recipients from the Bolt driver directory stored in mapping_drivers.driver_email.
  * Does not import emails, create EDXEIX jobs, or submit anything live.
  */
 
@@ -67,6 +68,9 @@ $authorized = false;
 $rows = [];
 $counts = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'total' => 0];
 $enabled = false;
+$driverDirectoryReady = false;
+$driverDirectoryCounts = ['total' => 0, 'with_email' => 0];
+$driverDirectoryRows = [];
 
 try {
     if (!file_exists($bootstrap)) {
@@ -101,6 +105,29 @@ try {
              ORDER BY n.id DESC
              LIMIT 100"
         );
+
+
+        $driverColumns = [];
+        foreach ($db->fetchAll("SHOW COLUMNS FROM mapping_drivers") as $colRow) {
+            $field = (string)($colRow['Field'] ?? '');
+            if ($field !== '') {
+                $driverColumns[$field] = true;
+            }
+        }
+        $driverDirectoryReady = isset($driverColumns['driver_email']);
+        if ($driverDirectoryReady) {
+            $directoryTotal = $db->fetchOne("SELECT COUNT(*) AS c FROM mapping_drivers");
+            $directoryWithEmail = $db->fetchOne("SELECT COUNT(*) AS c FROM mapping_drivers WHERE driver_email IS NOT NULL AND driver_email <> ''");
+            $driverDirectoryCounts['total'] = (int)($directoryTotal['c'] ?? 0);
+            $driverDirectoryCounts['with_email'] = (int)($directoryWithEmail['c'] ?? 0);
+            $driverDirectoryRows = $db->fetchAll(
+                "SELECT id, external_driver_name, driver_phone, driver_email, active_vehicle_plate, last_seen_at, updated_at
+                 FROM mapping_drivers
+                 WHERE driver_email IS NOT NULL AND driver_email <> ''
+                 ORDER BY COALESCE(last_seen_at, updated_at, created_at) DESC, id DESC
+                 LIMIT 50"
+            );
+        }
     }
 } catch (Throwable $e) {
     $error = $e->getMessage();
@@ -131,10 +158,11 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
 <main class="wrap">
     <section class="card banner">
         <h1>Bolt Driver Email Copies</h1>
-        <p>Read-only monitor for the driver notification layer. When enabled, each newly imported real Bolt pre-ride email can generate one driver email copy based on configured driver/plate email mappings.</p>
+        <p>Read-only monitor for the driver notification layer. When enabled, each newly imported real Bolt pre-ride email can generate one driver email copy by matching the parsed driver name or vehicle plate to the Bolt driver directory stored in <code>mapping_drivers.driver_email</code>.</p>
         <div>
             <?= mdn_badge($enabled ? 'DRIVER COPIES ENABLED' : 'DRIVER COPIES DISABLED', $enabled ? 'good' : 'warn') ?>
             <?= mdn_badge('IDEMPOTENT PER INTAKE ROW', 'good') ?>
+            <?= mdn_badge($driverDirectoryReady ? 'BOLT DIRECTORY READY' : 'BOLT DIRECTORY EMAIL COLUMN MISSING', $driverDirectoryReady ? 'good' : 'warn') ?>
             <?= mdn_badge('NO EDXEIX SUBMIT', 'good') ?>
         </div>
     </section>
@@ -168,6 +196,35 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                 <div class="metric"><strong><?= mdn_h($counts['failed']) ?></strong><span>Failed</span></div>
             </div>
             <p class="small">Driver email addresses are masked in this UI. Full addresses remain server-side only.</p>
+        </section>
+
+        <section class="card">
+            <h2>Bolt driver directory email coverage</h2>
+            <div class="grid">
+                <div class="metric"><strong><?= mdn_h($driverDirectoryCounts['total']) ?></strong><span>Driver mappings</span></div>
+                <div class="metric"><strong><?= mdn_h($driverDirectoryCounts['with_email']) ?></strong><span>With API email</span></div>
+                <div class="metric"><strong><?= mdn_h($driverDirectoryReady ? 'YES' : 'NO') ?></strong><span>driver_email column</span></div>
+                <div class="metric"><strong><?= mdn_h($enabled ? 'ON' : 'OFF') ?></strong><span>Notifications</span></div>
+            </div>
+            <p class="small">Run <code>/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720</code> after installing the v4.5.1 SQL migration. The notification worker can also refresh this directory automatically on a miss when <code>sync_reference_on_miss=true</code>.</p>
+            <?php if ($driverDirectoryRows): ?>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>ID</th><th>Driver</th><th>Plate</th><th>Email</th><th>Last seen</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($driverDirectoryRows as $drow): ?>
+                            <tr>
+                                <td class="mono">#<?= mdn_h($drow['id'] ?? '') ?></td>
+                                <td><?= mdn_h($drow['external_driver_name'] ?? '') ?><br><span class="small"><?= mdn_h($drow['driver_phone'] ?? '') ?></span></td>
+                                <td><?= mdn_h($drow['active_vehicle_plate'] ?? '') ?></td>
+                                <td><?= mdn_h(mdn_mask_email($drow['driver_email'] ?? '')) ?></td>
+                                <td><span class="small"><?= mdn_h($drow['last_seen_at'] ?? ($drow['updated_at'] ?? '')) ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         </section>
 
         <section class="card">

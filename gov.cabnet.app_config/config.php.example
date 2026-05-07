@@ -46,24 +46,24 @@ return [
     'mail' => [
         'bolt_bridge_maildir' => '/home/cabnet/mail/gov.cabnet.app/bolt-bridge',
         'driver_notifications' => [
-            // Set true only after the SQL migration is installed and driver emails are mapped.
+            // Set true only after the SQL migrations are installed and the
+            // Bolt Driver Directory sync has populated mapping_drivers.driver_email.
             'enabled' => false,
             'from_email' => 'bolt-bridge@gov.cabnet.app',
             'from_name' => 'Cabnet Bolt Bridge',
             'reply_to' => 'bolt-bridge@gov.cabnet.app',
-            // Optional internal blind copy for auditing. Leave blank if not needed.
             'bcc' => '',
             'subject_prefix' => 'Bolt pre-ride details',
-            // Exact driver names from Bolt emails. Values below are examples only.
-            'driver_emails' => [
-                'Filippos Giannakopoulos' => 'driver1@example.com',
-                'Nikolaos Vidakis' => 'driver2@example.com',
-            ],
-            // Optional fallback by vehicle plate. Useful if driver names vary.
-            'vehicle_plate_emails' => [
-                'EHA2545' => 'driver1@example.com',
-                'EMX6874' => 'driver2@example.com',
-            ],
+
+            // Preferred production mode: resolve driver email from mapping_drivers.driver_email,
+            // which is populated by the Bolt Driver Directory sync/API response.
+            'resolve_from_bolt_driver_directory' => true,
+            'sync_reference_on_miss' => true,
+            'sync_reference_hours_back' => 720,
+
+            // Emergency fallback only. Leave empty unless the Bolt API does not expose an email.
+            'manual_driver_emails' => [],
+            'manual_vehicle_plate_emails' => [],
         ],
     ],
 
