@@ -1,28 +1,19 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
+# gov.cabnet.app — Handoff after v5.2 Driver Receipt Template Polish
 
-Current state after v5.1:
+Current state:
+- v5.0 guarded live-submit path is armed but blocked by `edxeix_session_connected=false` and one-shot lock requirements.
+- v5.1 added the second driver receipt email with VAT/TAX included and company stamp.
+- v5.2 polished the HTML receipt email template and added the LUX LIMO logo asset.
 
-- Dry-run production posture was previously frozen in v4.9.
-- Guarded live-submit was armed in v5.0 but remains blocked by `edxeix_session_connected=false` and one-shot locks.
-- v5.1 adds a second driver email: an HTML receipt copy with VAT/TAX included at 13% and the LUX LIMO company stamp.
-- Driver copy recipient resolution remains by driver identity from the Bolt driver directory, not vehicle plate.
-- Live EDXEIX submission remains blocked.
-- No submission_jobs or submission_attempts should be created by v5.1.
+Safety posture:
+- No automatic live-submit cron exists.
+- Live EDXEIX POST remains blocked until explicit session connection, one-shot booking lock, valid future booking, mapping, and confirmation requirements pass.
+- v5.2 does not affect EDXEIX submission logic.
 
-Important files:
-
+Changed/added files in v5.2:
 - `/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/mail-driver-notifications.php`
-- `/home/cabnet/public_html/gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg`
-- `/home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_receipt_columns.sql`
+- `/home/cabnet/public_html/gov.cabnet.app/assets/logos/lux-limo-logo.jpeg`
+- `docs/BOLT_DRIVER_RECEIPT_TEMPLATE_V5_2.md`
 
-Verification:
-
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-driver-notifications.php
-DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
-mysql "$DB_NAME" -e "SELECT id,intake_id,notification_status,receipt_status,receipt_vat_rate,receipt_total_amount,receipt_vat_amount,receipt_sent_at FROM bolt_mail_driver_notifications ORDER BY id DESC LIMIT 10;"
-mysql "$DB_NAME" -e "SELECT COUNT(*) AS submission_jobs FROM submission_jobs;"
-mysql "$DB_NAME" -e "SELECT COUNT(*) AS submission_attempts FROM submission_attempts;"
-```
+Next recommended technical work:
+- v5.3 EDXEIX partner/driver mapping matrix before any real live-submit attempt.
