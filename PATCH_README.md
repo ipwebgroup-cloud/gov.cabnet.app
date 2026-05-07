@@ -1,17 +1,13 @@
-# v5.6.1 AADE Payload Polish + First Send Gate
+# gov.cabnet.app v5.7 AADE/myDATA First Controlled SendInvoices Gate
 
-## Upload paths
+## Files
 
-```text
-gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
-→ /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
-
-gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php
-→ /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php
-
-public_html/gov.cabnet.app/ops/aade-receipt-payload.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/aade-receipt-payload.php
-```
+- `gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php`
+- `gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php`
+- `gov.cabnet.app_config_examples/aade_mydata_first_send_gate.example.php`
+- `docs/BOLT_AADE_FIRST_CONTROLLED_SEND_GATE_V5_7.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
 ## SQL
 
@@ -20,33 +16,25 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php
 php -l /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/aade-receipt-payload.php
 ```
 
-Preview:
+## Preview
 
 ```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=16
 ```
 
-Record prepared only:
+## Manual send gate
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=16 --record-prepared --by=Andreas
-```
+SendInvoices remains blocked unless:
 
-Dashboard:
+- `receipts.aade_mydata.allow_send_invoices=true`
+- `mail.driver_notifications.receipt_copy_enabled=false`
+- `mail.driver_notifications.receipt_pdf_mode=aade_mydata`
+- no prior issued receipt exists for the booking
+- no prior issued receipt exists for the XML hash
+- exact confirmation phrase is supplied
 
-```text
-https://gov.cabnet.app/ops/aade-receipt-payload.php?key=INTERNAL_API_KEY&booking_id=16&format=json
-```
-
-## Expected
-
-- Amounts display as `35.40`, `4.60`, `40.00`.
-- `send_invoices_status` shows `DISABLED_IN_CONFIG_PREVIEW_ONLY` while `allow_send_invoices=false`.
-- No AADE invoice is sent.
-- No receipt email is sent.
-- No EDXEIX job/attempt is created.
+No automatic send is added.

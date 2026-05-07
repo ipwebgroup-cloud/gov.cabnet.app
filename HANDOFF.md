@@ -1,20 +1,17 @@
-# HANDOFF — gov.cabnet.app v5.6.1
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX / AADE bridge after v5.7
 
-Current phase: AADE/myDATA official receipt payload preparation.
+Current state:
 
-Validated before this patch:
+- Driver pre-ride copy works by Bolt driver identity.
+- Receipt emails are disabled until official AADE issuance and official PDF flow are complete.
+- AADE production connectivity is confirmed and response excerpts are suppressed.
+- AADE payload preview for booking 16 is valid.
+- v5.7 adds a stricter first controlled SendInvoices gate.
+- Live EDXEIX remains guarded/session-disconnected.
 
-- AADE production connectivity works with HTTP 200.
-- AADE response excerpts are suppressed.
-- `receipt_copy_enabled=false`.
-- `receipt_pdf_mode=aade_mydata`.
-- v5.6 can build XML for booking 16 and record a `prepared` audit row.
+Important safety:
 
-v5.6.1 adds:
-
-- two-decimal JSON amount display
-- accountant review checklist output
-- config gate output
-- updated ops page with gate checks and latest attempts
-
-Keep `allow_send_invoices=false` until accountant confirmation and explicit approval for a controlled SendInvoices test.
+- Do not enable receipt emails until AADE SendInvoices succeeds and official PDF/receipt attachment flow is implemented.
+- Do not use generated/static receipt fallback.
+- Do not paste AADE credentials or raw AADE responses.
+- SendInvoices is manual-only and requires config + exact confirmation phrase.

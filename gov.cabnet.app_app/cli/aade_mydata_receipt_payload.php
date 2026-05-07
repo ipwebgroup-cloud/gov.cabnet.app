@@ -40,6 +40,7 @@ $out = [
         'does_not_create_submission_attempts' => true,
         'send_invoices_requires_allow_config' => true,
         'send_invoices_requires_confirm_phrase' => true,
+        'send_invoices_duplicate_protected' => true,
         'raw_aade_response_not_printed' => true,
     ],
 ];
@@ -54,18 +55,23 @@ try {
     $summary = $built['summary'];
     $validation = $built['validation'];
     $xml = (string)$built['xml'];
+    $xmlHash = (string)$built['xml_sha256'];
+
+    $configGate = build_config_gate($config);
+    $duplicateGate = build_duplicate_gate($db, $bookingId, $xmlHash);
+    $firstSendGate = build_first_send_gate($config, $confirm, $validation, $duplicateGate);
 
     $out['ok'] = true;
     $out['mode'] = $send ? 'send_requested' : 'preview_only';
     $out['booking_id'] = $bookingId;
     $out['summary'] = $summary;
     $out['validation'] = $validation;
-    $out['config_gate'] = build_config_gate($config);
+    $out['config_gate'] = $configGate;
+    $out['duplicate_gate'] = $duplicateGate;
+    $out['first_send_gate'] = $firstSendGate;
     $out['accountant_review_checklist'] = build_accountant_review_checklist($summary);
-    $out['send_invoices_status'] = !empty($out['config_gate']['allow_send_invoices'])
-        ? 'CONFIG_ENABLED_STILL_REQUIRES_CONFIRM_PHRASE'
-        : 'DISABLED_IN_CONFIG_PREVIEW_ONLY';
-    $out['xml_sha256'] = $built['xml_sha256'];
+    $out['send_invoices_status'] = send_status_label($configGate, $firstSendGate, $send);
+    $out['xml_sha256'] = $xmlHash;
     $out['xml_bytes'] = $built['xml_bytes'];
     $out['xml_included'] = $showXml;
 
@@ -74,31 +80,16 @@ try {
     }
 
     if ($recordPrepared) {
-        $out['prepared_attempt_id'] = record_attempt($db, $summary, 'prepared', null, 0, $xml, null, '', $by);
+        $out['prepared_attempt_id'] = record_attempt($db, $summary, 'prepared', null, 0, $xml, null, '', $by, $configGate['aade_environment']);
     }
 
     if ($send) {
-        $allowSend = (bool)$config->get('receipts.aade_mydata.allow_send_invoices', false);
-        $phrase = (string)$config->get('receipts.aade_mydata.manual_send_confirm_phrase', 'I UNDERSTAND SEND AADE MYDATA PRODUCTION RECEIPT');
-        $sendBlockers = [];
-
-        if (!$allowSend) {
-            $sendBlockers[] = 'allow_send_invoices_not_enabled_in_config';
-        }
-        if ($confirm !== $phrase) {
-            $sendBlockers[] = 'confirm_phrase_missing_or_invalid';
-        }
-        if (empty($validation['ok_for_send_if_confirmed'])) {
-            foreach (($validation['blockers'] ?? []) as $b) {
-                $sendBlockers[] = (string)$b;
-            }
-        }
-
-        if ($sendBlockers !== []) {
+        if (!empty($firstSendGate['blockers'])) {
             $out['ok'] = false;
             $out['send'] = [
                 'attempted' => false,
-                'blockers' => array_values(array_unique($sendBlockers)),
+                'blockers' => $firstSendGate['blockers'],
+                'raw_response_not_printed' => true,
             ];
             echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
             exit(2);
@@ -110,8 +101,22 @@ try {
         unset($result['response_body']);
 
         $parsed = parse_aade_response($responseBody);
-        $status = (!empty($result['ok']) && empty($parsed['errors'])) ? 'issued' : 'failed';
-        $attemptId = record_attempt($db, $summary, $status, $result, (int)($result['http_status'] ?? 0), $xml, $parsed, (string)($result['error'] ?? ''), $by);
+        $status = (!empty($result['ok']) && empty($parsed['errors']) && (!empty($parsed['mark']) || !empty($parsed['uid'])))
+            ? 'issued'
+            : 'failed';
+
+        $attemptId = record_attempt(
+            $db,
+            $summary,
+            $status,
+            $result,
+            (int)($result['http_status'] ?? 0),
+            $xml,
+            $parsed,
+            (string)($result['error'] ?? ''),
+            $by,
+            $configGate['aade_environment']
+        );
 
         $out['send'] = [
             'attempted' => true,
@@ -124,8 +129,11 @@ try {
             'uid' => $parsed['uid'] ?? null,
             'qr_url_present' => !empty($parsed['qr_url']),
             'errors_present' => !empty($parsed['errors']),
+            'error_code' => $parsed['error_code'] ?? null,
+            'error_message' => $parsed['error_message'] ?? null,
             'raw_response_not_printed' => true,
         ];
+        $out['ok'] = $status === 'issued';
     }
 } catch (Throwable $e) {
     $out['ok'] = false;
@@ -137,19 +145,122 @@ echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAP
 /** @return array<string,mixed> */
 function build_config_gate(Config $config): array
 {
+    $phrase = trim((string)$config->get('receipts.aade_mydata.manual_send_confirm_phrase', ''));
     return [
         'receipts_mode' => (string)$config->get('receipts.mode', 'MISSING'),
         'aade_enabled' => (bool)$config->get('receipts.aade_mydata.enabled', false),
         'aade_environment' => (string)$config->get('receipts.aade_mydata.environment', 'MISSING'),
         'allow_send_invoices' => (bool)$config->get('receipts.aade_mydata.allow_send_invoices', false),
-        'manual_confirm_phrase_configured' => trim((string)$config->get('receipts.aade_mydata.manual_send_confirm_phrase', '')) !== '',
+        'manual_confirm_phrase_configured' => $phrase !== '',
+        'manual_confirm_phrase_hint' => $phrase !== '' ? 'configured_server_side_not_printed' : 'missing',
         'driver_receipt_copy_enabled' => (bool)$config->get('mail.driver_notifications.receipt_copy_enabled', false),
         'driver_receipt_pdf_mode' => (string)$config->get('mail.driver_notifications.receipt_pdf_mode', 'MISSING'),
         'safe_for_preview' => true,
-        'safe_for_send' => (bool)$config->get('receipts.aade_mydata.allow_send_invoices', false)
+        'safe_for_send_config' => (bool)$config->get('receipts.aade_mydata.allow_send_invoices', false)
             && (string)$config->get('receipts.mode', '') === 'aade_mydata'
-            && (bool)$config->get('receipts.aade_mydata.enabled', false),
+            && (bool)$config->get('receipts.aade_mydata.enabled', false)
+            && (string)$config->get('mail.driver_notifications.receipt_pdf_mode', '') === 'aade_mydata'
+            && !(bool)$config->get('mail.driver_notifications.receipt_copy_enabled', false),
     ];
+}
+
+/** @return array<string,mixed> */
+function build_duplicate_gate(Database $db, int $bookingId, string $xmlHash): array
+{
+    $out = [
+        'booking_id' => $bookingId,
+        'xml_hash' => $xmlHash,
+        'issued_for_booking' => 0,
+        'issued_for_xml_hash' => 0,
+        'blocked' => false,
+        'blockers' => [],
+    ];
+
+    try {
+        $row = $db->fetchOne("SELECT COUNT(*) AS c FROM receipt_issuance_attempts WHERE normalized_booking_id=? AND provider='aade_mydata' AND provider_status='issued'", [$bookingId], 'i');
+        $out['issued_for_booking'] = (int)($row['c'] ?? 0);
+    } catch (Throwable) {
+        $out['blockers'][] = 'duplicate_booking_check_unavailable';
+    }
+
+    try {
+        $row = $db->fetchOne("SELECT COUNT(*) AS c FROM receipt_issuance_attempts WHERE request_payload_hash=? AND provider='aade_mydata' AND provider_status='issued'", [$xmlHash], 's');
+        $out['issued_for_xml_hash'] = (int)($row['c'] ?? 0);
+    } catch (Throwable) {
+        $out['blockers'][] = 'duplicate_payload_hash_check_unavailable';
+    }
+
+    if ((int)$out['issued_for_booking'] > 0) {
+        $out['blockers'][] = 'already_issued_for_booking';
+    }
+    if ((int)$out['issued_for_xml_hash'] > 0) {
+        $out['blockers'][] = 'already_issued_for_payload_hash';
+    }
+
+    $out['blockers'] = array_values(array_unique($out['blockers']));
+    $out['blocked'] = $out['blockers'] !== [];
+    return $out;
+}
+
+/**
+ * @param array<string,mixed> $validation
+ * @param array<string,mixed> $duplicateGate
+ * @return array<string,mixed>
+ */
+function build_first_send_gate(Config $config, string $confirm, array $validation, array $duplicateGate): array
+{
+    $phrase = trim((string)$config->get('receipts.aade_mydata.manual_send_confirm_phrase', 'I UNDERSTAND SEND AADE MYDATA PRODUCTION RECEIPT'));
+    $blockers = [];
+
+    if ((string)$config->get('receipts.mode', '') !== 'aade_mydata') {
+        $blockers[] = 'receipts_mode_not_aade_mydata';
+    }
+    if (!(bool)$config->get('receipts.aade_mydata.enabled', false)) {
+        $blockers[] = 'aade_mydata_not_enabled';
+    }
+    if (!(bool)$config->get('receipts.aade_mydata.allow_send_invoices', false)) {
+        $blockers[] = 'allow_send_invoices_not_enabled_in_config';
+    }
+    if ($phrase === '') {
+        $blockers[] = 'manual_confirm_phrase_not_configured';
+    }
+    if ($confirm !== $phrase) {
+        $blockers[] = 'confirm_phrase_missing_or_invalid';
+    }
+    if ((string)$config->get('mail.driver_notifications.receipt_pdf_mode', '') !== 'aade_mydata') {
+        $blockers[] = 'driver_receipt_pdf_mode_not_aade_mydata';
+    }
+    if ((bool)$config->get('mail.driver_notifications.receipt_copy_enabled', false)) {
+        $blockers[] = 'driver_receipt_copy_must_remain_disabled_for_first_send';
+    }
+    if (empty($validation['ok_for_send_if_confirmed'])) {
+        foreach (($validation['blockers'] ?? []) as $b) {
+            $blockers[] = (string)$b;
+        }
+    }
+    foreach (($duplicateGate['blockers'] ?? []) as $b) {
+        $blockers[] = (string)$b;
+    }
+
+    $blockers = array_values(array_unique($blockers));
+    return [
+        'ready_to_send_if_requested' => $blockers === [],
+        'blockers' => $blockers,
+        'requires_manual_confirm_phrase' => true,
+        'raw_response_printed' => false,
+    ];
+}
+
+/** @param array<string,mixed> $configGate @param array<string,mixed> $firstSendGate */
+function send_status_label(array $configGate, array $firstSendGate, bool $sendRequested): string
+{
+    if (!empty($firstSendGate['blockers'])) {
+        if (empty($configGate['allow_send_invoices'])) {
+            return 'DISABLED_IN_CONFIG_PREVIEW_ONLY';
+        }
+        return $sendRequested ? 'SEND_REQUEST_BLOCKED_BY_GATE' : 'SEND_CONFIG_ENABLED_AWAITING_VALID_CONFIRMATION';
+    }
+    return $sendRequested ? 'SEND_REQUEST_GATE_PASSED_ATTEMPTING_AADE' : 'SEND_CONFIG_ENABLED_READY_FOR_MANUAL_CONFIRMATION';
 }
 
 /**
@@ -203,7 +314,7 @@ function build_accountant_review_checklist(array $summary): array
  * @param array<string,mixed>|null $transport
  * @param array<string,mixed>|null $parsed
  */
-function record_attempt(Database $db, array $summary, string $status, ?array $transport, int $httpStatus, string $xml, ?array $parsed, string $error, string $by): int
+function record_attempt(Database $db, array $summary, string $status, ?array $transport, int $httpStatus, string $xml, ?array $parsed, string $error, string $by, string $environment): int
 {
     try {
         $hasTable = $db->fetchOne("SHOW TABLES LIKE 'receipt_issuance_attempts'");
@@ -233,7 +344,7 @@ function record_attempt(Database $db, array $summary, string $status, ?array $tr
                 (int)($summary['booking_id'] ?? 0),
                 (string)($summary['source'] ?? 'bolt_mail'),
                 'aade_mydata',
-                'production',
+                $environment !== '' ? $environment : 'production',
                 'aade_mydata',
                 $status,
                 (string)($summary['issuer_vat_number'] ?? ''),
