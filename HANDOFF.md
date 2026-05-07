@@ -1,14 +1,22 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge v5.3
+# gov.cabnet.app Handoff - v5.4 Dynamic Driver Receipt PDF Generator
 
-Current addition: driver receipt email now sends an official PDF receipt attachment instead of relying on HTML as the receipt document.
+Current state after v5.4:
 
-Safety posture remains:
-- live EDXEIX submission gated and blocked unless all explicit live gates pass
-- no live cron
-- no EDXEIX POST during install
-- no submission_jobs or submission_attempts created by this patch
+- Bolt mail intake remains active.
+- Driver copy email remains active and identity-based.
+- Second receipt email now attaches a generated ride-specific PDF.
+- PDF includes ride details, 30-minute end-time rule, first-value-only price, VAT/TAX 13%, branding/stamp images when available, and bridge verification QR/hash block.
+- Live EDXEIX submit remains guarded and blocked unless separate live gates are explicitly satisfied.
+- No live cron exists for EDXEIX submission.
 
-The configured/default attachment path is:
-`/home/cabnet/gov.cabnet.app_app/storage/receipt_attachments/lux_limo_official_receipt_attachment.pdf`
+Important boundary:
 
-For production legitimacy, replace/generate that PDF from the official invoicing platform per real receipt. The HTML email body is only a carrier/summary; the PDF attachment is the receipt.
+- The generated PDF is bridge-generated/pro-forma, not official AADE/myDATA unless later connected to an official invoicing provider.
+
+Next recommended actions:
+
+1. Upload v5.4 patch.
+2. Add/confirm `receipt_pdf_mode => generated` in server config.
+3. Send a receipt test email to mykonoscab@gmail.com.
+4. Confirm attachment opens and contains ride details.
+5. Confirm submission_jobs and submission_attempts remain 0.
