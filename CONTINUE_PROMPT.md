@@ -1,1 +1,17 @@
-Continue the gov.cabnet.app Bolt -> EDXEIX bridge from v5.8. The current focus is automatic AADE/myDATA receipt issuance for real Bolt mail orders. AADE production connectivity is confirmed; accountant approved the payload/classification; automatic SendInvoices is controlled by `receipts.aade_mydata.auto_send_invoices=true`; official driver receipt emails are controlled by `mail.driver_notifications.official_receipt_email_enabled=true`. Live EDXEIX remains guarded/session-disconnected and must not be enabled without explicit approval.
+Continue the gov.cabnet.app Bolt → EDXEIX / AADE bridge from v5.8.1.
+
+Important current behavior:
+
+- Driver pre-ride copy sends automatically on new Bolt pre-ride emails.
+- Automatic AADE receipt issuance is enabled for eligible new real Bolt mail bookings after `auto_issue_not_before`.
+- v5.8.1 delays AADE SendInvoices and official driver receipt email until the booking pick-up time.
+- For bolt_mail bookings, use `normalized_bookings.started_at` as the parsed pick-up time.
+- Do not use the earlier Bolt email Start time as the receipt trigger.
+- EDXEIX remains blocked/session-disconnected and no submission_jobs/submission_attempts should be created.
+
+Next monitoring commands:
+
+```bash
+tail -f /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_intake.log
+tail -f /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_auto_dry_run.log
+```

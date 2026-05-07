@@ -167,6 +167,9 @@ final class AadeReceiptAutoIssuer
     {
         $blockers = [];
         $aade = (array)$this->config->get('receipts.aade_mydata', []);
+        $timezone = new \DateTimeZone((string)$this->config->get('app.timezone', 'Europe/Athens'));
+        $now = new \DateTimeImmutable('now', $timezone);
+        $pickupAt = null;
 
         if ((string)$this->config->get('receipts.mode', '') !== 'aade_mydata') {
             $blockers[] = 'receipts_mode_not_aade_mydata';
@@ -186,7 +189,7 @@ final class AadeReceiptAutoIssuer
             $blockers[] = 'auto_issue_not_before_not_configured';
         } else {
             try {
-                $notBefore = new \DateTimeImmutable($notBeforeRaw, new \DateTimeZone((string)$this->config->get('app.timezone', 'Europe/Athens')));
+                $notBefore = new \DateTimeImmutable($notBeforeRaw, $timezone);
             } catch (\Throwable) {
                 $blockers[] = 'auto_issue_not_before_invalid';
             }
@@ -219,12 +222,32 @@ final class AadeReceiptAutoIssuer
         if ($notBefore instanceof \DateTimeImmutable) {
             $createdRaw = trim((string)($booking['created_at'] ?? ''));
             try {
-                $createdAt = new \DateTimeImmutable($createdRaw, new \DateTimeZone((string)$this->config->get('app.timezone', 'Europe/Athens')));
+                $createdAt = new \DateTimeImmutable($createdRaw, $timezone);
                 if ($createdAt < $notBefore) {
                     $blockers[] = 'booking_created_before_auto_issue_window';
                 }
             } catch (\Throwable) {
                 $blockers[] = 'booking_created_at_invalid';
+            }
+        }
+
+        /*
+         * Official receipt timing rule:
+         * normalized_bookings.started_at is the parsed Bolt pick-up time for
+         * bolt_mail rows. Do not issue/send the AADE receipt before that time.
+         * The earlier Bolt "Start time" from the email is ride context only.
+         */
+        $pickupRaw = trim((string)($booking['started_at'] ?? ''));
+        if ($pickupRaw === '') {
+            $blockers[] = 'pickup_time_missing';
+        } else {
+            try {
+                $pickupAt = new \DateTimeImmutable($pickupRaw, $timezone);
+                if ($now < $pickupAt) {
+                    $blockers[] = 'pickup_time_not_reached';
+                }
+            } catch (\Throwable) {
+                $blockers[] = 'pickup_time_invalid';
             }
         }
 
@@ -242,6 +265,9 @@ final class AadeReceiptAutoIssuer
             'enabled' => $this->isAutoEnabled(),
             'booking_id' => $bookingId,
             'intake_id' => isset($intake['id']) ? (int)$intake['id'] : null,
+            'now' => $now->format('Y-m-d H:i:s T'),
+            'pickup_time' => $pickupAt instanceof \DateTimeImmutable ? $pickupAt->format('Y-m-d H:i:s T') : null,
+            'receipt_timing_rule' => 'send_at_or_after_pickup_time',
             'blockers' => array_values(array_unique($blockers)),
         ];
     }
