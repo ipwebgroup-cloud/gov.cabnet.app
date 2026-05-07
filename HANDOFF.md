@@ -1,30 +1,20 @@
-# gov.cabnet.app HANDOFF — v5.6
+# HANDOFF — gov.cabnet.app v5.6.1
 
-Current state:
+Current phase: AADE/myDATA official receipt payload preparation.
 
-- Bolt mail intake is running.
-- Driver pre-ride copy by driver identity is validated.
-- Generated/non-AADE receipt emails are disabled.
-- AADE/myDATA production connectivity is validated with HTTP 200.
+Validated before this patch:
+
+- AADE production connectivity works with HTTP 200.
 - AADE response excerpts are suppressed.
 - `receipt_copy_enabled=false`.
 - `receipt_pdf_mode=aade_mydata`.
-- EDXEIX live submit remains guarded/session-disconnected.
+- v5.6 can build XML for booking 16 and record a `prepared` audit row.
 
-v5.6 added a manual-only AADE/myDATA receipt payload builder:
+v5.6.1 adds:
 
-- `gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php`
-- `gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php`
-- `public_html/gov.cabnet.app/ops/aade-receipt-payload.php`
+- two-decimal JSON amount display
+- accountant review checklist output
+- config gate output
+- updated ops page with gate checks and latest attempts
 
-The CLI can preview XML from one booking and record a prepared audit row. Actual `SendInvoices` remains blocked unless server-only config explicitly enables `allow_send_invoices=true` and the exact confirmation phrase is supplied.
-
-Before first production SendInvoices, confirm with accountant:
-
-- invoice type, likely ΑΠΥ / `11.2`
-- VAT category for 13%, default `2`
-- payment method type
-- income classification type/category
-- series and AA numbering strategy
-
-Never paste AADE credentials or raw AADE response bodies into chat.
+Keep `allow_send_invoices=false` until accountant confirmation and explicit approval for a controlled SendInvoices test.

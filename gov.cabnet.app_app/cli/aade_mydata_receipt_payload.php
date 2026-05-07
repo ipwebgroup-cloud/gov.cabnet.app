@@ -60,6 +60,11 @@ try {
     $out['booking_id'] = $bookingId;
     $out['summary'] = $summary;
     $out['validation'] = $validation;
+    $out['config_gate'] = build_config_gate($config);
+    $out['accountant_review_checklist'] = build_accountant_review_checklist($summary);
+    $out['send_invoices_status'] = !empty($out['config_gate']['allow_send_invoices'])
+        ? 'CONFIG_ENABLED_STILL_REQUIRES_CONFIRM_PHRASE'
+        : 'DISABLED_IN_CONFIG_PREVIEW_ONLY';
     $out['xml_sha256'] = $built['xml_sha256'];
     $out['xml_bytes'] = $built['xml_bytes'];
     $out['xml_included'] = $showXml;
@@ -128,6 +133,70 @@ try {
 }
 
 echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+
+/** @return array<string,mixed> */
+function build_config_gate(Config $config): array
+{
+    return [
+        'receipts_mode' => (string)$config->get('receipts.mode', 'MISSING'),
+        'aade_enabled' => (bool)$config->get('receipts.aade_mydata.enabled', false),
+        'aade_environment' => (string)$config->get('receipts.aade_mydata.environment', 'MISSING'),
+        'allow_send_invoices' => (bool)$config->get('receipts.aade_mydata.allow_send_invoices', false),
+        'manual_confirm_phrase_configured' => trim((string)$config->get('receipts.aade_mydata.manual_send_confirm_phrase', '')) !== '',
+        'driver_receipt_copy_enabled' => (bool)$config->get('mail.driver_notifications.receipt_copy_enabled', false),
+        'driver_receipt_pdf_mode' => (string)$config->get('mail.driver_notifications.receipt_pdf_mode', 'MISSING'),
+        'safe_for_preview' => true,
+        'safe_for_send' => (bool)$config->get('receipts.aade_mydata.allow_send_invoices', false)
+            && (string)$config->get('receipts.mode', '') === 'aade_mydata'
+            && (bool)$config->get('receipts.aade_mydata.enabled', false),
+    ];
+}
+
+/**
+ * @param array<string,mixed> $summary
+ * @return array<int,array<string,mixed>>
+ */
+function build_accountant_review_checklist(array $summary): array
+{
+    return [
+        [
+            'item' => 'Document type',
+            'configured_value' => (string)($summary['document_type'] ?? ''),
+            'needs_accountant_confirmation' => true,
+            'note' => 'Confirm this is the correct AADE/myDATA invoice type for the transfer receipt / ΑΠΥ workflow.',
+        ],
+        [
+            'item' => 'VAT category and rate',
+            'configured_value' => 'vat_category=' . (string)($summary['vat_category'] ?? '') . ', rate=' . (string)($summary['vat_rate_percent'] ?? '') . '%',
+            'needs_accountant_confirmation' => true,
+            'note' => 'Confirm AADE VAT category for 13% passenger transfer/tourist office service.',
+        ],
+        [
+            'item' => 'Payment method type',
+            'configured_value' => (string)($summary['payment_method_type'] ?? ''),
+            'needs_accountant_confirmation' => true,
+            'note' => 'Confirm AADE payment method code for Bolt/customer payment flow.',
+        ],
+        [
+            'item' => 'Income classification',
+            'configured_value' => (string)($summary['income_classification_type'] ?? '') . ' / ' . (string)($summary['income_classification_category'] ?? ''),
+            'needs_accountant_confirmation' => true,
+            'note' => 'Confirm E3 classification and category with accountant before first SendInvoices.',
+        ],
+        [
+            'item' => 'Series and AA numbering',
+            'configured_value' => (string)($summary['series'] ?? '') . ' / ' . (string)($summary['aa'] ?? ''),
+            'needs_accountant_confirmation' => true,
+            'note' => 'Confirm dedicated AADE series and numbering strategy. Avoid duplicate AA values.',
+        ],
+        [
+            'item' => 'Amounts',
+            'configured_value' => 'net=' . (string)($summary['net_amount'] ?? '') . ', vat=' . (string)($summary['vat_amount'] ?? '') . ', gross=' . (string)($summary['gross_amount'] ?? ''),
+            'needs_accountant_confirmation' => false,
+            'note' => 'Values are formatted to two decimals and gross must equal net + VAT.',
+        ],
+    ];
+}
 
 /**
  * @param array<string,mixed> $summary

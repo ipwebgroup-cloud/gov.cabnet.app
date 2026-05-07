@@ -57,8 +57,11 @@ final class AadeReceiptPayloadBuilder
         }
 
         $gross = $this->money($booking['price'] ?? 0);
+        $grossCents = (int)round($gross * 100);
         $net = round($gross / (1 + ($vatRatePercent / 100)), 2);
-        $vat = round($gross - $net, 2);
+        $netCents = (int)round($net * 100);
+        $vatCents = $grossCents - $netCents;
+        $vat = $vatCents / 100;
 
         $issueDate = (new DateTimeImmutable('now'))->format('Y-m-d');
         $bookingId = (int)($booking['id'] ?? 0);
@@ -108,10 +111,13 @@ final class AadeReceiptPayloadBuilder
             'boarding_point' => (string)($booking['boarding_point'] ?? $booking['pickup_address'] ?? $intake['pickup_address'] ?? ''),
             'disembark_point' => (string)($booking['disembark_point'] ?? $booking['destination_address'] ?? $intake['dropoff_address'] ?? ''),
             'started_at' => (string)($booking['started_at'] ?? $intake['parsed_pickup_at'] ?? ''),
-            'gross_amount' => $gross,
-            'net_amount' => $net,
-            'vat_amount' => $vat,
-            'vat_rate_percent' => $vatRatePercent,
+            'gross_amount' => $this->fmt($gross),
+            'net_amount' => $this->fmt($net),
+            'vat_amount' => $this->fmt($vat),
+            'vat_rate_percent' => $this->fmtRate($vatRatePercent),
+            'gross_amount_cents' => $grossCents,
+            'net_amount_cents' => $netCents,
+            'vat_amount_cents' => $vatCents,
             'vat_category' => $vatCategory,
             'payment_method_type' => $paymentType,
             'income_classification_type' => $classificationType,
@@ -163,6 +169,12 @@ final class AadeReceiptPayloadBuilder
         if ((float)($summary['gross_amount'] ?? 0) <= 0) {
             $blockers[] = 'gross_amount_not_positive';
         }
+        $gross = (float)($summary['gross_amount'] ?? 0);
+        $net = (float)($summary['net_amount'] ?? 0);
+        $vat = (float)($summary['vat_amount'] ?? 0);
+        if (abs(($net + $vat) - $gross) > 0.01) {
+            $blockers[] = 'net_vat_total_mismatch';
+        }
         if ((string)($summary['document_type'] ?? '') === '') {
             $blockers[] = 'document_type_missing';
         }
@@ -177,6 +189,12 @@ final class AadeReceiptPayloadBuilder
         }
         if (trim((string)($summary['driver_name'] ?? '')) === '') {
             $warnings[] = 'driver_name_missing';
+        }
+        if (!$this->config->get('receipts.aade_mydata.allow_send_invoices', false)) {
+            $warnings[] = 'send_invoices_disabled_in_config';
+        }
+        if ($this->config->get('mail.driver_notifications.receipt_copy_enabled', false)) {
+            $warnings[] = 'driver_receipt_copy_enabled_before_aade_issue_flow';
         }
 
         $issued = 0;
@@ -288,6 +306,12 @@ final class AadeReceiptPayloadBuilder
     private function fmt(float $amount): string
     {
         return number_format(round($amount, 2), 2, '.', '');
+    }
+
+    private function fmtRate(float $amount): string
+    {
+        $formatted = number_format(round($amount, 2), 2, '.', '');
+        return rtrim(rtrim($formatted, '0'), '.');
     }
 
     private function money(mixed $value): float
