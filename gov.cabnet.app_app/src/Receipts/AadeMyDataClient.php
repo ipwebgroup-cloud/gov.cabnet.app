@@ -54,8 +54,10 @@ final class AadeMyDataClient
     }
 
     /**
-     * Disabled-by-default transmission primitive for the later official issuer.
-     * v5.5 does not call this automatically.
+     * Transmission primitive for the controlled official issuer. This method has
+     * side effects at AADE/myDATA and must only be called by a manually-confirmed
+     * CLI flow. It returns raw response_body for internal MARK/UID extraction;
+     * callers must never print or expose that raw body.
      *
      * @return array<string,mixed>
      */
@@ -68,7 +70,7 @@ final class AadeMyDataClient
 
         return $this->request('POST', $this->url('/SendInvoices'), $xml, [
             'Content-Type: application/xml; charset=UTF-8',
-        ]);
+        ], true);
     }
 
     private function assertCredentialsPresent(): void
@@ -108,7 +110,7 @@ final class AadeMyDataClient
      * @param array<int,string> $extraHeaders
      * @return array<string,mixed>
      */
-    private function request(string $method, string $url, ?string $body = null, array $extraHeaders = []): array
+    private function request(string $method, string $url, ?string $body = null, array $extraHeaders = [], bool $includeBody = false): array
     {
         if (!function_exists('curl_init')) {
             throw new RuntimeException('PHP cURL extension is not available.');
@@ -148,7 +150,7 @@ final class AadeMyDataClient
         curl_close($ch);
 
         if ($raw === false) {
-            return [
+            $failed = [
                 'ok' => false,
                 'http_status' => 0,
                 'curl_errno' => $curlErrno,
@@ -157,11 +159,15 @@ final class AadeMyDataClient
                 'response_bytes' => 0,
                 'response_sha256' => hash('sha256', ''),
             ];
+            if ($includeBody) {
+                $failed['response_body'] = '';
+            }
+            return $failed;
         }
 
         $responseBody = substr((string)$raw, $headerSize);
 
-        return [
+        $out = [
             'ok' => $status >= 200 && $status < 300,
             'http_status' => $status,
             'curl_errno' => $curlErrno,
@@ -170,5 +176,10 @@ final class AadeMyDataClient
             'response_bytes' => strlen($responseBody),
             'response_sha256' => hash('sha256', $responseBody),
         ];
+        if ($includeBody) {
+            $out['response_body'] = $responseBody;
+        }
+
+        return $out;
     }
 }
