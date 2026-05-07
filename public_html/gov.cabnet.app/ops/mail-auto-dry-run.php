@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — v4.3 Bolt mail auto dry-run controller
+ * gov.cabnet.app — v4.4 Bolt mail auto dry-run controller
  * Protected Ops page. Runs/monitors the auto preflight + dry-run evidence worker.
  * No Bolt call, no EDXEIX call, no submission_jobs, no live submit.
  */
@@ -147,8 +147,8 @@ $guard = (int)$config->get('edxeix.future_start_guard_minutes', 2);
                         <td><?= madr_h($item['customer_name']) ?></td>
                         <td><?= madr_h($item['driver_name']) ?><br><strong><?= madr_h($item['vehicle_plate']) ?></strong></td>
                         <td><?= madr_badge((string)$item['status'], str_contains((string)$item['status'], 'recorded') || str_contains((string)$item['status'], 'ready') || str_contains((string)$item['status'], 'exists') ? 'good' : 'warn') ?></td>
-                        <td><?= $item['booking_id'] ? '#' . madr_h($item['booking_id']) : '—' ?></td>
-                        <td><?= $item['evidence_id'] ? '#' . madr_h($item['evidence_id']) : '—' ?></td>
+                        <td><?= $item['booking_id'] ? ('#' . madr_h($item['booking_id']) . '<br><a href="' . madr_h(madr_url('/ops/mail-dry-run-evidence.php', $key, ['booking_id' => (int)$item['booking_id']])) . '">preview</a>') : '—' ?></td>
+                        <td><?= $item['evidence_id'] ? ('#' . madr_h($item['evidence_id']) . '<br><a href="' . madr_h(madr_url('/ops/mail-dry-run-evidence.php', $key, ['evidence_id' => (int)$item['evidence_id']])) . '">detail</a>') : '—' ?></td>
                         <td><?= madr_h($item['message']) ?><?php if (!empty($item['blockers'])): ?><br><code><?= madr_h(implode(', ', $item['blockers'])) ?></code><?php endif; ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -176,8 +176,8 @@ $guard = (int)$config->get('edxeix.future_start_guard_minutes', 2);
             <?php if (!$evidence): ?><tr><td colspan="7" class="muted">No dry-run evidence rows yet.</td></tr><?php endif; ?>
             <?php foreach ($evidence as $row): ?>
                 <tr>
-                    <td>#<?= madr_h($row['id']) ?></td>
-                    <td>#<?= madr_h($row['normalized_booking_id']) ?></td>
+                    <td>#<?= madr_h($row['id']) ?><br><a href="<?= madr_h(madr_url('/ops/mail-dry-run-evidence.php', $key, ['evidence_id' => (int)$row['id']])) ?>">detail</a></td>
+                    <td>#<?= madr_h($row['normalized_booking_id']) ?><br><a href="<?= madr_h(madr_url('/ops/mail-dry-run-evidence.php', $key, ['booking_id' => (int)$row['normalized_booking_id']])) ?>">preview</a></td>
                     <td><?= madr_h($row['customer_name'] ?? '') ?></td>
                     <td><?= madr_h($row['driver_name'] ?? '') ?><br><strong><?= madr_h($row['vehicle_plate'] ?? '') ?></strong></td>
                     <td><?= madr_h($row['started_at'] ?? '') ?></td>

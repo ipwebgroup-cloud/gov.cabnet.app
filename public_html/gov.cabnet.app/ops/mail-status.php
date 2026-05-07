@@ -1,14 +1,15 @@
 <?php
 /**
- * gov.cabnet.app — Bolt Mail Status Dashboard v4.1
+ * gov.cabnet.app — Bolt Mail Status Dashboard v4.4
  *
  * Read-only operational monitor for the Bolt pre-ride email intake layer.
  *
- * v4.1 clarity update:
+ * v4.4 monitor update:
  * - Separates active unlinked future candidates from linked preflight rows.
  * - Shows synthetic-test row counts and closed synthetic rows.
  * - Adds a read-only submission safety panel for submission_jobs and submission_attempts.
  * - Adds recent bolt_mail normalized booking visibility.
+ * - Adds dry-run evidence visibility and auto dry-run navigation.
  *
  * Safety contract:
  * - Does not scan the mailbox.
@@ -212,6 +213,15 @@ function ms_current_url_key(): string
     return $key !== '' ? ('?key=' . rawurlencode($key)) : '';
 }
 
+function ms_url(string $path, array $params = []): string
+{
+    $key = (string)($_GET['key'] ?? '');
+    if ($key !== '') {
+        $params = array_merge(['key' => $key], $params);
+    }
+    return $path . ($params ? ('?' . http_build_query($params)) : '');
+}
+
 function ms_safety_badge(string $safetyStatus): string
 {
     if ($safetyStatus === 'future_candidate') {
@@ -232,6 +242,7 @@ $db = null;
 $stats = [];
 $recent = [];
 $recentBookings = [];
+$recentEvidenceRows = [];
 $maildir = '/home/cabnet/mail/gov.cabnet.app/bolt-bridge';
 $logFile = '/home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_intake.log';
 $newCount = 0;
@@ -248,6 +259,7 @@ $needsReview = 0;
 $rejected = 0;
 $linkedIntakeRows = 0;
 $normalizedMailRows = 0;
+$dryRunEvidenceRows = 0;
 $syntheticRows = 0;
 $syntheticClosed = 0;
 $staleOpenRows = 0;
@@ -266,7 +278,7 @@ try {
     ms_require_key($config);
 
     $maildir = (string)ms_config_get($config, 'mail.bolt_bridge_maildir', $maildir);
-    $futureGuardMinutes = (int)ms_config_get($config, 'edxeix.future_start_guard_minutes', 30);
+    $futureGuardMinutes = (int)ms_config_get($config, 'edxeix.future_start_guard_minutes', 2);
     $dryRun = ms_boolish(ms_config_get($config, 'app.dry_run', true));
     $liveSubmitEnabled = ms_boolish(ms_config_get($config, 'edxeix.live_submit_enabled', false));
 
@@ -330,6 +342,20 @@ try {
              LEFT JOIN bolt_mail_intake bmi ON bmi.linked_booking_id = nb.id
              WHERE nb.source = 'bolt_mail'
              ORDER BY nb.id DESC
+             LIMIT 10"
+        );
+    }
+
+
+    if (ms_table_exists($db, 'bolt_mail_dry_run_evidence')) {
+        $dryRunEvidenceRows = ms_count($db, "SELECT COUNT(*) AS c FROM bolt_mail_dry_run_evidence");
+        $recentEvidenceRows = ms_fetch_all(
+            $db,
+            "SELECT e.id, e.normalized_booking_id, e.intake_id, e.evidence_status, e.payload_hash, e.created_by, e.created_at,
+                    b.customer_name, b.driver_name, b.vehicle_plate, b.started_at
+             FROM bolt_mail_dry_run_evidence e
+             LEFT JOIN normalized_bookings b ON b.id = e.normalized_booking_id
+             ORDER BY e.id DESC
              LIMIT 10"
         );
     }
@@ -402,12 +428,14 @@ if ($error) {
             <?= ms_metric($futureActive, 'Active unlinked candidates') ?>
             <?= ms_metric($futureLinked, 'Linked future rows') ?>
             <?= ms_metric($blockedPast, 'Blocked past') ?>
-            <?= ms_metric($blockedTooSoon, 'Blocked too soon') ?>
             <?= ms_metric($normalizedMailRows, 'Mail-created bookings') ?>
+            <?= ms_metric($dryRunEvidenceRows, 'Dry-run evidence rows') ?>
         </div>
         <div class="actions">
             <a class="btn good" href="/ops/mail-intake.php<?= ms_h($keyQuery) ?>">Open Mail Intake</a>
             <a class="btn warn" href="/ops/mail-preflight.php<?= ms_h($keyQuery) ?>">Open Mail Preflight</a>
+            <a class="btn good" href="/ops/mail-auto-dry-run.php<?= ms_h($keyQuery) ?>">Auto Dry-run</a>
+            <a class="btn dark" href="/ops/mail-dry-run-evidence.php<?= ms_h($keyQuery) ?>">Dry-run Evidence</a>
             <a class="btn purple" href="/ops/mail-synthetic-test.php<?= ms_h($keyQuery) ?>">Synthetic Test</a>
             <a class="btn dark" href="/bolt_edxeix_preflight.php?limit=30">Raw Preflight JSON</a>
         </div>
@@ -425,8 +453,8 @@ if ($error) {
         </div>
         <div class="card">
             <h2>Production rule</h2>
-            <p class="goodline"><strong>Current expected state:</strong> cron imports emails only. The preflight bridge can create local normalized booking rows only after manual approval of a valid active <code>future_candidate</code>.</p>
-            <p class="badline"><strong>Still blocked:</strong> past rows, too-soon rows, rejected rows, automatic EDXEIX jobs, and live EDXEIX POST.</p>
+            <p class="goodline"><strong>Current expected state:</strong> cron imports emails and the auto dry-run worker may create local <code>source='bolt_mail'</code> bookings plus dry-run evidence for valid active <code>future_candidate</code> rows.</p>
+            <p class="badline"><strong>Still blocked:</strong> past rows, too-soon rows, rejected rows, submission_jobs creation, submission_attempts creation, and live EDXEIX POST.</p>
             <p><strong>Candidate clarity:</strong> active candidates are <code>future_candidate</code> rows with no <code>linked_booking_id</code>. Linked rows are local preflight evidence, not pending work.</p>
         </div>
     </section>
@@ -479,12 +507,33 @@ if ($error) {
                 <tr><td colspan="6">No <code>source='bolt_mail'</code> normalized bookings currently exist.</td></tr>
             <?php else: foreach ($recentBookings as $row): ?>
                 <tr>
-                    <td>#<?= ms_h((string)$row['id']) ?><br><span class="small"><?= ms_h((string)$row['created_at']) ?></span></td>
+                    <td>#<?= ms_h((string)$row['id']) ?><br><span class="small"><?= ms_h((string)$row['created_at']) ?></span><br><a class="small" href="<?= ms_h(ms_url('/ops/mail-dry-run-evidence.php', ['booking_id' => (int)$row['id']])) ?>">evidence preview</a></td>
                     <td><?= $row['intake_id'] ? ('#' . ms_h((string)$row['intake_id'])) : '—' ?><br><?= $row['intake_safety_status'] ? ms_safety_badge((string)$row['intake_safety_status']) : '' ?></td>
                     <td><?= ms_h((string)$row['customer_name']) ?></td>
                     <td><?= ms_h((string)$row['driver_name']) ?><br><strong><?= ms_h((string)$row['vehicle_plate']) ?></strong></td>
                     <td><?= ms_h((string)$row['started_at']) ?><br><span class="small">to <?= ms_h((string)$row['ended_at']) ?></span></td>
                     <td><?= ms_h((string)$row['price']) ?></td>
+                </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2>Recent dry-run evidence</h2>
+        <table>
+            <thead><tr><th>Evidence</th><th>Booking</th><th>Start</th><th>Driver / Vehicle</th><th>Status</th><th>Payload hash</th></tr></thead>
+            <tbody>
+            <?php if (!$recentEvidenceRows): ?>
+                <tr><td colspan="6">No dry-run evidence rows currently exist.</td></tr>
+            <?php else: foreach ($recentEvidenceRows as $row): ?>
+                <tr>
+                    <td>#<?= ms_h((string)$row['id']) ?><br><a class="small" href="<?= ms_h(ms_url('/ops/mail-dry-run-evidence.php', ['evidence_id' => (int)$row['id']])) ?>">open detail</a></td>
+                    <td><?= $row['normalized_booking_id'] ? ('#' . ms_h((string)$row['normalized_booking_id'])) : '—' ?><br><?= ms_h((string)($row['customer_name'] ?? '')) ?></td>
+                    <td><?= ms_h((string)($row['started_at'] ?? '')) ?><br><span class="small"><?= ms_h((string)$row['created_at']) ?> by <?= ms_h((string)$row['created_by']) ?></span></td>
+                    <td><?= ms_h((string)($row['driver_name'] ?? '')) ?><br><strong><?= ms_h((string)($row['vehicle_plate'] ?? '')) ?></strong></td>
+                    <td><?= ms_badge((string)$row['evidence_status'], ((string)$row['evidence_status'] === 'recorded') ? 'good' : 'bad') ?></td>
+                    <td><code><?= ms_h(substr((string)$row['payload_hash'], 0, 20)) ?>...</code></td>
                 </tr>
             <?php endforeach; endif; ?>
             </tbody>

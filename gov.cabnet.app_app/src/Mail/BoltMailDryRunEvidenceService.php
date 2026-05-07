@@ -113,6 +113,155 @@ final class BoltMailDryRunEvidenceService
             'submission_attempts_total' => (int)($attempts['total'] ?? 0),
         ];
     }
+    public function findEvidenceById(int $evidenceId): ?array
+    {
+        return $this->fetchOne(
+            "SELECT e.*, b.customer_name, b.driver_name, b.vehicle_plate, b.started_at, b.ended_at, b.boarding_point, b.disembark_point,
+                    i.parse_status AS intake_parse_status, i.safety_status AS intake_safety_status, i.parsed_pickup_at AS intake_pickup_at
+             FROM bolt_mail_dry_run_evidence e
+             LEFT JOIN normalized_bookings b ON b.id = e.normalized_booking_id
+             LEFT JOIN bolt_mail_intake i ON i.id = e.intake_id
+             WHERE e.id = ?
+             LIMIT 1",
+            [$evidenceId],
+            'i'
+        );
+    }
+
+    public function syntheticCleanupPreview(): array
+    {
+        $evidenceRows = $this->syntheticEvidenceRows();
+        $bookingRows = $this->syntheticBookingRows();
+        $bookingIds = [];
+        foreach ($bookingRows as $row) {
+            $bookingIds[] = (int)($row['id'] ?? 0);
+        }
+        foreach ($evidenceRows as $row) {
+            $bookingIds[] = (int)($row['normalized_booking_id'] ?? 0);
+        }
+        $bookingIds = array_values(array_unique(array_filter($bookingIds)));
+
+        $linkedIntakeRows = [];
+        if ($bookingIds) {
+            $sql = "SELECT id, linked_booking_id, safety_status, customer_name, parsed_pickup_at
+                    FROM bolt_mail_intake
+                    WHERE linked_booking_id IN (" . $this->placeholders(count($bookingIds)) . ")
+                      AND customer_name LIKE 'CABNET TEST%'";
+            $linkedIntakeRows = $this->fetchAll($sql, $bookingIds, str_repeat('i', count($bookingIds)));
+        }
+
+        return [
+            'synthetic_evidence_rows' => count($evidenceRows),
+            'synthetic_booking_rows' => count($bookingRows),
+            'linked_synthetic_intake_rows' => count($linkedIntakeRows),
+            'evidence_rows' => $evidenceRows,
+            'booking_rows' => $bookingRows,
+            'linked_intake_rows' => $linkedIntakeRows,
+            'booking_ids' => $bookingIds,
+        ];
+    }
+
+    public function cleanupSyntheticEvidence(string $confirmedText): array
+    {
+        if ($confirmedText !== 'DELETE_SYNTHETIC_ONLY') {
+            throw new RuntimeException('Cleanup confirmation text did not match DELETE_SYNTHETIC_ONLY.');
+        }
+
+        $preview = $this->syntheticCleanupPreview();
+        $bookingIds = array_values(array_unique(array_map('intval', $preview['booking_ids'])));
+        $evidenceIds = array_values(array_unique(array_filter(array_map(
+            static fn(array $row): int => (int)($row['id'] ?? 0),
+            $preview['evidence_rows']
+        ))));
+        $bookingIdList = $bookingIds ? implode(',', $bookingIds) : '0';
+        $evidenceIdList = $evidenceIds ? implode(',', array_map('intval', $evidenceIds)) : '0';
+
+        $result = [
+            'evidence_deleted' => 0,
+            'bookings_deleted' => 0,
+            'intake_rows_unlinked' => 0,
+            'booking_ids' => $bookingIds,
+            'evidence_ids' => $evidenceIds,
+            'safety' => 'Synthetic cleanup only: CABNET TEST / synthetic evidence rows. No submission jobs. No EDXEIX POST.',
+        ];
+
+        $this->db->begin_transaction();
+        try {
+            if ($bookingIds) {
+                $sql = "UPDATE bolt_mail_intake
+                        SET linked_booking_id = NULL,
+                            safety_status = 'blocked_past',
+                            rejection_reason = TRIM(CONCAT(COALESCE(NULLIF(rejection_reason, ''), ''), CHAR(10), 'Synthetic dry-run evidence cleanup: local synthetic booking removed.')),
+                            updated_at = NOW()
+                        WHERE linked_booking_id IN (" . $bookingIdList . ")
+                          AND customer_name LIKE 'CABNET TEST%'";
+                $this->db->query($sql);
+                $result['intake_rows_unlinked'] = $this->db->affected_rows;
+            }
+
+            if ($evidenceIds) {
+                $sql = "DELETE e FROM bolt_mail_dry_run_evidence e
+                        LEFT JOIN normalized_bookings b ON b.id = e.normalized_booking_id
+                        WHERE e.id IN (" . $evidenceIdList . ")
+                          AND (
+                            b.customer_name LIKE 'CABNET TEST%'
+                            OR b.notes LIKE '%Synthetic%'
+                            OR e.safety_snapshot_json LIKE '%\"synthetic\": true%'
+                            OR e.safety_snapshot_json LIKE '%\"synthetic\":true%'
+                          )";
+                $this->db->query($sql);
+                $result['evidence_deleted'] = $this->db->affected_rows;
+            }
+
+            if ($bookingIds) {
+                $sql = "DELETE FROM normalized_bookings
+                        WHERE id IN (" . $bookingIdList . ")
+                          AND source = 'bolt_mail'
+                          AND (customer_name LIKE 'CABNET TEST%' OR notes LIKE '%Synthetic%')";
+                $this->db->query($sql);
+                $result['bookings_deleted'] = $this->db->affected_rows;
+            }
+
+            $this->db->commit();
+            return $result;
+        } catch (\Throwable $e) {
+            $this->db->rollback();
+            throw $e;
+        }
+    }
+
+
+    private function syntheticEvidenceRows(): array
+    {
+        return $this->fetchAll(
+            "SELECT e.*, b.customer_name, b.driver_name, b.vehicle_plate, b.started_at, b.notes
+             FROM bolt_mail_dry_run_evidence e
+             LEFT JOIN normalized_bookings b ON b.id = e.normalized_booking_id
+             WHERE b.customer_name LIKE 'CABNET TEST%'
+                OR b.notes LIKE '%Synthetic%'
+                OR e.safety_snapshot_json LIKE '%\"synthetic\": true%'
+                OR e.safety_snapshot_json LIKE '%\"synthetic\":true%'
+             ORDER BY e.id DESC
+             LIMIT 200"
+        );
+    }
+
+    private function syntheticBookingRows(): array
+    {
+        return $this->fetchAll(
+            "SELECT id, customer_name, driver_name, vehicle_plate, started_at, created_at, notes
+             FROM normalized_bookings
+             WHERE source = 'bolt_mail'
+               AND (customer_name LIKE 'CABNET TEST%' OR notes LIKE '%Synthetic%')
+             ORDER BY id DESC
+             LIMIT 200"
+        );
+    }
+
+    private function placeholders(int $count): string
+    {
+        return implode(',', array_fill(0, max(1, $count), '?'));
+    }
 
     private function findBooking(int $bookingId): ?array
     {

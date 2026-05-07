@@ -1,6 +1,7 @@
 <?php
 /**
  * gov.cabnet.app Bolt → EDXEIX preflight report.
+ * v4.4 aligns guard display and adds bolt_mail intake context.
  *
  * Read-only diagnostic endpoint.
  * - Does not call EDXEIX.
@@ -79,10 +80,21 @@ function gov_preflight_never_submit_live(array $booking): bool
     return gov_preflight_boolish($booking['never_submit_live'] ?? false) || gov_preflight_is_test_booking($booking);
 }
 
-function gov_preflight_analyze_row(mysqli $db, array $booking): array
+function gov_preflight_analyze_row(mysqli $db, array $booking, int $guardMinutes): array
 {
     $preview = gov_build_edxeix_preview_payload($db, $booking);
     $mapping = $preview['_mapping_status'] ?? [];
+    $bookingId = (int)($booking['id'] ?? 0);
+    $mailIntake = $bookingId > 0
+        ? gov_bridge_fetch_one(
+            $db,
+            'SELECT id, parse_status, safety_status, parsed_pickup_at, linked_booking_id, created_at, updated_at
+             FROM bolt_mail_intake
+             WHERE linked_booking_id = ?
+             LIMIT 1',
+            [$bookingId]
+        )
+        : null;
 
     $status = (string)gov_preflight_value($booking, ['order_status', 'status'], '');
     $startedAt = (string)gov_preflight_value($booking, ['started_at'], '');
@@ -96,6 +108,8 @@ function gov_preflight_analyze_row(mysqli $db, array $booking): array
     $labRow = gov_preflight_is_lab_row($booking);
     $testBooking = gov_preflight_is_test_booking($booking);
     $neverSubmitLive = gov_preflight_never_submit_live($booking);
+    $source = (string)gov_preflight_value($booking, ['source_system', 'source_type', 'source'], '');
+    $isBoltMail = strtolower($source) === 'bolt_mail' || $mailIntake !== null;
 
     $technicalBlockers = [];
     if (!$driverMapped) {
@@ -107,7 +121,7 @@ function gov_preflight_analyze_row(mysqli $db, array $booking): array
     if (!$startedAt) {
         $technicalBlockers[] = 'missing_started_at';
     } elseif (!$futureGuard) {
-        $technicalBlockers[] = 'started_at_not_30_min_future';
+        $technicalBlockers[] = 'started_at_not_future_guard_safe';
     }
     if ($terminal) {
         $technicalBlockers[] = 'terminal_order_status';
@@ -128,7 +142,18 @@ function gov_preflight_analyze_row(mysqli $db, array $booking): array
     return [
         'id' => $booking['id'] ?? null,
         'order_reference' => $orderRef,
-        'source_system' => gov_preflight_value($booking, ['source_system', 'source_type', 'source'], ''),
+        'source_system' => $source,
+        'source_flow' => $isBoltMail ? 'bolt_mail' : 'bolt_api_or_legacy',
+        'is_bolt_mail' => $isBoltMail,
+        'mail_intake' => $mailIntake ? [
+            'id' => (int)$mailIntake['id'],
+            'parse_status' => (string)$mailIntake['parse_status'],
+            'safety_status' => (string)$mailIntake['safety_status'],
+            'parsed_pickup_at' => (string)$mailIntake['parsed_pickup_at'],
+            'linked_booking_id' => (int)$mailIntake['linked_booking_id'],
+            'created_at' => (string)$mailIntake['created_at'],
+            'updated_at' => (string)$mailIntake['updated_at'],
+        ] : null,
         'status' => $status,
         'driver_uuid' => gov_preflight_value($booking, ['driver_external_id', 'external_driver_id'], ''),
         'driver_name' => gov_preflight_value($booking, ['driver_name', 'external_driver_name'], ''),
@@ -142,6 +167,7 @@ function gov_preflight_analyze_row(mysqli $db, array $booking): array
         'ended_at' => $endedAt,
         'price' => gov_preflight_value($booking, ['price'], '0'),
         'mapping_ready' => $mappingReady,
+        'future_guard_minutes' => $guardMinutes,
         'future_guard_passed' => $futureGuard,
         'terminal_status' => $terminal,
         'is_lab_row' => $labRow,
@@ -165,6 +191,7 @@ try {
     }
 
     $limit = gov_bridge_int_param('limit', 20, 1, 100);
+    $guardMinutes = max(1, (int)($config['edxeix']['future_start_guard_minutes'] ?? 2));
     $db = gov_bridge_db();
     $bookings = gov_recent_rows($db, 'normalized_bookings', $limit);
 
@@ -174,7 +201,7 @@ try {
     $liveAllowedCount = 0;
     $labOrTestCount = 0;
     foreach ($bookings as $booking) {
-        $row = gov_preflight_analyze_row($db, $booking);
+        $row = gov_preflight_analyze_row($db, $booking, $guardMinutes);
         $rows[] = $row;
         if ($row['mapping_ready']) {
             $mappingReadyCount++;
@@ -194,7 +221,7 @@ try {
         'ok' => true,
         'script' => 'bolt_edxeix_preflight.php',
         'generated_at' => date('Y-m-d H:i:s'),
-        'guard_minutes' => (int)($config['edxeix']['future_start_guard_minutes'] ?? 30),
+        'guard_minutes' => $guardMinutes,
         'summary' => [
             'rows_checked' => count($rows),
             'mapping_ready' => $mappingReadyCount,
@@ -205,7 +232,7 @@ try {
             'blocked_from_live' => count($rows) - $liveAllowedCount,
         ],
         'rows' => $rows,
-        'note' => 'Read-only preflight. technical_payload_valid means the payload shape/mapping/time checks pass. live_submission_allowed is false for LAB/test/never_submit_live rows. No EDXEIX submission was performed.',
+        'note' => 'Read-only preflight. guard_minutes is loaded from edxeix.future_start_guard_minutes. bolt_mail rows include mail_intake context when linked. technical_payload_valid means payload shape/mapping/time checks pass. live_submission_allowed is false for LAB/test/never_submit_live rows. No EDXEIX submission was performed.',
     ]);
 } catch (Throwable $e) {
     gov_bridge_json_response([

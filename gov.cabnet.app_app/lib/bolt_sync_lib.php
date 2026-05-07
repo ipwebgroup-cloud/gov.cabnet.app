@@ -205,7 +205,7 @@ if (!function_exists('gov_bridge_load_config')) {
 
         $merged['edxeix']['lessor_id'] = (int)($merged['edxeix']['lessor_id'] ?? 3814);
         $merged['edxeix']['default_starting_point_id'] = (int)($merged['edxeix']['default_starting_point_id'] ?? 5875309);
-        $merged['edxeix']['future_start_guard_minutes'] = (int)($merged['edxeix']['future_start_guard_minutes'] ?? 30);
+        $merged['edxeix']['future_start_guard_minutes'] = (int)($merged['edxeix']['future_start_guard_minutes'] ?? 2);
 
         $cached = $merged;
         return $cached;
