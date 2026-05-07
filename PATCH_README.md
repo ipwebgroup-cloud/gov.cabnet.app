@@ -1,67 +1,45 @@
-# v4.4.1 Raw Preflight Guard Alignment Patch
+# v4.5 Bolt Mail Driver Notification Patch
 
 ## What changed
 
-Updates only the legacy/raw preflight JSON endpoint so the displayed future guard comes from the canonical server config file:
+Adds a safe driver email copy layer for newly imported Bolt pre-ride emails.
 
-`/home/cabnet/gov.cabnet.app_config/config.php`
-
-This fixes the raw endpoint showing `guard_minutes = 30` while the active mail-intake dashboards correctly show `FUTURE GUARD 2 MIN`.
+When enabled in server-only config, each newly inserted real Bolt mail intake row sends one plain-text driver copy based on configured driver name or vehicle plate email mappings.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-docs/BOLT_PREFLIGHT_GUARD_ALIGNMENT_V4_4_1.md
+gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+gov.cabnet.app_app/src/Mail/BoltPreRideImporter.php
+gov.cabnet.app_app/cli/import_bolt_mail.php
+public_html/gov.cabnet.app/ops/mail-intake.php
+public_html/gov.cabnet.app/ops/mail-driver-notifications.php
+gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_notifications.sql
+gov.cabnet.app_config/config.php.example
+gov.cabnet.app_config_examples/driver_notifications.example.php
+docs/BOLT_MAIL_DRIVER_NOTIFICATIONS_V4_5.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload path
-
-```text
-public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-→ /home/cabnet/public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-```
-
-## SQL
-
-None.
-
-## Verify
+## SQL to run
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/bolt_edxeix_preflight.php
+DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
+mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_notifications.sql
 ```
 
-Then open:
+## Server-only config to add
+
+Merge the `mail.driver_notifications` section into:
 
 ```text
-https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30
+/home/cabnet/gov.cabnet.app_config/config.php
 ```
 
-Expected raw JSON:
-
-```json
-"guard_minutes": 2
-```
-
-Rows should also show:
-
-```json
-"future_guard_minutes": 2
-```
+Keep real driver emails server-side only. Do not commit or paste them into chat.
 
 ## Safety
 
-This patch is read-only.
-
-It does not:
-
-- create `submission_jobs`
-- create `submission_attempts`
-- POST to EDXEIX
-- call Bolt
-- call EDXEIX
-- enable live submit
+This patch does not create EDXEIX jobs, attempts, or POSTs. Live EDXEIX submission remains off.

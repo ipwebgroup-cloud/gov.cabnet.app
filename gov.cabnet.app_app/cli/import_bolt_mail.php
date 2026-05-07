@@ -16,6 +16,7 @@
 declare(strict_types=1);
 
 use Bridge\Mail\BoltMaildirScanner;
+use Bridge\Mail\BoltMailDriverNotificationService;
 use Bridge\Mail\BoltMailIntakeMaintenance;
 use Bridge\Mail\BoltPreRideEmailParser;
 use Bridge\Mail\BoltPreRideImporter;
@@ -73,7 +74,12 @@ try {
 
     $scanner = new BoltMaildirScanner($maildir);
     $parser = new BoltPreRideEmailParser($timezone);
-    $importer = new BoltPreRideImporter($db, $parser, $timezone, $futureGuard);
+    $driverNotificationConfig = $config->get('mail.driver_notifications', []);
+    $driverNotifier = null;
+    if (is_array($driverNotificationConfig) && filter_var($driverNotificationConfig['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        $driverNotifier = new BoltMailDriverNotificationService($db, $driverNotificationConfig, $timezone);
+    }
+    $importer = new BoltPreRideImporter($db, $parser, $timezone, $futureGuard, $driverNotifier);
     $maintenance = new BoltMailIntakeMaintenance($db, $timezone);
 
     $summary = $importer->importFromScanner($scanner, $limit, $days);
@@ -87,6 +93,9 @@ try {
         'rejected' => (int)($summary['rejected'] ?? 0),
         'errors' => (int)($summary['errors'] ?? 0),
         'expired_open_rows' => $expired,
+        'driver_notifications_sent' => (int)($summary['driver_notifications_sent'] ?? 0),
+        'driver_notifications_skipped' => (int)($summary['driver_notifications_skipped'] ?? 0),
+        'driver_notifications_failed' => (int)($summary['driver_notifications_failed'] ?? 0),
     ];
 } catch (Throwable $e) {
     $result['error'] = $e->getMessage();
@@ -106,8 +115,11 @@ if ($json) {
             . ' duplicates=' . $s['duplicates']
             . ' rejected=' . $s['rejected']
             . ' expired=' . $s['expired_open_rows']
-            . ' errors=' . $s['errors'] . PHP_EOL;
-        echo 'Safety: mail intake only; stale candidates expired; no EDXEIX jobs; no live submit.' . PHP_EOL;
+            . ' errors=' . $s['errors']
+            . ' driver_sent=' . $s['driver_notifications_sent']
+            . ' driver_skipped=' . $s['driver_notifications_skipped']
+            . ' driver_failed=' . $s['driver_notifications_failed'] . PHP_EOL;
+        echo 'Safety: mail intake + optional driver email copy only; stale candidates expired; no EDXEIX jobs; no live submit.' . PHP_EOL;
     } else {
         echo 'ERROR: ' . $result['error'] . PHP_EOL;
     }

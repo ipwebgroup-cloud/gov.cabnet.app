@@ -1,15 +1,5 @@
 <?php
 
-/**
- * gov.cabnet.app public-safe config example.
- *
- * Server install:
- *   cp config.php.example config.php
- *   Fill real DB/API/session values only on the server.
- *
- * Do NOT commit config.php. It is ignored by .gitignore.
- */
-
 return [
     'app' => [
         'name' => 'gov.cabnet.app',
@@ -17,57 +7,64 @@ return [
         'debug' => false,
         'base_url' => 'https://gov.cabnet.app',
         'timezone' => 'Europe/Athens',
-        'internal_api_key' => 'REPLACE_WITH_LONG_RANDOM_INTERNAL_API_KEY',
+        'internal_api_key' => 'REPLACE_WITH_A_LONG_RANDOM_INTERNAL_API_KEY',
         'dry_run' => true,
     ],
 
     'db' => [
         'host' => 'localhost',
         'port' => 3306,
-        'database' => 'REPLACE_WITH_DATABASE_NAME',
-        'username' => 'REPLACE_WITH_DATABASE_USER',
-        'password' => 'REPLACE_WITH_DATABASE_PASSWORD',
+        'database' => 'cabnet_gov',
+        'username' => 'cabnet_gov',
+        'password' => 'REPLACE_WITH_DB_PASSWORD',
         'charset' => 'utf8mb4',
     ],
 
     'bolt' => [
         'token_url' => 'https://oidc.bolt.eu/token',
-        'client_id' => 'REPLACE_WITH_BOLT_CLIENT_ID',
-        'client_secret' => 'REPLACE_WITH_BOLT_CLIENT_SECRET',
+        'client_id' => 'REPLACE_WITH_NEW_BOLT_CLIENT_ID',
+        'client_secret' => 'REPLACE_WITH_NEW_BOLT_CLIENT_SECRET',
         'scope' => 'fleet-integration:api',
-        'api_base' => 'https://node.bolt.eu/fleet-integration-gateway',
-        'base_url' => 'https://node.bolt.eu/fleet-integration-gateway',
-        'company_id' => 0,
-        'company_ids' => [],
-        'endpoints' => [
-            'companies' => '/fleetintegration/v1/getCompanies',
-            'drivers' => '/fleetintegration/v1/getDrivers',
-            'vehicles' => '/fleetintegration/v1/getVehicles',
-            'fleet_orders' => '/fleetintegration/v1/getFleetOrders',
-        ],
-        'companies_endpoint' => '/fleetintegration/v1/getCompanies',
-        'drivers_endpoint' => '/fleetintegration/v1/getDrivers',
-        'vehicles_endpoint' => '/fleetintegration/v1/getVehicles',
-        'fleet_orders_endpoint' => '/fleetintegration/v1/getFleetOrders',
-        'trips_endpoint' => '/fleetintegration/v1/getFleetOrders',
-        'token_auth_mode' => 'basic',
+        'base_url' => 'https://api.bolt.eu',
+        'trips_endpoint' => '/fleet-integration/v1/trips',
         'timeout' => 30,
-        'limit' => 100,
     ],
 
     'edxeix' => [
         'base_url' => 'https://edxeix.yme.gov.gr',
         'create_url' => 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create',
         'submit_url' => 'https://edxeix.yme.gov.gr/dashboard/lease-agreement',
-        'lessor_id' => 'REPLACE_WITH_EDXEIX_LESSOR_ID',
-        'default_starting_point_id' => 0,
-        'future_start_guard_minutes' => 30,
-        'default_broker' => 'Bolt',
+        'lessor_id' => '3814',
+        'default_broker' => '',
         'fallback_csrf_token' => '',
         'timeout' => 45,
         'session_file' => __DIR__ . '/../gov.cabnet.app_app/storage/runtime/edxeix_session.json',
-        'known_driver_ids' => [],
-        'known_vehicle_ids' => [],
+    ],
+
+
+
+    'mail' => [
+        'bolt_bridge_maildir' => '/home/cabnet/mail/gov.cabnet.app/bolt-bridge',
+        'driver_notifications' => [
+            // Set true only after the SQL migration is installed and driver emails are mapped.
+            'enabled' => false,
+            'from_email' => 'bolt-bridge@gov.cabnet.app',
+            'from_name' => 'Cabnet Bolt Bridge',
+            'reply_to' => 'bolt-bridge@gov.cabnet.app',
+            // Optional internal blind copy for auditing. Leave blank if not needed.
+            'bcc' => '',
+            'subject_prefix' => 'Bolt pre-ride details',
+            // Exact driver names from Bolt emails. Values below are examples only.
+            'driver_emails' => [
+                'Filippos Giannakopoulos' => 'driver1@example.com',
+                'Nikolaos Vidakis' => 'driver2@example.com',
+            ],
+            // Optional fallback by vehicle plate. Useful if driver names vary.
+            'vehicle_plate_emails' => [
+                'EHA2545' => 'driver1@example.com',
+                'EMX6874' => 'driver2@example.com',
+            ],
+        ],
     ],
 
     'paths' => [

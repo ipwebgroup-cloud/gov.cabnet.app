@@ -10,6 +10,7 @@
 declare(strict_types=1);
 
 use Bridge\Mail\BoltMaildirScanner;
+use Bridge\Mail\BoltMailDriverNotificationService;
 use Bridge\Mail\BoltPreRideEmailParser;
 use Bridge\Mail\BoltPreRideImporter;
 
@@ -82,9 +83,15 @@ try {
         if (!$authorized) {
             throw new RuntimeException('Unauthorized. Add ?key=YOUR_INTERNAL_API_KEY from the server-only config.php. Do not paste the key into chat.');
         }
+        $timezone = new DateTimeZone((string)$config->get('app.timezone', 'Europe/Athens'));
         $scanner = new BoltMaildirScanner($maildir);
-        $parser = new BoltPreRideEmailParser(new DateTimeZone((string)$config->get('app.timezone', 'Europe/Athens')));
-        $importer = new BoltPreRideImporter($db, $parser, new DateTimeZone((string)$config->get('app.timezone', 'Europe/Athens')), $futureGuard);
+        $parser = new BoltPreRideEmailParser($timezone);
+        $driverNotificationConfig = $config->get('mail.driver_notifications', []);
+        $driverNotifier = null;
+        if (is_array($driverNotificationConfig) && filter_var($driverNotificationConfig['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $driverNotifier = new BoltMailDriverNotificationService($db, $driverNotificationConfig, $timezone);
+        }
+        $importer = new BoltPreRideImporter($db, $parser, $timezone, $futureGuard, $driverNotifier);
         $summary = $importer->importFromScanner($scanner, 250, 30);
     }
 
@@ -169,6 +176,9 @@ $keyValue = bmi_h((string)($_GET['key'] ?? ''));
                     <div class="metric"><strong><?= bmi_h($summary['inserted']) ?></strong><span>Inserted</span></div>
                     <div class="metric"><strong><?= bmi_h($summary['duplicates']) ?></strong><span>Duplicates</span></div>
                     <div class="metric"><strong><?= bmi_h($summary['errors']) ?></strong><span>Errors</span></div>
+                    <div class="metric"><strong><?= bmi_h($summary['driver_notifications_sent'] ?? 0) ?></strong><span>Driver emails sent</span></div>
+                    <div class="metric"><strong><?= bmi_h($summary['driver_notifications_skipped'] ?? 0) ?></strong><span>Driver emails skipped</span></div>
+                    <div class="metric"><strong><?= bmi_h($summary['driver_notifications_failed'] ?? 0) ?></strong><span>Driver email failures</span></div>
                 </div>
                 <?php if (!empty($summary['items'])): ?>
                     <div class="table-wrap" style="margin-top:14px">

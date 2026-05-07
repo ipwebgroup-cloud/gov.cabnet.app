@@ -13,13 +13,15 @@ final class BoltPreRideImporter
     private BoltPreRideEmailParser $parser;
     private DateTimeZone $timezone;
     private int $futureGuardMinutes;
+    private ?BoltMailDriverNotificationService $driverNotifier;
 
-    public function __construct(Database $db, ?BoltPreRideEmailParser $parser = null, ?DateTimeZone $timezone = null, int $futureGuardMinutes = 30)
+    public function __construct(Database $db, ?BoltPreRideEmailParser $parser = null, ?DateTimeZone $timezone = null, int $futureGuardMinutes = 30, ?BoltMailDriverNotificationService $driverNotifier = null)
     {
         $this->db = $db;
         $this->timezone = $timezone ?? new DateTimeZone('Europe/Athens');
         $this->parser = $parser ?? new BoltPreRideEmailParser($this->timezone);
         $this->futureGuardMinutes = max(0, $futureGuardMinutes);
+        $this->driverNotifier = $driverNotifier;
     }
 
     /**
@@ -33,6 +35,9 @@ final class BoltPreRideImporter
             'rejected' => 0,
             'errors' => 0,
             'files' => 0,
+            'driver_notifications_sent' => 0,
+            'driver_notifications_skipped' => 0,
+            'driver_notifications_failed' => 0,
             'items' => [],
         ];
 
@@ -49,11 +54,38 @@ final class BoltPreRideImporter
                 $row = $this->parser->parse($raw, $file['path']);
                 $result = $this->insertParsedRow($row);
                 $summary[$result['summary_key']]++;
+
+                $notification = null;
+                if ($this->driverNotifier instanceof BoltMailDriverNotificationService && $result['summary_key'] === 'inserted' && !empty($result['id'])) {
+                    try {
+                        $notification = $this->driverNotifier->notifyForImportedMail((int)$result['id'], $row);
+                    } catch (Throwable $notificationError) {
+                        // Driver copy delivery must never block mail intake. Keep the
+                        // imported row and expose the failure in the summary/log.
+                        $notification = [
+                            'status' => 'failed',
+                            'recipient' => null,
+                            'reason' => null,
+                            'error' => $notificationError->getMessage(),
+                        ];
+                    }
+
+                    $notificationStatus = (string)($notification['status'] ?? 'skipped');
+                    if ($notificationStatus === 'sent') {
+                        $summary['driver_notifications_sent']++;
+                    } elseif ($notificationStatus === 'failed') {
+                        $summary['driver_notifications_failed']++;
+                    } else {
+                        $summary['driver_notifications_skipped']++;
+                    }
+                }
+
                 $summary['items'][] = [
                     'file' => $file['basename'],
                     'status' => $result['status'],
                     'id' => $result['id'],
                     'message' => $result['message'],
+                    'driver_notification' => $notification,
                 ];
             } catch (Throwable $e) {
                 $summary['errors']++;

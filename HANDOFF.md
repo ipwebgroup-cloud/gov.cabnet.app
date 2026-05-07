@@ -1,36 +1,68 @@
-# gov.cabnet.app Bolt → EDXEIX Bridge — Handoff after v4.4.1
+# gov.cabnet.app Bolt → EDXEIX Bridge — Handoff after v4.5
 
-Current state: safe automated dry-run mode.
+Current state: safe automated dry-run mode with optional driver email copy layer.
 
 - Mail intake cron is active.
 - Auto dry-run evidence cron is active.
 - Live EDXEIX submit remains OFF.
 - `app.dry_run = true`.
 - `edxeix.live_submit_enabled = false`.
-- Canonical `edxeix.future_start_guard_minutes = 2` in `/home/cabnet/gov.cabnet.app_config/config.php`.
+- Canonical `edxeix.future_start_guard_minutes = 2`.
+- v4.4.1 raw preflight guard alignment was validated: raw JSON now shows guard `2`.
 
-## v4.4.1 hotfix
+## Recent live test result
 
-The raw endpoint `/bolt_edxeix_preflight.php` was still showing `guard_minutes = 30` because the legacy helper/config path can see an older split config fallback. The mail dashboards and auto dry-run flow were already showing `FUTURE GUARD 2 MIN` correctly.
+A real Bolt email was imported successfully into `bolt_mail_intake`:
 
-v4.4.1 updates only the raw preflight endpoint so it reads the guard directly from canonical server config:
+- latest observed real row: `id=13`
+- `safety_status=blocked_past`
+- `linked_booking_id=NULL`
+- `submission_jobs=0`
+- `submission_attempts=0`
 
-- `/home/cabnet/gov.cabnet.app_config/config.php`
+This confirmed the mailbox/import chain and the safety block for too-late/past rides.
 
-The raw JSON endpoint should now show:
+## v4.5 feature
 
-- top-level `guard_minutes = 2`
-- row-level `future_guard_minutes = 2`
-- preview mapping status `future_guard_minutes = 2`
+Adds optional driver email copies for newly imported real Bolt pre-ride emails.
+
+Flow:
+
+```text
+Bolt Ride details email
+→ bolt-bridge Maildir
+→ import_bolt_mail.php
+→ bolt_mail_intake
+→ driver email copy if enabled and mapped
+→ bolt_mail_driver_notifications audit row
+```
+
+New SQL table:
+
+- `bolt_mail_driver_notifications`
+
+New dashboard:
+
+- `/ops/mail-driver-notifications.php?key=INTERNAL_API_KEY`
+
+New service:
+
+- `/home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php`
 
 ## Safety
 
-v4.4.1 does not create jobs, attempts, or live EDXEIX submissions. It is a read-only display/alignment hotfix.
+v4.5 does not:
 
-## Continue from here
+- create `submission_jobs`
+- create `submission_attempts`
+- POST to EDXEIX
+- enable live submit
+- send synthetic/test emails to drivers
 
-1. Upload v4.4.1 changed file.
-2. Run PHP syntax check.
-3. Open `/bolt_edxeix_preflight.php?limit=30` and confirm all guard values show `2`.
-4. Continue monitoring the next real future Bolt email.
-5. Do not enable live submit until explicitly approved.
+Driver notifications require server-only config:
+
+- `/home/cabnet/gov.cabnet.app_config/config.php`
+- `mail.driver_notifications.enabled = true`
+- real driver email mappings by driver name and/or vehicle plate
+
+Do not paste real driver emails or ops keys into chat.
