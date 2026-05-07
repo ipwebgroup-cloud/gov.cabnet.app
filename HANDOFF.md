@@ -1,12 +1,16 @@
-# gov.cabnet.app Handoff — v5.2.1 Receipt Wording Cleanup
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge v5.2.2
 
-Current state: live-submit path is armed but blocked by session-disconnected and one-shot lock gates. Driver notification and receipt copy features are active.
+Current state: guarded live-submit path exists but EDXEIX session remains explicitly disconnected. Driver copy and receipt emails are enabled. v5.2.2 fixes receipt email transport by sending HTML receipts as base64-wrapped MIME content to avoid long-line SMTP rejection.
 
-v5.2.1 changed only the HTML receipt email copy wording so the receipt no longer displays the word "Estimated" in visible receipt labels. End time, price formatting, and VAT calculation rules remain unchanged.
+Safety posture remains:
 
-Safety posture remains unchanged:
+- app.dry_run=true
+- live submit armed but blocked by edxeix_session_connected=false
+- no live submit cron
+- submission_jobs=0 expected
+- submission_attempts=0 expected
+- EDXEIX POST blocked unless explicit future gates are opened
 
-- dry-run remains on
-- EDXEIX session connected gate remains false unless explicitly changed server-side
-- no automatic live-submit cron exists
-- no submission jobs or attempts are created by this patch
+Changed file:
+
+- gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php

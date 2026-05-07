@@ -517,10 +517,11 @@ final class BoltMailDriverNotificationService
         }
 
         $body = $this->buildReceiptHtmlBody($intakeId, $row);
-        $headers = $this->buildHeaders($fromEmail, $fromName, 'text/html', 'bolt-mail-driver-receipt');
+        $encodedBody = chunk_split(base64_encode($body), 76, "\r\n");
+        $headers = $this->buildHeaders($fromEmail, $fromName, 'text/html', 'bolt-mail-driver-receipt', 'base64');
 
         try {
-            $sent = @mail($recipient, $this->encodeHeader($subject), $body, implode("\r\n", $headers), '-f' . $fromEmail);
+            $sent = @mail($recipient, $this->encodeHeader($subject), $encodedBody, implode("\r\n", $headers), '-f' . $fromEmail);
         } catch (Throwable $e) {
             return ['status' => 'failed', 'reason' => null, 'error' => $e->getMessage()];
         }
@@ -652,7 +653,7 @@ final class BoltMailDriverNotificationService
     /**
      * @return array<int,string>
      */
-    private function buildHeaders(string $fromEmail, string $fromName, string $contentType = 'text/plain', string $bridgeHeader = 'bolt-mail-driver-notification'): array
+    private function buildHeaders(string $fromEmail, string $fromName, string $contentType = 'text/plain', string $bridgeHeader = 'bolt-mail-driver-notification', string $transferEncoding = '8bit'): array
     {
         $headers = [];
         $headers[] = 'From: ' . $this->formatMailbox($fromName, $fromEmail);
@@ -668,9 +669,14 @@ final class BoltMailDriverNotificationService
         }
 
         $safeContentType = $contentType === 'text/html' ? 'text/html' : 'text/plain';
+        $safeEncoding = strtolower(trim($transferEncoding));
+        if (!in_array($safeEncoding, ['8bit', 'base64', 'quoted-printable'], true)) {
+            $safeEncoding = '8bit';
+        }
+
         $headers[] = 'MIME-Version: 1.0';
         $headers[] = 'Content-Type: ' . $safeContentType . '; charset=UTF-8';
-        $headers[] = 'Content-Transfer-Encoding: 8bit';
+        $headers[] = 'Content-Transfer-Encoding: ' . $safeEncoding;
         $headers[] = 'X-Cabnet-Bridge: ' . $this->stripHeaderUnsafe($bridgeHeader);
 
         return $headers;

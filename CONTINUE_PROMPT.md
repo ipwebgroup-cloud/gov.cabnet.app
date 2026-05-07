@@ -1,5 +1,1 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge from v5.2.1.
-
-The latest patch only removed visible "Estimated" wording from the HTML driver receipt copy. It did not change live-submit gates, dry-run evidence, bookings, jobs, attempts, Bolt calls, or EDXEIX calls.
-
-Next work should continue from the guarded live-submit posture and the pending partner/driver mapping matrix requirement.
+Continue gov.cabnet.app Bolt → EDXEIX bridge from v5.2.2. The receipt template is branded and has no visible “Estimated” wording. v5.2.2 fixed receipt delivery by base64-encoding and wrapping the HTML receipt body to avoid Exim long-line rejection. Live submit remains armed but blocked by edxeix_session_connected=false and one-shot lock requirements.
