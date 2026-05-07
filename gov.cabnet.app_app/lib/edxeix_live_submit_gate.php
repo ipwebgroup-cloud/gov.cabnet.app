@@ -25,6 +25,8 @@ if (!function_exists('gov_live_default_config')) {
         return [
             'live_submit_enabled' => false,
             'http_submit_enabled' => false,
+            'edxeix_session_connected' => false,
+            'require_one_shot_lock' => true,
             'require_post' => true,
             'require_confirmation_phrase' => true,
             'confirmation_phrase' => 'I UNDERSTAND SUBMIT LIVE TO EDXEIX',
@@ -383,6 +385,8 @@ if (!function_exists('gov_live_analyze_booking')) {
         $liveBlockers = [];
         if (empty($liveConfig['live_submit_enabled'])) { $liveBlockers[] = 'live_submit_config_disabled'; }
         if (empty($liveConfig['http_submit_enabled'])) { $liveBlockers[] = 'http_submit_config_disabled'; }
+        if (empty($liveConfig['edxeix_session_connected'])) { $liveBlockers[] = 'edxeix_session_not_connected'; }
+        if (!empty($liveConfig['require_one_shot_lock']) && empty($liveConfig['allowed_booking_id']) && empty($liveConfig['allowed_order_reference'])) { $liveBlockers[] = 'one_shot_live_lock_missing'; }
         if (!$isRealBolt) { $liveBlockers[] = 'not_real_bolt_source'; }
         if ($isLab) { $liveBlockers[] = 'lab_or_test_booking_blocked'; }
         if (!$session['ready']) { $liveBlockers[] = 'edxeix_session_not_ready'; }
@@ -457,6 +461,124 @@ if (!function_exists('gov_live_insert_audit')) {
     }
 }
 
+
+if (!function_exists('gov_live_prepare_transport_payload')) {
+    function gov_live_prepare_transport_payload(array $payload, array $session): array
+    {
+        $out = $payload;
+        if (isset($out['_mapping_status'])) {
+            unset($out['_mapping_status']);
+        }
+        $csrf = trim((string)($session['csrf_token'] ?? ''));
+        if ($csrf !== '') {
+            $out['_token'] = $csrf;
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('gov_live_http_submit')) {
+    function gov_live_http_submit(array $liveConfig, array $session, array $payload): array
+    {
+        $url = trim((string)($liveConfig['edxeix_submit_url'] ?? ''));
+        if ($url === '') {
+            throw new RuntimeException('EDXEIX submit URL is missing.');
+        }
+
+        $cookie = trim((string)($session['cookie_header'] ?? ''));
+        if ($cookie === '') {
+            throw new RuntimeException('EDXEIX session cookie header is missing.');
+        }
+
+        $method = strtoupper((string)($liveConfig['edxeix_form_method'] ?? 'POST'));
+        if ($method !== 'POST') {
+            throw new RuntimeException('Only POST live submit is supported by the live gate.');
+        }
+
+        $timeout = (int)($liveConfig['curl_timeout_seconds'] ?? 45);
+        $timeout = max(10, min(120, $timeout));
+        $transportPayload = gov_live_prepare_transport_payload($payload, $session);
+
+        $ch = curl_init();
+        if (!$ch) {
+            throw new RuntimeException('Unable to initialize cURL.');
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query($transportPayload),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTPHEADER => [
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Content-Type: application/x-www-form-urlencoded',
+                'Cookie: ' . $cookie,
+                'User-Agent: gov.cabnet.app Bolt EDXEIX Bridge live gate',
+            ],
+        ]);
+
+        $raw = curl_exec($ch);
+        if ($raw === false) {
+            $error = curl_error($ch);
+            $errno = curl_errno($ch);
+            curl_close($ch);
+            throw new RuntimeException('EDXEIX cURL error: ' . $error . ' (' . $errno . ')');
+        }
+
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $headerSize = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $headersRaw = substr((string)$raw, 0, $headerSize);
+        $body = substr((string)$raw, $headerSize);
+        curl_close($ch);
+
+        $success = false;
+        if ($status >= 300 && $status < 400) {
+            $success = true;
+        } elseif ($status >= 200 && $status < 300) {
+            $bodyLower = strtolower($body);
+            $looksLikeError = strpos($bodyLower, 'error') !== false
+                || strpos($bodyLower, 'invalid') !== false
+                || strpos($bodyLower, 'required') !== false
+                || strpos($bodyLower, 'σφάλ') !== false
+                || strpos($bodyLower, 'λάθος') !== false
+                || strpos($bodyLower, 'υποχρεω') !== false;
+            $looksLikeSuccess = strpos($body, 'Συμβάσεις ενοικίασης') !== false
+                || strpos($bodyLower, 'lease') !== false
+                || strpos($bodyLower, 'agreement') !== false
+                || strpos($bodyLower, 'success') !== false;
+            $success = $looksLikeSuccess && !$looksLikeError;
+        }
+
+        $remoteReference = '';
+        if (preg_match('/(?:reference|ref|id)[^A-Z0-9]{0,20}([A-Z0-9]{6,})/i', $body, $m)) {
+            $remoteReference = (string)$m[1];
+        } elseif (preg_match('/\b([A-Z0-9]{8,})\b/', $body, $m)) {
+            $remoteReference = (string)$m[1];
+        }
+
+        return [
+            'status' => $status,
+            'success' => $success,
+            'remote_reference' => $remoteReference,
+            'headers_raw' => $headersRaw,
+            'body' => $body,
+            'json' => [
+                'ok' => $success,
+                'submitted' => $success,
+                'http_status' => $status,
+                'remote_reference' => $remoteReference,
+                'note' => 'Live HTTP POST to EDXEIX was attempted by the guarded live gate.',
+            ],
+        ];
+    }
+}
+
 if (!function_exists('gov_live_submit_if_allowed')) {
     function gov_live_submit_if_allowed(mysqli $db, array $booking, string $confirmationPhrase): array
     {
@@ -492,30 +614,39 @@ if (!function_exists('gov_live_submit_if_allowed')) {
             ];
         }
 
-        // The transport scaffold exists, but the first production submission should
-        // still be made only after the exact EDXEIX endpoint/session behavior has
-        // been verified with a real future candidate. This extra blocker prevents
-        // accidental live HTTP in this preparatory patch.
-        $response = [
-            'status' => 0,
-            'success' => false,
-            'remote_reference' => '',
-            'body' => 'HTTP live submit transport is intentionally not executed by this preparatory patch.',
-            'json' => [
-                'ok' => false,
-                'submitted' => false,
-                'blocker' => 'http_transport_not_enabled_in_this_patch',
-                'note' => 'No EDXEIX HTTP request was performed.',
-            ],
-        ];
+        $sessionRaw = [];
+        $sessionFile = (string)($liveConfig['edxeix_session_file'] ?? '');
+        if ($sessionFile !== '' && is_file($sessionFile) && is_readable($sessionFile)) {
+            $decoded = json_decode((string)file_get_contents($sessionFile), true);
+            $sessionRaw = is_array($decoded) ? $decoded : [];
+        }
+
+        try {
+            $payload = is_array($analysis['edxeix_payload_preview'] ?? null) ? $analysis['edxeix_payload_preview'] : [];
+            $response = gov_live_http_submit($liveConfig, $sessionRaw, $payload);
+        } catch (Throwable $e) {
+            $response = [
+                'status' => 0,
+                'success' => false,
+                'remote_reference' => '',
+                'body' => $e->getMessage(),
+                'json' => [
+                    'ok' => false,
+                    'submitted' => false,
+                    'error' => $e->getMessage(),
+                    'note' => 'Live HTTP POST failed or was blocked before transport completed.',
+                ],
+            ];
+        }
+
         if (!empty($liveConfig['write_audit_rows'])) {
-            gov_live_insert_audit($db, $analysis, ['mode' => 'blocked_transport_scaffold'], $response);
+            gov_live_insert_audit($db, $analysis, ['mode' => 'guarded_live_http_submit'], $response);
         }
 
         return [
-            'ok' => false,
-            'submitted' => false,
-            'blocked' => true,
+            'ok' => !empty($response['success']),
+            'submitted' => !empty($response['success']),
+            'blocked' => false,
             'analysis' => $analysis,
             'response' => $response,
         ];

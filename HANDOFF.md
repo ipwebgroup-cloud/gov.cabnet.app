@@ -1,72 +1,67 @@
-# gov.cabnet.app — Bolt → EDXEIX Bridge HANDOFF
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-## Current phase
+Current state: v5.0 Guarded Live Submit Armed / Session Disconnected patch prepared.
 
-v4.9 Final Dry-run Production Freeze.
+## Confirmed previous baseline
 
-The project is running in production-safe dry-run mode:
+- v4.9 dry-run production freeze passed.
+- Mail intake cron is healthy.
+- Auto dry-run evidence cron is healthy.
+- Bolt driver directory sync is healthy.
+- Driver email copy by driver identity is validated.
+- Driver copy formatting was adjusted: end time +30 minutes and price range first value only.
+- Dry-run evidence exists.
+- `submission_jobs = 0` and `submission_attempts = 0` at freeze time.
+- Live submit remained OFF until Andreas explicitly requested live mode.
 
-- Mail intake cron is active.
-- Auto dry-run evidence cron is active.
-- Bolt driver directory sync cron is active.
-- Driver copy emails are active and resolved by driver identity, not plate.
-- Driver copy formatting is adjusted: end time = pickup + 30 minutes; price range shows first value only.
-- Launch readiness shows hardening-ready dry-run posture.
-- Credential rotation remains the manual gate before any live-submit phase.
-- Live EDXEIX submission remains OFF.
+## v5.0 intent
 
-## v4.9 additions
+Andreas explicitly requested moving toward live submission, using the EDXEIX session not being connected as the safety net.
 
-New read-only page:
+v5.0 therefore supports a live-armed state where:
 
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/production-freeze.php
-```
+- `live_submit_enabled=true`
+- `http_submit_enabled=true`
+- `edxeix_session_connected=false`
+- `require_one_shot_lock=true`
 
-New CLI marker script:
+With `edxeix_session_connected=false`, the live gate blocks with `edxeix_session_not_connected` and no EDXEIX HTTP POST can occur.
 
-```text
-/home/cabnet/gov.cabnet.app_app/cli/freeze_dry_run_production.php
-```
+## New v5.0 tools
 
-The CLI writes a no-secret marker only when dry-run production posture is safe:
+- `/home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php`
+- `/home/cabnet/gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php`
+- `/home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/live-submit-readiness.php`
 
-```text
-/home/cabnet/gov.cabnet.app_app/storage/security/production_dry_run_freeze.json
-```
+## Safety rules remain
 
-## Safety posture
+No live submit unless all are true:
 
-- `app.dry_run = true`
-- `edxeix.live_submit_enabled = false`
-- `edxeix.future_start_guard_minutes = 2`
-- `submission_jobs = 0` expected
-- `submission_attempts = 0` expected
-- No live EDXEIX POST in v4.x
+- EDXEIX session is explicitly connected in config.
+- Session file exists and has non-placeholder cookie and CSRF.
+- A one-shot booking lock is set.
+- The booking is a real Bolt booking, not lab/test/synthetic.
+- The booking is not terminal/cancelled/finished/expired/past/too late.
+- Future guard passes.
+- Driver and vehicle mappings are valid.
+- Duplicate success checks pass.
+- Exact confirmation phrase is provided.
 
-## Credential rotation
-
-Before any v5.0 live-submit design, rotate:
-
-- ops/internal API key
-- Bolt credentials/tokens if exposed
-- EDXEIX credentials/session material
-- mailbox/forwarding credentials if exposed
-
-After rotation, run:
+## First command after upload
 
 ```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php --ops-key --bolt --edxeix --mailbox --by=Andreas
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php --by=Andreas
 ```
 
-## v4.9 freeze command
+Then open:
 
-After reviewing production-freeze.php, run:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/freeze_dry_run_production.php --by=Andreas
+```text
+https://gov.cabnet.app/ops/live-submit-readiness.php?key=INTERNAL_API_KEY&format=json
 ```
 
-## Next phase
+Expected:
 
-After credential rotation and v4.9 freeze are both acknowledged, prepare a separate v5.0 live-submit design only if Andreas explicitly approves. Do not enable live submit automatically.
+```text
+verdict = LIVE_ARMED_SESSION_DISCONNECTED
+```
