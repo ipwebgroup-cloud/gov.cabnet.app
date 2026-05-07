@@ -1,20 +1,28 @@
-# gov.cabnet.app v4.5.3 — Driver Copy Format Tweaks
+# v4.7 Production Hardening / Launch Control Panel Patch
 
-## Files included
+## What changed
+
+Adds a read-only launch control panel for the Bolt mail bridge production hardening phase.
+
+New file:
 
 ```text
-gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
-docs/BOLT_DRIVER_COPY_FORMAT_V4_5_3.md
+public_html/gov.cabnet.app/ops/launch-readiness.php
+```
+
+Documentation:
+
+```text
+docs/BOLT_PRODUCTION_HARDENING_V4_7.md
 HANDOFF.md
 CONTINUE_PROMPT.md
-PATCH_README.md
 ```
 
 ## Upload path
 
 ```text
-gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
-→ /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+public_html/gov.cabnet.app/ops/launch-readiness.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/launch-readiness.php
 ```
 
 ## SQL
@@ -24,13 +32,21 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/launch-readiness.php
 ```
 
-## Expected result
+Open:
 
-For new driver copies only:
+```text
+https://gov.cabnet.app/ops/launch-readiness.php?key=INTERNAL_API_KEY
+```
 
-- Estimated end time = estimated pick-up time + 30 minutes.
-- Estimated price range displays only the first value.
-- No EDXEIX jobs, attempts, or POSTs are created by this patch.
+JSON:
+
+```text
+https://gov.cabnet.app/ops/launch-readiness.php?key=INTERNAL_API_KEY&format=json
+```
+
+## Safety
+
+This patch is read-only. It does not import mail, send driver emails, create bookings, create evidence, create jobs/attempts, call Bolt, call EDXEIX, or submit live.
