@@ -4,6 +4,7 @@ namespace Bridge\Mail;
 
 use Bridge\Database;
 use DateTimeImmutable;
+use DateInterval;
 use DateTimeZone;
 use Throwable;
 
@@ -450,8 +451,8 @@ final class BoltMailDriverNotificationService
         $lines[] = '';
         $lines[] = 'Start time: ' . $this->value($row, 'start_time_raw');
         $lines[] = 'Estimated pick-up time: ' . $this->value($row, 'estimated_pickup_time_raw');
-        $lines[] = 'Estimated end time: ' . $this->value($row, 'estimated_end_time_raw');
-        $lines[] = 'Estimated price: ' . $this->value($row, 'estimated_price_raw');
+        $lines[] = 'Estimated end time: ' . $this->driverCopyEstimatedEndTime($row);
+        $lines[] = 'Estimated price: ' . $this->driverCopyEstimatedPrice($row);
         $lines[] = '';
         $lines[] = 'Bridge intake ID: #' . $intakeId;
         $lines[] = 'Safety: this is an email copy only. No EDXEIX submission was performed by this notification.';
@@ -515,6 +516,76 @@ final class BoltMailDriverNotificationService
     {
         $value = trim((string)($row[$key] ?? ''));
         return $value !== '' ? $value : '-';
+    }
+
+    /**
+     * Driver-facing copy rule only: show the estimated end time as exactly
+     * 30 minutes after the estimated pick-up time. This does not change the
+     * stored intake row, normalized booking, dry-run evidence, or EDXEIX payload.
+     *
+     * @param array<string,mixed> $row
+     */
+    private function driverCopyEstimatedEndTime(array $row): string
+    {
+        $pickupRaw = trim((string)($row['estimated_pickup_time_raw'] ?? ''));
+        if ($pickupRaw === '') {
+            $pickupRaw = trim((string)($row['parsed_pickup_at'] ?? ''));
+        }
+
+        $derived = $this->deriveEndTimeThirtyMinutesAfter($pickupRaw);
+        if ($derived !== '') {
+            return $derived;
+        }
+
+        return $this->value($row, 'estimated_end_time_raw');
+    }
+
+    private function deriveEndTimeThirtyMinutesAfter(string $pickupRaw): string
+    {
+        $pickupRaw = trim($pickupRaw);
+        if ($pickupRaw === '') {
+            return '';
+        }
+
+        if (!preg_match('/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?:\s+([A-Z]{2,6}))?/u', $pickupRaw, $m)) {
+            return '';
+        }
+
+        $datePart = $m[1];
+        $zoneLabel = isset($m[2]) ? trim((string)$m[2]) : '';
+
+        $pickup = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $datePart, $this->timezone);
+        if (!$pickup instanceof DateTimeImmutable) {
+            return '';
+        }
+
+        $end = $pickup->add(new DateInterval('PT30M'));
+        return $end->format('Y-m-d H:i:s') . ($zoneLabel !== '' ? ' ' . $zoneLabel : '');
+    }
+
+    /**
+     * Driver-facing copy rule only: when Bolt provides a price range, show the
+     * first value only, for example "40.00 - 44.00 eur" becomes "40.00 eur".
+     *
+     * @param array<string,mixed> $row
+     */
+    private function driverCopyEstimatedPrice(array $row): string
+    {
+        $raw = trim((string)($row['estimated_price_raw'] ?? ''));
+        if ($raw === '') {
+            return '-';
+        }
+
+        $normalized = preg_replace('/\s+/u', ' ', $raw) ?? $raw;
+        $normalized = trim($normalized);
+
+        if (preg_match('/^([€$£]?\s*\d+(?:[.,]\d{1,2})?)\s*(?:-|–|—|to)\s*[€$£]?\s*\d+(?:[.,]\d{1,2})\s*([A-Z]{2,4}|€)?$/iu', $normalized, $m)) {
+            $firstValue = trim(preg_replace('/\s+/u', '', (string)$m[1]) ?? (string)$m[1]);
+            $currency = isset($m[2]) ? trim((string)$m[2]) : '';
+            return trim($firstValue . ($currency !== '' ? ' ' . $currency : ''));
+        }
+
+        return $normalized;
     }
 
     private function shortLocation(string $value): string
