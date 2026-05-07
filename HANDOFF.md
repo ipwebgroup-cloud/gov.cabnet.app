@@ -1,16 +1,14 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge v5.2.2
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge v5.3
 
-Current state: guarded live-submit path exists but EDXEIX session remains explicitly disconnected. Driver copy and receipt emails are enabled. v5.2.2 fixes receipt email transport by sending HTML receipts as base64-wrapped MIME content to avoid long-line SMTP rejection.
+Current addition: driver receipt email now sends an official PDF receipt attachment instead of relying on HTML as the receipt document.
 
 Safety posture remains:
+- live EDXEIX submission gated and blocked unless all explicit live gates pass
+- no live cron
+- no EDXEIX POST during install
+- no submission_jobs or submission_attempts created by this patch
 
-- app.dry_run=true
-- live submit armed but blocked by edxeix_session_connected=false
-- no live submit cron
-- submission_jobs=0 expected
-- submission_attempts=0 expected
-- EDXEIX POST blocked unless explicit future gates are opened
+The configured/default attachment path is:
+`/home/cabnet/gov.cabnet.app_app/storage/receipt_attachments/lux_limo_official_receipt_attachment.pdf`
 
-Changed file:
-
-- gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+For production legitimacy, replace/generate that PDF from the official invoicing platform per real receipt. The HTML email body is only a carrier/summary; the PDF attachment is the receipt.
