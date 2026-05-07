@@ -13,6 +13,7 @@ final class EdxeixPayloadBuilder
     public function build(array $booking, array $mapping, array $formState): array
     {
         $customerType = $booking['customer_type'] === 'legal' ? 'legal' : 'natural';
+        $startingPointId = (string) $mapping['starting_point']['edxeix_starting_point_id'];
 
         return [
             '_token' => $formState['csrf_token'],
@@ -24,7 +25,13 @@ final class EdxeixPayloadBuilder
             'lessee[legal_representative]' => $customerType === 'legal' ? (string) ($booking['customer_representative'] ?? '') : '',
             'driver' => (string) $mapping['driver']['edxeix_driver_id'],
             'vehicle' => (string) $mapping['vehicle']['edxeix_vehicle_id'],
-            'starting_point_id' => (string) $mapping['starting_point']['edxeix_starting_point_id'],
+
+            // EDXEIX currently posts this select under name="starting_point".
+            // Keep starting_point_id as a backwards-compatible alias because older bridge
+            // payloads and preview tools used that key.
+            'starting_point' => $startingPointId,
+            'starting_point_id' => $startingPointId,
+
             'boarding_point' => (string) $booking['boarding_point'],
             'coordinates' => (string) ($booking['coordinates'] ?? ''),
             'disembark_point' => (string) $booking['disembark_point'],

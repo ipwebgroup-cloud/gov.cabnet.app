@@ -213,9 +213,31 @@ if (!function_exists('gov_live_payload_hash')) {
     }
 }
 
+if (!function_exists('gov_live_normalize_edxeix_payload_field_names')) {
+    function gov_live_normalize_edxeix_payload_field_names(array $payload): array
+    {
+        // Browser inspection on 2026-05-08 showed EDXEIX renders the start select as:
+        // <select id="starting_point" name="starting_point">.
+        // Older bridge code used starting_point_id. Keep both populated with the same
+        // value so previews, audit hashes, and the final POST all remain compatible.
+        $startingPoint = trim((string)($payload['starting_point'] ?? ''));
+        $startingPointId = trim((string)($payload['starting_point_id'] ?? ''));
+
+        if ($startingPoint === '' && $startingPointId !== '') {
+            $payload['starting_point'] = $startingPointId;
+        }
+        if ($startingPointId === '' && $startingPoint !== '') {
+            $payload['starting_point_id'] = $startingPoint;
+        }
+
+        return $payload;
+    }
+}
+
 if (!function_exists('gov_live_duplicate_checks')) {
     function gov_live_duplicate_checks(mysqli $db, array $booking, array $payload): array
     {
+        $payload = gov_live_normalize_edxeix_payload_field_names($payload);
         $bookingId = (string)gov_live_value($booking, ['id'], '');
         $orderRef = (string)gov_live_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_id', 'source_trip_reference'], '');
         $hash = gov_live_payload_hash($payload);
@@ -341,6 +363,7 @@ if (!function_exists('gov_live_session_state')) {
         ];
     }
 }
+
 if (!function_exists('gov_live_analyze_booking')) {
     function gov_live_analyze_booking(mysqli $db, array $booking, ?array $liveConfig = null): array
     {
@@ -355,6 +378,9 @@ if (!function_exists('gov_live_analyze_booking')) {
                 throw new RuntimeException('gov_build_edxeix_preview_payload() is unavailable.');
             }
             $preview = gov_build_edxeix_preview_payload($db, $booking);
+            if (is_array($preview)) {
+                $preview = gov_live_normalize_edxeix_payload_field_names($preview);
+            }
         } catch (Throwable $e) {
             $previewError = $e->getMessage();
         }
@@ -370,11 +396,15 @@ if (!function_exists('gov_live_analyze_booking')) {
         $futureGuard = gov_live_future_guard_passes($startedAt, $guardMinutes);
         $driverMapped = !empty($mapping['driver_mapped']) || (string)($preview['driver'] ?? '') !== '';
         $vehicleMapped = !empty($mapping['vehicle_mapped']) || (string)($preview['vehicle'] ?? '') !== '';
+        $startingPointMapped = !empty($mapping['starting_point_mapped'])
+            || (string)($preview['starting_point'] ?? '') !== ''
+            || (string)($preview['starting_point_id'] ?? '') !== '';
 
         $technicalBlockers = [];
         if ($previewError !== null) { $technicalBlockers[] = 'preview_error'; }
         if (!$driverMapped) { $technicalBlockers[] = 'driver_not_mapped'; }
         if (!$vehicleMapped) { $technicalBlockers[] = 'vehicle_not_mapped'; }
+        if (!$startingPointMapped) { $technicalBlockers[] = 'starting_point_not_mapped'; }
         if ($startedAt === '') { $technicalBlockers[] = 'missing_started_at'; }
         elseif (!$futureGuard) { $technicalBlockers[] = 'started_at_not_' . $guardMinutes . '_min_future'; }
         if ($terminal) { $technicalBlockers[] = 'terminal_order_status'; }
@@ -405,7 +435,7 @@ if (!function_exists('gov_live_analyze_booking')) {
             'plate' => (string)gov_live_value($booking, ['vehicle_plate', 'plate'], ''),
             'is_real_bolt' => $isRealBolt,
             'is_lab_or_test' => $isLab,
-            'mapping_ready' => $driverMapped && $vehicleMapped,
+            'mapping_ready' => $driverMapped && $vehicleMapped && $startingPointMapped,
             'future_guard_passed' => $futureGuard,
             'terminal_status' => $terminal,
             'technical_payload_valid' => empty($technicalBlockers),
@@ -461,11 +491,10 @@ if (!function_exists('gov_live_insert_audit')) {
     }
 }
 
-
 if (!function_exists('gov_live_prepare_transport_payload')) {
     function gov_live_prepare_transport_payload(array $payload, array $session): array
     {
-        $out = $payload;
+        $out = gov_live_normalize_edxeix_payload_field_names($payload);
         if (isset($out['_mapping_status'])) {
             unset($out['_mapping_status']);
         }

@@ -50,7 +50,14 @@ final class EdxeixFormReader
 
         $driverOptions = $this->readSelectOptions($xpath, 'driver');
         $vehicleOptions = $this->readSelectOptions($xpath, 'vehicle');
-        $startingPointOptions = $this->readSelectOptions($xpath, 'starting_point_id');
+
+        // EDXEIX currently renders the start select as name="starting_point" / id="starting_point".
+        // Older bridge code used starting_point_id. Read both so the bridge remains compatible if
+        // EDXEIX changes the field name again.
+        $startingPointOptions = $this->readSelectOptions($xpath, 'starting_point');
+        if (!$startingPointOptions) {
+            $startingPointOptions = $this->readSelectOptions($xpath, 'starting_point_id');
+        }
 
         return [
             'csrf_token' => $csrf,

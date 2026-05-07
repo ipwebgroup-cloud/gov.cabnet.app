@@ -1,49 +1,90 @@
-# gov.cabnet.app v5.8.1 — AADE Receipt Pick-up Time Gate
+# gov.cabnet.app v6.0 EDXEIX field compatibility patch
 
 ## What changed
 
-The automatic AADE receipt flow now waits until the booking pick-up time before issuing the official AADE/myDATA receipt and sending the driver receipt email.
-
-For Bolt mail bookings, `normalized_bookings.started_at` is the parsed Bolt pick-up time. The earlier Bolt `Start time` from the email is not used to trigger the receipt email.
+- Supports the current EDXEIX start point form field: `starting_point`.
+- Keeps `starting_point_id` as a backwards-compatible alias.
+- Adds a safety check that starting point mapping is present before guarded live submit is allowed.
+- Seeds/updates `mapping_starting_points.internal_key='edra_mas'` to EDXEIX value `6467495`.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
-docs/BOLT_AADE_RECEIPT_PICKUP_TIME_GATE_V5_8_1.md
-PATCH_README.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
+docs/V6_0_EDXEIX_FIELD_COMPAT.md
+gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+gov.cabnet.app_app/src/Edxeix/EdxeixFormReader.php
+gov.cabnet.app_app/src/Edxeix/EdxeixPayloadBuilder.php
+gov.cabnet.app_sql/2026_05_08_v6_0_edxeix_starting_point_6467495.sql
 ```
 
-## Upload path
+## Exact upload paths
 
 ```text
-gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
-→ /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
+gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+→ /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+
+gov.cabnet.app_app/src/Edxeix/EdxeixFormReader.php
+→ /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixFormReader.php
+
+gov.cabnet.app_app/src/Edxeix/EdxeixPayloadBuilder.php
+→ /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixPayloadBuilder.php
+
+gov.cabnet.app_sql/2026_05_08_v6_0_edxeix_starting_point_6467495.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_08_v6_0_edxeix_starting_point_6467495.sql
+
+docs/V6_0_EDXEIX_FIELD_COMPAT.md
+→ repository docs/V6_0_EDXEIX_FIELD_COMPAT.md
+
+HANDOFF.md, CONTINUE_PROMPT.md, PATCH_README.md
+→ repository/project root
 ```
 
-## SQL
-
-None.
-
-## Verify
+## SQL to run
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/auto_bolt_mail_dry_run.php --limit=5 --json
+DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"] ?? $c["database"]["database"];')
+mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_08_v6_0_edxeix_starting_point_6467495.sql
 ```
 
-## Expected behavior
+## Verification commands
 
-Before pick-up time, the worker should show:
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixFormReader.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixPayloadBuilder.php
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+
+DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"] ?? $c["database"]["database"];')
+mysql "$DB_NAME" -e "SELECT internal_key,label,edxeix_starting_point_id,is_active FROM mapping_starting_points WHERE internal_key='edra_mas';"
+```
+
+## Analyze-only test
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php --booking-id=BOOKING_ID --analyze-only
+```
+
+Expected payload fields:
 
 ```text
-pickup_time_not_reached
+starting_point = 6467495
+starting_point_id = 6467495
 ```
 
-At or after pick-up time, the existing v5.8 AADE SendInvoices + official driver receipt email flow can proceed if all other gates pass.
+## Expected result
 
-## Safety
+The guarded live-submit payload now sends a real selected `Σημείο έναρξης` value instead of relying on the old bridge-only field name.
 
-This patch does not call AADE on install, does not call EDXEIX, does not create submission jobs/attempts, and does not change config or database schema.
+## Git commit title
+
+```text
+Add v6.0 EDXEIX starting point field compatibility
+```
+
+## Git commit description
+
+```text
+Support the current EDXEIX form field name `starting_point` while retaining the older `starting_point_id` alias. Seed the confirmed `edra_mas` mapping to EDXEIX starting point value 6467495 and require a starting point value in guarded live-submit analysis before one-shot production submission can proceed.
+```
