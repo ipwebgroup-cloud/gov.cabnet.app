@@ -1,43 +1,14 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge project from v5.0.
+Greetings Sophion. Continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Project stack: plain PHP, mysqli/MariaDB, cPanel/manual upload. Do not introduce frameworks or heavy dependencies.
+Current state:
 
-Current v5.0 goal: guarded live submit armed while EDXEIX session remains disconnected.
+- v4.9 dry-run production posture was frozen.
+- v5.0 guarded live-submit is armed but still blocked by `edxeix_session_connected=false` and required one-shot locks.
+- v5.1 added a second driver email: an HTML receipt copy with all ride details, 13% VAT/TAX included in the total, and the LUX LIMO company stamp.
+- Driver email recipient resolution is by Bolt driver identity/name from `mapping_drivers.driver_email`, not by vehicle plate.
+- Live EDXEIX submit must remain blocked unless Andreas explicitly approves a connected-session live-submit step.
 
-Important safety posture:
-- Live submit was explicitly requested by Andreas.
-- The safety net is `edxeix_session_connected=false`; no EDXEIX POST can occur while this is false.
-- A one-shot lock is also required before any live submit: `allowed_booking_id` or `allowed_order_reference`.
-- No live cron exists. Manual CLI only.
-- Never create jobs/attempts or POST to EDXEIX unless Andreas explicitly proceeds and all gates pass.
+Next likely work:
 
-Important files:
-- `/home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php`
-- `/home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php`
-- `/home/cabnet/gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php`
-- `/home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/live-submit-readiness.php`
-
-After upload, verify:
-
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/live-submit-readiness.php
-```
-
-Then arm session-disconnected mode:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php --by=Andreas
-```
-
-Expected live readiness verdict:
-
-```text
-LIVE_ARMED_SESSION_DISCONNECTED
-```
-
-Do not enable `edxeix_session_connected=true` unless Andreas explicitly requests the final live EDXEIX submit test.
+- Validate the next real Bolt email sends both the normal driver copy and receipt copy.
+- Then continue the previously identified v5.1/v5.2 technical mapping task: EDXEIX partner + driver mapping matrix by lessor/company, because EDXEIX driver IDs are scoped to each lessor.

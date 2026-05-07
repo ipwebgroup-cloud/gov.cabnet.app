@@ -67,6 +67,9 @@ $db = null;
 $authorized = false;
 $rows = [];
 $counts = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'total' => 0];
+$receiptCounts = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'total' => 0];
+$notificationColumns = [];
+$hasReceiptColumns = false;
 $enabled = false;
 $driverDirectoryReady = false;
 $driverDirectoryCounts = ['total' => 0, 'with_email' => 0];
@@ -84,6 +87,14 @@ try {
     $enabled = is_array($driverNotificationConfig) && filter_var($driverNotificationConfig['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
     if ($authorized) {
+        foreach ($db->fetchAll("SHOW COLUMNS FROM bolt_mail_driver_notifications") as $colRow) {
+            $field = (string)($colRow['Field'] ?? '');
+            if ($field !== '') {
+                $notificationColumns[$field] = true;
+            }
+        }
+        $hasReceiptColumns = isset($notificationColumns['receipt_status']);
+
         $countRows = $db->fetchAll(
             "SELECT notification_status, COUNT(*) AS c FROM bolt_mail_driver_notifications GROUP BY notification_status"
         );
@@ -96,9 +107,27 @@ try {
             $counts['total'] += $c;
         }
 
+        if ($hasReceiptColumns) {
+            $receiptRows = $db->fetchAll(
+                "SELECT receipt_status, COUNT(*) AS c FROM bolt_mail_driver_notifications GROUP BY receipt_status"
+            );
+            foreach ($receiptRows as $r) {
+                $status = (string)($r['receipt_status'] ?? '');
+                $c = (int)($r['c'] ?? 0);
+                if (array_key_exists($status, $receiptCounts)) {
+                    $receiptCounts[$status] = $c;
+                }
+                $receiptCounts['total'] += $c;
+            }
+        }
+
+        $receiptSelect = $hasReceiptColumns
+            ? ", n.receipt_subject, n.receipt_status, n.receipt_skip_reason, n.receipt_error_message, n.receipt_sent_at, n.receipt_vat_rate, n.receipt_total_amount, n.receipt_net_amount, n.receipt_vat_amount"
+            : "";
+
         $rows = $db->fetchAll(
             "SELECT n.id, n.intake_id, n.driver_name, n.vehicle_plate, n.recipient_email, n.email_subject, n.notification_status,
-                    n.skip_reason, n.error_message, n.sent_at, n.created_at,
+                    n.skip_reason, n.error_message, n.sent_at, n.created_at" . $receiptSelect . ",
                     i.customer_name, i.pickup_address, i.dropoff_address, i.parsed_pickup_at, i.safety_status
              FROM bolt_mail_driver_notifications n
              LEFT JOIN bolt_mail_intake i ON i.id = n.intake_id
@@ -195,6 +224,17 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                 <div class="metric"><strong><?= mdn_h($counts['skipped']) ?></strong><span>Skipped</span></div>
                 <div class="metric"><strong><?= mdn_h($counts['failed']) ?></strong><span>Failed</span></div>
             </div>
+            <?php if ($hasReceiptColumns): ?>
+                <h2 style="margin-top:18px">Receipt copy counts</h2>
+                <div class="grid">
+                    <div class="metric"><strong><?= mdn_h($receiptCounts['total']) ?></strong><span>Total receipt audit states</span></div>
+                    <div class="metric"><strong><?= mdn_h($receiptCounts['sent']) ?></strong><span>Receipts sent</span></div>
+                    <div class="metric"><strong><?= mdn_h($receiptCounts['skipped']) ?></strong><span>Receipts skipped</span></div>
+                    <div class="metric"><strong><?= mdn_h($receiptCounts['failed']) ?></strong><span>Receipts failed</span></div>
+                </div>
+            <?php else: ?>
+                <p class="small">Receipt columns are not installed yet. Run <code>/home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_receipt_columns.sql</code>.</p>
+            <?php endif; ?>
             <p class="small">Driver email addresses are masked in this UI. Full addresses remain server-side only.</p>
         </section>
 
@@ -236,6 +276,7 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                         <th>ID</th>
                         <th>Intake</th>
                         <th>Status</th>
+                        <?php if ($hasReceiptColumns): ?><th>Receipt</th><?php endif; ?>
                         <th>Driver / Vehicle context</th>
                         <th>Recipient</th>
                         <th>Ride</th>
@@ -253,6 +294,17 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                                 <td class="mono">#<?= mdn_h($row['id']) ?></td>
                                 <td class="mono">#<?= mdn_h($row['intake_id']) ?></td>
                                 <td><?= mdn_badge(strtoupper($status), mdn_status_type($status)) ?></td>
+                                <?php if ($hasReceiptColumns): ?>
+                                    <?php $receiptStatus = (string)($row['receipt_status'] ?? 'skipped'); ?>
+                                    <td>
+                                        <?= mdn_badge('RECEIPT ' . strtoupper($receiptStatus), mdn_status_type($receiptStatus)) ?><br>
+                                        <span class="small">VAT: <?= mdn_h($row['receipt_vat_rate'] ?? '13.00') ?>%</span><br>
+                                        <?php if (($row['receipt_total_amount'] ?? '') !== ''): ?>
+                                            <span class="small">Total: <?= mdn_h($row['receipt_total_amount']) ?> | VAT: <?= mdn_h($row['receipt_vat_amount'] ?? '') ?></span><br>
+                                        <?php endif; ?>
+                                        <span class="small">Sent: <?= mdn_h($row['receipt_sent_at'] ?? '') ?></span>
+                                    </td>
+                                <?php endif; ?>
                                 <td>
                                     <strong><?= mdn_h($row['driver_name'] ?? '') ?></strong><br>
                                     <span class="small"><?= mdn_h($row['vehicle_plate'] ?? '') ?></span>
@@ -269,6 +321,12 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                                     <?php endif; ?>
                                     <?php if (!empty($row['error_message'])): ?>
                                         <span class="small"><?= mdn_h($row['error_message']) ?></span>
+                                    <?php endif; ?>
+                                    <?php if ($hasReceiptColumns && !empty($row['receipt_skip_reason'])): ?>
+                                        <span class="small">Receipt: <?= mdn_h($row['receipt_skip_reason']) ?></span>
+                                    <?php endif; ?>
+                                    <?php if ($hasReceiptColumns && !empty($row['receipt_error_message'])): ?>
+                                        <span class="small">Receipt error: <?= mdn_h($row['receipt_error_message']) ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td>

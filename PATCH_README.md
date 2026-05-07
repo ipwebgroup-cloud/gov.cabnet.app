@@ -1,27 +1,24 @@
-# gov.cabnet.app v5.0 — Guarded Live Submit Armed / Session Disconnected
+# gov.cabnet.app v5.1 — Driver Receipt Copy Patch
 
 ## What changed
 
-This patch prepares the controlled live-submit path while preserving Andreas' safety net: the EDXEIX session is explicitly disconnected.
+Adds a second email to the driver after a successful Bolt pre-ride driver copy. The second email is an HTML receipt copy with:
 
-The system can be armed with `live_submit_enabled=true` and `http_submit_enabled=true`, but live POST remains blocked until:
-
-- `edxeix_session_connected=true`
-- a valid EDXEIX session cookie and CSRF exist
-- a one-shot booking lock is set
-- the booking is a real future Bolt booking
-- mappings, future guard, duplicate checks, and confirmation phrase pass
+- all key ride details from the original Bolt pre-ride email
+- estimated end time formatted with the driver-copy 30-minute rule
+- estimated price normalized to the first value only
+- VAT/TAX section at 13% included in the total
+- LUX LIMO company stamp image
+- audit columns for receipt status and VAT values
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php
-gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php
-gov.cabnet.app_app/cli/live_submit_one_booking.php
-public_html/gov.cabnet.app/ops/live-submit-readiness.php
-gov.cabnet.app_config_examples/live_submit.example.php
-docs/BOLT_LIVE_SUBMIT_ARMED_V5_0.md
+gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+public_html/gov.cabnet.app/ops/mail-driver-notifications.php
+public_html/gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg
+gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_receipt_columns.sql
+docs/BOLT_DRIVER_RECEIPT_COPY_V5_1.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -30,53 +27,50 @@ PATCH_README.md
 ## Upload paths
 
 ```text
-gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-→ /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
+gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+→ /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
 
-gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php
-→ /home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php
+public_html/gov.cabnet.app/ops/mail-driver-notifications.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mail-driver-notifications.php
 
-gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php
-→ /home/cabnet/gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php
+public_html/gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg
+→ /home/cabnet/public_html/gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg
 
-gov.cabnet.app_app/cli/live_submit_one_booking.php
-→ /home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php
-
-public_html/gov.cabnet.app/ops/live-submit-readiness.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/live-submit-readiness.php
+gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_receipt_columns.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_receipt_columns.sql
 ```
 
 ## SQL
 
-No new SQL is required for this patch. The optional audit table is `edxeix_live_submission_audit`, already part of the project baseline. If it is missing, install:
-
 ```bash
 DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
-mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_04_25_live_submission_audit.sql
+mysql "$DB_NAME" < /home/cabnet/gov.cabnet.app_sql/2026_05_07_bolt_mail_driver_receipt_columns.sql
 ```
 
-## Verify syntax
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/set_live_submit_one_shot_lock.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/live-submit-readiness.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-driver-notifications.php
+
+DB_NAME=$(php -r '$c=require "/home/cabnet/gov.cabnet.app_config/config.php"; echo $c["db"]["database"];')
+mysql "$DB_NAME" -e "SHOW COLUMNS FROM bolt_mail_driver_notifications LIKE 'receipt_status';"
+mysql "$DB_NAME" -e "SHOW COLUMNS FROM bolt_mail_driver_notifications LIKE 'receipt_vat_amount';"
 ```
 
-## Arm live mode with session disconnected
+## Expected result
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/arm_live_submit_session_disconnected.php --by=Andreas
-```
-
-Expected readiness verdict:
+For the next real Bolt pre-ride email:
 
 ```text
-LIVE_ARMED_SESSION_DISCONNECTED
+driver copy email: sent
+receipt copy email: sent
+bolt_mail_driver_notifications.notification_status = sent
+bolt_mail_driver_notifications.receipt_status = sent
+submission_jobs = 0
+submission_attempts = 0
 ```
 
 ## Safety
 
-This patch does not create a live cron. It does not automatically submit anything. It does not call Bolt or EDXEIX during install or arming. It does not create submission jobs or attempts.
+This patch does not enable live EDXEIX submit and does not change EDXEIX payloads, jobs, attempts, dry-run evidence, or normalized booking logic.

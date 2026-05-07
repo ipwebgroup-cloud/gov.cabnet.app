@@ -80,8 +80,9 @@ final class BoltMailDriverNotificationService
             return $this->recordFailed($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'invalid_from_email');
         }
 
+        $fromName = trim((string)($this->config['from_name'] ?? 'Cabnet Bolt Bridge'));
         $body = $this->buildPlainTextBody($intakeId, $row);
-        $headers = $this->buildHeaders($fromEmail, trim((string)($this->config['from_name'] ?? 'Cabnet Bolt Bridge')));
+        $headers = $this->buildHeaders($fromEmail, $fromName);
         $encodedSubject = $this->encodeHeader($subject);
 
         try {
@@ -93,6 +94,10 @@ final class BoltMailDriverNotificationService
         if (!$sent) {
             return $this->recordFailed($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'php_mail_returned_false');
         }
+
+        $receiptSubject = $this->buildReceiptSubject($row);
+        $receiptResult = $this->sendReceiptEmail($recipient, $receiptSubject, $intakeId, $row, $fromEmail, $fromName);
+        $receiptTotals = $this->receiptTotals($row);
 
         $now = (new DateTimeImmutable('now', $this->timezone))->format('Y-m-d H:i:s');
         $this->insertNotification([
@@ -106,9 +111,25 @@ final class BoltMailDriverNotificationService
             'skip_reason' => null,
             'error_message' => null,
             'sent_at' => $now,
+            'receipt_subject' => $receiptSubject,
+            'receipt_status' => $receiptResult['status'] ?? 'skipped',
+            'receipt_skip_reason' => $receiptResult['reason'] ?? null,
+            'receipt_error_message' => $receiptResult['error'] ?? null,
+            'receipt_sent_at' => ($receiptResult['status'] ?? '') === 'sent' ? $now : null,
+            'receipt_vat_rate' => $this->receiptVatPercent(),
+            'receipt_total_amount' => $receiptTotals['gross'],
+            'receipt_net_amount' => $receiptTotals['net'],
+            'receipt_vat_amount' => $receiptTotals['vat'],
         ]);
 
-        return ['status' => 'sent', 'recipient' => $recipient, 'reason' => null, 'error' => null];
+        return [
+            'status' => 'sent',
+            'recipient' => $recipient,
+            'reason' => null,
+            'error' => null,
+            'receipt_status' => $receiptResult['status'] ?? 'skipped',
+            'receipt_error' => $receiptResult['error'] ?? null,
+        ];
     }
 
     private function isEnabled(): bool
@@ -461,9 +482,130 @@ final class BoltMailDriverNotificationService
     }
 
     /**
+     * @param array<string,mixed> $row
+     */
+    private function buildReceiptSubject(array $row): string
+    {
+        $prefix = trim((string)($this->config['receipt_subject_prefix'] ?? 'Bolt pre-ride receipt'));
+        if ($prefix === '') {
+            $prefix = 'Bolt pre-ride receipt';
+        }
+
+        $pickupAt = trim((string)($row['parsed_pickup_at'] ?? $row['estimated_pickup_time_raw'] ?? ''));
+        $pickup = $this->shortLocation((string)($row['pickup_address'] ?? ''));
+        $dropoff = $this->shortLocation((string)($row['dropoff_address'] ?? ''));
+        $route = trim($pickup . ($dropoff !== '' ? ' → ' . $dropoff : ''));
+
+        $subject = $prefix;
+        if ($pickupAt !== '') {
+            $subject .= ' | ' . $pickupAt;
+        }
+        if ($route !== '') {
+            $subject .= ' | ' . $route;
+        }
+
+        return $this->stripHeaderUnsafe($subject);
+    }
+
+    /**
+     * @return array{status:string,reason:?string,error:?string}
+     */
+    private function sendReceiptEmail(string $recipient, string $subject, int $intakeId, array $row, string $fromEmail, string $fromName): array
+    {
+        if (!$this->receiptCopyEnabled()) {
+            return ['status' => 'skipped', 'reason' => 'receipt_copy_disabled', 'error' => null];
+        }
+
+        $body = $this->buildReceiptHtmlBody($intakeId, $row);
+        $headers = $this->buildHeaders($fromEmail, $fromName, 'text/html', 'bolt-mail-driver-receipt');
+
+        try {
+            $sent = @mail($recipient, $this->encodeHeader($subject), $body, implode("\r\n", $headers), '-f' . $fromEmail);
+        } catch (Throwable $e) {
+            return ['status' => 'failed', 'reason' => null, 'error' => $e->getMessage()];
+        }
+
+        if (!$sent) {
+            return ['status' => 'failed', 'reason' => null, 'error' => 'php_mail_returned_false'];
+        }
+
+        return ['status' => 'sent', 'reason' => null, 'error' => null];
+    }
+
+    private function receiptCopyEnabled(): bool
+    {
+        return filter_var($this->config['receipt_copy_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private function buildReceiptHtmlBody(int $intakeId, array $row): string
+    {
+        $stampUrl = trim((string)($this->config['receipt_stamp_url'] ?? 'https://gov.cabnet.app/assets/stamps/lux-limo-stamp.jpg'));
+        $price = $this->driverCopyEstimatedPrice($row);
+        $totals = $this->receiptTotals($row);
+        $currency = (string)($totals['currency'] ?? 'EUR');
+        $vatPercent = $this->receiptVatPercent();
+
+        $totalLine = $totals['gross'] !== null ? $this->formatMoney((float)$totals['gross'], $currency) : $this->eh($price);
+        $netLine = $totals['net'] !== null ? $this->formatMoney((float)$totals['net'], $currency) : 'Not available';
+        $vatLine = $totals['vat'] !== null ? $this->formatMoney((float)$totals['vat'], $currency) : 'Not available';
+
+        $rows = [
+            'Operator' => $this->value($row, 'operator_raw'),
+            'Customer' => $this->value($row, 'customer_name'),
+            'Customer mobile' => $this->value($row, 'customer_mobile'),
+            'Driver' => $this->value($row, 'driver_name'),
+            'Vehicle' => $this->value($row, 'vehicle_plate'),
+            'Pickup' => $this->value($row, 'pickup_address'),
+            'Drop-off' => $this->value($row, 'dropoff_address'),
+            'Start time' => $this->value($row, 'start_time_raw'),
+            'Estimated pick-up time' => $this->value($row, 'estimated_pickup_time_raw'),
+            'Estimated end time' => $this->driverCopyEstimatedEndTime($row),
+            'Estimated price' => $price,
+        ];
+
+        $detailsHtml = '';
+        foreach ($rows as $label => $value) {
+            $detailsHtml .= '<tr><th style="text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#f8fafc;width:34%;">' . $this->eh($label) . '</th><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">' . $this->eh($value) . '</td></tr>';
+        }
+
+        $stampHtml = '';
+        if ($stampUrl !== '') {
+            $stampHtml = '<div style="margin-top:18px;text-align:center;"><img src="' . $this->eh($stampUrl) . '" alt="LUX LIMO MYKONOS company stamp" style="max-width:360px;width:100%;height:auto;border:1px solid #d1d5db;padding:8px;background:#fff;"></div>';
+        }
+
+        return '<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">'
+            . '<div style="max-width:720px;margin:0 auto;padding:20px;">'
+            . '<div style="background:#ffffff;border:1px solid #d1d5db;border-radius:12px;overflow:hidden;">'
+            . '<div style="background:#0f172a;color:#ffffff;padding:18px 20px;">'
+            . '<h1 style="margin:0;font-size:22px;line-height:1.25;">Bolt Ride Details — Receipt Copy</h1>'
+            . '<p style="margin:6px 0 0;font-size:13px;color:#dbeafe;">Generated by gov.cabnet.app when the pre-ride email reached the bridge mailbox.</p>'
+            . '</div>'
+            . '<div style="padding:18px 20px;">'
+            . '<h2 style="font-size:18px;margin:0 0 10px;">Ride details</h2>'
+            . '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;font-size:14px;">' . $detailsHtml . '</table>'
+            . '<h2 style="font-size:18px;margin:22px 0 10px;">VAT / TAX included in estimated total</h2>'
+            . '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;font-size:14px;">'
+            . '<tr><th style="text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#f8fafc;width:48%;">Estimated total, VAT included</th><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-weight:bold;">' . $this->eh($totalLine) . '</td></tr>'
+            . '<tr><th style="text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#f8fafc;">Net amount before VAT</th><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">' . $this->eh($netLine) . '</td></tr>'
+            . '<tr><th style="text-align:left;padding:8px 10px;background:#f8fafc;">VAT / TAX included (' . $this->eh(number_format($vatPercent, 2, '.', '')) . '%)</th><td style="padding:8px 10px;">' . $this->eh($vatLine) . '</td></tr>'
+            . '</table>'
+            . '<p style="font-size:12px;color:#475569;margin:12px 0 0;">VAT is calculated as included in the estimated total at 13%. If the final Bolt amount changes, the final tax values should be recalculated from the completed ride total.</p>'
+            . '<h2 style="font-size:18px;margin:22px 0 10px;">Company stamp</h2>'
+            . $stampHtml
+            . '<div style="margin-top:18px;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#334155;">'
+            . '<strong>Bridge intake ID:</strong> #' . $this->eh((string)$intakeId) . '<br>'
+            . '<strong>Safety:</strong> this receipt copy is an email notification only. No EDXEIX submission was performed by this notification.'
+            . '</div>'
+            . '</div></div></div></body></html>';
+    }
+
+    /**
      * @return array<int,string>
      */
-    private function buildHeaders(string $fromEmail, string $fromName): array
+    private function buildHeaders(string $fromEmail, string $fromName, string $contentType = 'text/plain', string $bridgeHeader = 'bolt-mail-driver-notification'): array
     {
         $headers = [];
         $headers[] = 'From: ' . $this->formatMailbox($fromName, $fromEmail);
@@ -478,10 +620,11 @@ final class BoltMailDriverNotificationService
             $headers[] = 'Bcc: ' . $bcc;
         }
 
+        $safeContentType = $contentType === 'text/html' ? 'text/html' : 'text/plain';
         $headers[] = 'MIME-Version: 1.0';
-        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+        $headers[] = 'Content-Type: ' . $safeContentType . '; charset=UTF-8';
         $headers[] = 'Content-Transfer-Encoding: 8bit';
-        $headers[] = 'X-Cabnet-Bridge: bolt-mail-driver-notification';
+        $headers[] = 'X-Cabnet-Bridge: ' . $this->stripHeaderUnsafe($bridgeHeader);
 
         return $headers;
     }
@@ -588,6 +731,71 @@ final class BoltMailDriverNotificationService
         return $normalized;
     }
 
+    /**
+     * @param array<string,mixed> $row
+     * @return array{gross:?float,net:?float,vat:?float,currency:string}
+     */
+    private function receiptTotals(array $row): array
+    {
+        $price = $this->driverCopyEstimatedPrice($row);
+        $gross = $this->parseMoneyAmount($price);
+        $currency = $this->detectCurrency($price);
+
+        if ($gross === null) {
+            return ['gross' => null, 'net' => null, 'vat' => null, 'currency' => $currency];
+        }
+
+        $rate = $this->receiptVatPercent() / 100;
+        $net = round($gross / (1 + $rate), 2);
+        $vat = round($gross - $net, 2);
+
+        return ['gross' => round($gross, 2), 'net' => $net, 'vat' => $vat, 'currency' => $currency];
+    }
+
+    private function receiptVatPercent(): float
+    {
+        $raw = $this->config['receipt_vat_rate_percent'] ?? $this->config['receipt_vat_rate'] ?? 13;
+        $rate = is_numeric($raw) ? (float)$raw : 13.0;
+        // Accept either percent format (13) or decimal format (0.13),
+        // but store/display the percent value in the audit table.
+        if ($rate > 0 && $rate <= 1) {
+            $rate *= 100;
+        }
+        if ($rate <= 0 || $rate > 100) {
+            return 13.0;
+        }
+        return $rate;
+    }
+
+    private function parseMoneyAmount(string $value): ?float
+    {
+        if (!preg_match('/(\d+(?:[.,]\d{1,2})?)/u', $value, $m)) {
+            return null;
+        }
+        return (float)str_replace(',', '.', (string)$m[1]);
+    }
+
+    private function detectCurrency(string $value): string
+    {
+        if (preg_match('/\b(EUR|USD|GBP)\b/iu', $value, $m)) {
+            return strtoupper((string)$m[1]);
+        }
+        if (str_contains($value, '€')) {
+            return 'EUR';
+        }
+        return 'EUR';
+    }
+
+    private function formatMoney(float $amount, string $currency): string
+    {
+        return number_format($amount, 2, '.', '') . ' ' . strtoupper($currency !== '' ? $currency : 'EUR');
+    }
+
+    private function eh(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
     private function shortLocation(string $value): string
     {
         $value = trim(preg_replace('/\s+/', ' ', $value) ?? $value);
@@ -640,6 +848,15 @@ final class BoltMailDriverNotificationService
             'skip_reason' => $reason,
             'error_message' => null,
             'sent_at' => null,
+            'receipt_subject' => null,
+            'receipt_status' => 'skipped',
+            'receipt_skip_reason' => 'main_notification_skipped',
+            'receipt_error_message' => null,
+            'receipt_sent_at' => null,
+            'receipt_vat_rate' => $this->receiptVatPercent(),
+            'receipt_total_amount' => null,
+            'receipt_net_amount' => null,
+            'receipt_vat_amount' => null,
         ]);
 
         return ['status' => 'skipped', 'recipient' => $recipient, 'reason' => $reason, 'error' => null];
@@ -658,6 +875,15 @@ final class BoltMailDriverNotificationService
             'skip_reason' => null,
             'error_message' => $error,
             'sent_at' => null,
+            'receipt_subject' => null,
+            'receipt_status' => 'skipped',
+            'receipt_skip_reason' => 'main_notification_failed',
+            'receipt_error_message' => null,
+            'receipt_sent_at' => null,
+            'receipt_vat_rate' => $this->receiptVatPercent(),
+            'receipt_total_amount' => null,
+            'receipt_net_amount' => null,
+            'receipt_vat_amount' => null,
         ]);
 
         return ['status' => 'failed', 'recipient' => $recipient, 'reason' => null, 'error' => $error];
@@ -668,12 +894,12 @@ final class BoltMailDriverNotificationService
      */
     private function insertNotification(array $data): void
     {
-        $sql = "INSERT INTO bolt_mail_driver_notifications (
-            intake_id, message_hash, driver_name, vehicle_plate, recipient_email, email_subject,
-            notification_status, skip_reason, error_message, sent_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        $this->db->insert($sql, [
+        $tableColumns = $this->tableColumns('bolt_mail_driver_notifications');
+        $fields = [
+            'intake_id', 'message_hash', 'driver_name', 'vehicle_plate', 'recipient_email', 'email_subject',
+            'notification_status', 'skip_reason', 'error_message', 'sent_at'
+        ];
+        $params = [
             (int)$data['intake_id'],
             $data['message_hash'],
             $data['driver_name'],
@@ -684,6 +910,25 @@ final class BoltMailDriverNotificationService
             $data['skip_reason'],
             $data['error_message'],
             $data['sent_at'],
-        ], 'isssssssss');
+        ];
+        $types = 'isssssssss';
+
+        foreach ([
+            'receipt_subject', 'receipt_status', 'receipt_skip_reason', 'receipt_error_message', 'receipt_sent_at',
+            'receipt_vat_rate', 'receipt_total_amount', 'receipt_net_amount', 'receipt_vat_amount'
+        ] as $optionalField) {
+            if (!isset($tableColumns[$optionalField])) {
+                continue;
+            }
+            $fields[] = $optionalField;
+            $params[] = $data[$optionalField] ?? null;
+            $types .= 's';
+        }
+
+        $quoted = array_map(static fn(string $field): string => '`' . str_replace('`', '``', $field) . '`', $fields);
+        $placeholders = implode(', ', array_fill(0, count($fields), '?'));
+        $sql = 'INSERT INTO bolt_mail_driver_notifications (' . implode(', ', $quoted) . ') VALUES (' . $placeholders . ')';
+
+        $this->db->insert($sql, $params, $types);
     }
 }
