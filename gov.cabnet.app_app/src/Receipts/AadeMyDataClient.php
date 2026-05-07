@@ -153,22 +153,21 @@ final class AadeMyDataClient
                 'http_status' => 0,
                 'curl_errno' => $curlErrno,
                 'error' => $curlError !== '' ? $curlError : 'curl_exec_failed',
-                'response_excerpt' => '',
+                'response_excerpt_suppressed' => true,
+                'response_bytes' => 0,
+                'response_sha256' => hash('sha256', ''),
             ];
         }
 
         $responseBody = substr((string)$raw, $headerSize);
-        $excerpt = trim(preg_replace('/\s+/', ' ', strip_tags($responseBody)) ?: '');
-        if (strlen($excerpt) > 800) {
-            $excerpt = substr($excerpt, 0, 800) . '...';
-        }
 
         return [
             'ok' => $status >= 200 && $status < 300,
             'http_status' => $status,
             'curl_errno' => $curlErrno,
             'error' => $curlError !== '' ? $curlError : null,
-            'response_excerpt' => $excerpt,
+            'response_excerpt_suppressed' => true,
+            'response_bytes' => strlen($responseBody),
             'response_sha256' => hash('sha256', $responseBody),
         ];
     }

@@ -86,6 +86,7 @@ $out = [
         'calls_edxeix' => false,
         'calls_aade' => false,
         'live_edxeix_submission' => false,
+        'aade_response_excerpts_suppressed' => true,
     ],
     'config' => [
         'receipts_mode' => $receiptMode,

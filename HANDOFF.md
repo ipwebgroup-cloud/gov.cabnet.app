@@ -1,25 +1,13 @@
-# gov.cabnet.app — Handoff after v5.5 AADE/myDATA Test Adapter Readiness
+# gov.cabnet.app Handoff — v5.5.1
 
-Current state:
+Current AADE/myDATA state:
 
-- Driver pre-ride email copy works.
-- Driver receipt copies must remain disabled until AADE/myDATA official issuance succeeds.
-- Server config has `receipts.mode=aade_mydata` and AADE credentials present server-side only.
-- v5.5 adds AADE/myDATA readiness and connectivity tooling, but does not transmit invoices.
-- Live EDXEIX remains guarded/session-disconnected unless Andreas changes it explicitly.
+- receipts.mode = aade_mydata
+- AADE production connectivity validated with HTTP 200
+- receipt_copy_enabled must remain false until official AADE issuance succeeds
+- receipt_pdf_mode should remain aade_mydata
+- v5.5.1 suppresses AADE response excerpts from CLI/dashboard output
+- no SendInvoices implementation is active yet
+- EDXEIX live submit remains guarded/session-disconnected unless explicitly advanced
 
-Important files:
-
-- `/home/cabnet/gov.cabnet.app_app/src/Receipts/AadeMyDataClient.php`
-- `/home/cabnet/gov.cabnet.app_app/cli/aade_mydata_readiness.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/aade-mydata-readiness.php`
-- `/home/cabnet/gov.cabnet.app_sql/2026_05_07_receipt_issuance_attempts.sql`
-
-Next safe step:
-
-1. Install v5.5 SQL.
-2. Run syntax checks.
-3. Open AADE readiness page.
-4. Run CLI readiness.
-5. Run optional connectivity ping against test environment.
-6. Do not enable receipt copy until official AADE issuance is implemented and confirmed.
+Next safest phase: v5.6 AADE/myDATA Official Receipt Payload Builder with preview-first/manual-confirm behavior.

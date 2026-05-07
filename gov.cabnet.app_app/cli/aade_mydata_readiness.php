@@ -42,6 +42,7 @@ $payload = [
         'does_not_email_receipts' => true,
         'does_not_call_edxeix' => true,
         'does_not_create_jobs_or_attempts' => true,
+        'aade_response_excerpts_suppressed' => true,
     ],
 ];
 
@@ -57,7 +58,9 @@ if ($doPing) {
             'ok' => false,
             'http_status' => 0,
             'error' => $e->getMessage(),
-            'response_excerpt' => '',
+            'response_excerpt_suppressed' => true,
+            'response_bytes' => 0,
+            'response_sha256' => hash('sha256', ''),
         ];
         $payload['ok'] = false;
         $payload['ping'] = $result;
@@ -80,7 +83,8 @@ function record_attempt(Database $db, array $readiness, array $result, string $b
             'ok' => (bool)($result['ok'] ?? false),
             'http_status' => (int)($result['http_status'] ?? 0),
             'error' => $result['error'] ?? null,
-            'response_excerpt' => $result['response_excerpt'] ?? '',
+            'response_excerpt_suppressed' => true,
+            'response_bytes' => (int)($result['response_bytes'] ?? 0),
             'response_sha256' => $result['response_sha256'] ?? null,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
