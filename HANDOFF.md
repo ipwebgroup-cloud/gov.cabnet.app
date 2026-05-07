@@ -1,55 +1,36 @@
-# HANDOFF — gov.cabnet.app Bolt Mail Bridge v4.4
+# gov.cabnet.app Bolt → EDXEIX Bridge — Handoff after v4.4.1
 
-Current state:
+Current state: safe automated dry-run mode.
 
-- Gmail/Bolt pre-ride emails forward to `bolt-bridge@gov.cabnet.app`.
-- Maildir importer runs every minute.
-- Auto dry-run evidence worker runs every minute.
-- `bolt_mail_intake` parses and classifies emails.
-- Future guard is configured at 2 minutes.
-- Stale open candidates expire automatically.
-- Synthetic test harness is available.
-- Manual Mail Preflight can create local `source='bolt_mail'` normalized bookings.
-- Auto dry-run can create local `source='bolt_mail'` bookings and `bolt_mail_dry_run_evidence` rows for valid active future candidates.
-- v4.4 improves dashboard monitoring, evidence detail links, raw preflight guard display, and synthetic-only cleanup tools.
+- Mail intake cron is active.
+- Auto dry-run evidence cron is active.
+- Live EDXEIX submit remains OFF.
+- `app.dry_run = true`.
+- `edxeix.live_submit_enabled = false`.
+- Canonical `edxeix.future_start_guard_minutes = 2` in `/home/cabnet/gov.cabnet.app_config/config.php`.
 
-Safety:
+## v4.4.1 hotfix
 
-- `app.dry_run=true`.
-- `edxeix.live_submit_enabled=false`.
-- No live EDXEIX POST exists in the mail automation path.
-- v4.4 does not create `submission_jobs`.
-- v4.4 does not create `submission_attempts`.
-- v4.4 does not enable live submit.
-- Synthetic cleanup is restricted to `CABNET TEST` / synthetic-marker rows and requires typing `DELETE_SYNTHETIC_ONLY`.
+The raw endpoint `/bolt_edxeix_preflight.php` was still showing `guard_minutes = 30` because the legacy helper/config path can see an older split config fallback. The mail dashboards and auto dry-run flow were already showing `FUTURE GUARD 2 MIN` correctly.
 
-Changed files in v4.4:
+v4.4.1 updates only the raw preflight endpoint so it reads the guard directly from canonical server config:
 
-- `public_html/gov.cabnet.app/ops/mail-status.php`
-- `public_html/gov.cabnet.app/ops/mail-auto-dry-run.php`
-- `public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php`
-- `public_html/gov.cabnet.app/bolt_edxeix_preflight.php`
-- `gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php`
-- `gov.cabnet.app_app/lib/bolt_sync_lib.php`
-- `docs/BOLT_MAIL_PRODUCTION_MONITOR_V4_4.md`
+- `/home/cabnet/gov.cabnet.app_config/config.php`
 
-Verification after upload:
+The raw JSON endpoint should now show:
 
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php
-php -l /home/cabnet/gov.cabnet.app_app/lib/bolt_sync_lib.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-status.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-dry-run-evidence.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mail-auto-dry-run.php
-php -l /home/cabnet/public_html/gov.cabnet.app/bolt_edxeix_preflight.php
-```
+- top-level `guard_minutes = 2`
+- row-level `future_guard_minutes = 2`
+- preview mapping status `future_guard_minutes = 2`
 
-Next safest step:
+## Safety
 
-1. Upload v4.4.
-2. Verify syntax and config posture.
-3. Monitor the next real future Bolt Ride details email.
-4. Confirm import cron imports it within 1 minute.
-5. Confirm auto dry-run creates local booking + dry-run evidence only.
-6. Confirm `submission_jobs` and `submission_attempts` remain zero/unchanged.
-7. Do not enable live EDXEIX submission until Andreas explicitly requests a live-submit patch.
+v4.4.1 does not create jobs, attempts, or live EDXEIX submissions. It is a read-only display/alignment hotfix.
+
+## Continue from here
+
+1. Upload v4.4.1 changed file.
+2. Run PHP syntax check.
+3. Open `/bolt_edxeix_preflight.php?limit=30` and confirm all guard values show `2`.
+4. Continue monitoring the next real future Bolt email.
+5. Do not enable live submit until explicitly approved.

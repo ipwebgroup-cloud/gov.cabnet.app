@@ -1,7 +1,7 @@
 <?php
 /**
  * gov.cabnet.app Bolt → EDXEIX preflight report.
- * v4.4 aligns guard display and adds bolt_mail intake context.
+ * v4.4.1 aligns raw JSON guard display with canonical config.php and adds bolt_mail intake context.
  *
  * Read-only diagnostic endpoint.
  * - Does not call EDXEIX.
@@ -80,10 +80,44 @@ function gov_preflight_never_submit_live(array $booking): bool
     return gov_preflight_boolish($booking['never_submit_live'] ?? false) || gov_preflight_is_test_booking($booking);
 }
 
+
+function gov_preflight_canonical_guard_minutes(array $mergedConfig): int
+{
+    $guard = null;
+    $canonicalFile = '/home/cabnet/gov.cabnet.app_config/config.php';
+
+    if (is_file($canonicalFile) && is_readable($canonicalFile)) {
+        $canonical = (static function (string $file): array {
+            $loaded = require $file;
+            return is_array($loaded) ? $loaded : [];
+        })($canonicalFile);
+
+        if (isset($canonical['edxeix']['future_start_guard_minutes'])) {
+            $guard = $canonical['edxeix']['future_start_guard_minutes'];
+        }
+    }
+
+    if ($guard === null || (int)$guard < 1) {
+        $guard = $mergedConfig['edxeix']['future_start_guard_minutes'] ?? 2;
+    }
+
+    return max(1, (int)$guard);
+}
+
+function gov_preflight_future_guard_passes(?string $startedAt, int $guardMinutes): bool
+{
+    $startedAt = trim((string)$startedAt);
+    if ($startedAt === '') {
+        return false;
+    }
+
+    $ts = strtotime($startedAt);
+    return $ts !== false && $ts >= (time() + ($guardMinutes * 60));
+}
+
 function gov_preflight_analyze_row(mysqli $db, array $booking, int $guardMinutes): array
 {
     $preview = gov_build_edxeix_preview_payload($db, $booking);
-    $mapping = $preview['_mapping_status'] ?? [];
     $bookingId = (int)($booking['id'] ?? 0);
     $mailIntake = $bookingId > 0
         ? gov_bridge_fetch_one(
@@ -101,6 +135,13 @@ function gov_preflight_analyze_row(mysqli $db, array $booking, int $guardMinutes
     $endedAt = (string)gov_preflight_value($booking, ['ended_at'], '');
     $orderRef = gov_preflight_order_reference($booking);
 
+    if (!isset($preview['_mapping_status']) || !is_array($preview['_mapping_status'])) {
+        $preview['_mapping_status'] = [];
+    }
+    $preview['_mapping_status']['future_guard_minutes'] = $guardMinutes;
+    $preview['_mapping_status']['passes_future_guard'] = gov_preflight_future_guard_passes($startedAt, $guardMinutes);
+
+    $mapping = $preview['_mapping_status'];
     $driverMapped = !empty($mapping['driver_mapped']);
     $vehicleMapped = !empty($mapping['vehicle_mapped']);
     $futureGuard = !empty($mapping['passes_future_guard']);
@@ -191,7 +232,7 @@ try {
     }
 
     $limit = gov_bridge_int_param('limit', 20, 1, 100);
-    $guardMinutes = max(1, (int)($config['edxeix']['future_start_guard_minutes'] ?? 2));
+    $guardMinutes = gov_preflight_canonical_guard_minutes($config);
     $db = gov_bridge_db();
     $bookings = gov_recent_rows($db, 'normalized_bookings', $limit);
 
@@ -232,7 +273,7 @@ try {
             'blocked_from_live' => count($rows) - $liveAllowedCount,
         ],
         'rows' => $rows,
-        'note' => 'Read-only preflight. guard_minutes is loaded from edxeix.future_start_guard_minutes. bolt_mail rows include mail_intake context when linked. technical_payload_valid means payload shape/mapping/time checks pass. live_submission_allowed is false for LAB/test/never_submit_live rows. No EDXEIX submission was performed.',
+        'note' => 'Read-only preflight. guard_minutes is loaded from canonical /home/cabnet/gov.cabnet.app_config/config.php edxeix.future_start_guard_minutes. bolt_mail rows include mail_intake context when linked. technical_payload_valid means payload shape/mapping/time checks pass. live_submission_allowed is false for LAB/test/never_submit_live rows. No EDXEIX submission was performed.',
     ]);
 } catch (Throwable $e) {
     gov_bridge_json_response([
