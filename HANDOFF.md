@@ -1,51 +1,50 @@
-# gov.cabnet.app Bolt → EDXEIX Bridge — Handoff after v4.7
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-## Current state
+Current phase: v4.8 Credential Rotation + Final Dry-run Handoff.
 
-The bridge is running in safe automated dry-run posture.
+## Production-safe status
 
-- Mail intake cron is active.
-- Auto dry-run cron is active.
-- Bolt driver directory sync cron is active.
-- Driver email copy is validated with a real Bolt pre-ride email.
-- Driver email routing is by Bolt driver identity/name/identifier, not by vehicle plate.
-- Driver-facing copy formatting was updated in v4.5.3.
-- Live EDXEIX submit remains OFF.
-- submission_jobs remained 0 after driver-copy testing.
-- submission_attempts remained 0 after driver-copy testing.
+- Mail intake cron: ON
+- Auto dry-run evidence cron: ON
+- Bolt driver directory sync cron: ON
+- Driver pre-ride copy: validated with real Bolt email
+- Driver recipient resolution: driver identity/name/identifier, not vehicle plate
+- Driver directory coverage: validated at 100% during testing
+- Launch readiness verdict before v4.8: HARDENING_READY_DRY_RUN
+- `app.dry_run = true`
+- `edxeix.live_submit_enabled = false`
+- `submission_jobs = 0`
+- `submission_attempts = 0`
 
-## v4.7 addition
+## v4.8 additions
 
-Added:
+- `/ops/credential-rotation.php` read-only credential rotation gate.
+- `/ops/launch-readiness.php` updated to display credential rotation acknowledgement.
+- `cli/mark_credential_rotation.php` creates a no-secret marker after manual rotation.
+
+Marker path:
 
 ```text
-/ops/launch-readiness.php?key=INTERNAL_API_KEY
+/home/cabnet/gov.cabnet.app_app/storage/security/credential_rotation_ack.json
 ```
 
-Purpose: read-only launch control panel for production hardening.
+Acknowledgement command, only after real rotation:
 
-It checks:
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php --ops-key --bolt --edxeix --mailbox --by=Andreas
+```
 
-- dry-run config
-- live-submit disabled config
-- guard minutes
-- submission job/attempt counts
-- driver notification state
-- driver directory coverage
-- cron log freshness
-- latest intake rows
-- latest driver notifications
-- latest dry-run evidence
-- schema readiness
-- credential rotation as a manual gate
+## Required before any live-submit phase
 
-## Safety boundary
+Rotate:
 
-v4.7 does not enable live submission and does not create EDXEIX jobs or attempts.
+1. INTERNAL_API_KEY / ops key
+2. Bolt API credentials or tokens if exposed
+3. EDXEIX credentials/session
+4. Mailbox/forwarding credentials if exposed
 
-Before any live-submit phase:
+Then verify launch readiness still shows dry-run safe posture and zero submission jobs/attempts.
 
-- rotate exposed ops key and credentials
-- design v5 live-submit worker separately
-- require explicit Andreas approval
-- keep strict terminal/past/synthetic/test blocking
+## Do not do yet
+
+Do not enable live EDXEIX submission. Do not create a live-submit worker until Andreas explicitly approves a v5.0 live-submit design.

@@ -1,29 +1,35 @@
-# v4.7 Production Hardening / Launch Control Panel Patch
+# gov.cabnet.app v4.8 Credential Rotation + Final Dry-run Handoff Patch
 
 ## What changed
 
-Adds a read-only launch control panel for the Bolt mail bridge production hardening phase.
+Adds a credential-rotation status page and no-secret acknowledgement CLI marker. Updates launch readiness to display the credential rotation gate.
 
-New file:
+## Files included
 
 ```text
+public_html/gov.cabnet.app/ops/credential-rotation.php
 public_html/gov.cabnet.app/ops/launch-readiness.php
-```
-
-Documentation:
-
-```text
-docs/BOLT_PRODUCTION_HARDENING_V4_7.md
+gov.cabnet.app_app/cli/mark_credential_rotation.php
+docs/BOLT_CREDENTIAL_ROTATION_V4_8.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-## Upload path
+## Upload paths
 
 ```text
+public_html/gov.cabnet.app/ops/credential-rotation.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/credential-rotation.php
+
 public_html/gov.cabnet.app/ops/launch-readiness.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/launch-readiness.php
+
+gov.cabnet.app_app/cli/mark_credential_rotation.php
+→ /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php
 ```
+
+Docs are for repo/package continuity.
 
 ## SQL
 
@@ -32,21 +38,24 @@ None.
 ## Verify
 
 ```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/credential-rotation.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/launch-readiness.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php
 ```
 
 Open:
 
 ```text
+https://gov.cabnet.app/ops/credential-rotation.php?key=INTERNAL_API_KEY
 https://gov.cabnet.app/ops/launch-readiness.php?key=INTERNAL_API_KEY
 ```
 
-JSON:
+After manual credential rotation:
 
-```text
-https://gov.cabnet.app/ops/launch-readiness.php?key=INTERNAL_API_KEY&format=json
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/mark_credential_rotation.php --ops-key --bolt --edxeix --mailbox --by=Andreas
 ```
 
 ## Safety
 
-This patch is read-only. It does not import mail, send driver emails, create bookings, create evidence, create jobs/attempts, call Bolt, call EDXEIX, or submit live.
+This patch does not enable live EDXEIX submission. The new ops page is read-only. The CLI creates only a no-secret acknowledgement marker.

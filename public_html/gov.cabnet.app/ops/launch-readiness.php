@@ -1,9 +1,9 @@
 <?php
 /**
- * gov.cabnet.app — v4.7 Production Hardening / Launch Control Panel
+ * gov.cabnet.app — v4.8 Credential Rotation + Launch Control Panel
  *
  * Read-only operational launch gate for the Bolt mail → driver notification
- * → dry-run evidence workflow.
+ * → dry-run evidence workflow, with credential-rotation acknowledgement visibility.
  *
  * Safety contract:
  * - Does not import mail.
@@ -175,6 +175,65 @@ function lr_mask_email(?string $email): string
     return $prefix . '•••@' . $domain;
 }
 
+function lr_credential_rotation_marker(string $markerFile): array
+{
+    $required = ['ops_key', 'bolt_credentials', 'edxeix_credentials', 'mailbox_credentials'];
+    $result = [
+        'marker_file' => $markerFile,
+        'exists' => false,
+        'readable' => false,
+        'complete' => false,
+        'completed_at' => null,
+        'completed_by' => null,
+        'items' => [
+            'ops_key' => false,
+            'bolt_credentials' => false,
+            'edxeix_credentials' => false,
+            'mailbox_credentials' => false,
+        ],
+        'notes' => '',
+        'error' => null,
+    ];
+
+    if (!is_file($markerFile)) {
+        return $result;
+    }
+
+    $result['exists'] = true;
+    $result['readable'] = is_readable($markerFile);
+    if (!$result['readable']) {
+        $result['error'] = 'marker_not_readable';
+        return $result;
+    }
+
+    $raw = file_get_contents($markerFile);
+    $data = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($data)) {
+        $result['error'] = 'invalid_marker_json';
+        return $result;
+    }
+
+    $items = is_array($data['items'] ?? null) ? $data['items'] : [];
+    foreach ($required as $key) {
+        $result['items'][$key] = !empty($items[$key]);
+    }
+
+    $complete = true;
+    foreach ($required as $key) {
+        if (empty($result['items'][$key])) {
+            $complete = false;
+            break;
+        }
+    }
+
+    $result['complete'] = $complete;
+    $result['completed_at'] = isset($data['completed_at']) ? (string)$data['completed_at'] : null;
+    $result['completed_by'] = isset($data['completed_by']) ? (string)$data['completed_by'] : null;
+    $result['notes'] = isset($data['notes']) ? (string)$data['notes'] : '';
+
+    return $result;
+}
+
 function lr_render_kv(string $k, string $v): string
 {
     return '<div class="k">' . lr_h($k) . '</div><div>' . $v . '</div>';
@@ -219,6 +278,8 @@ try {
     $driverNotificationsEnabled = is_array($driverNotifications) && lr_bool($driverNotifications['enabled'] ?? false);
     $resolveDriverDirectory = is_array($driverNotifications) && lr_bool($driverNotifications['resolve_from_bolt_driver_directory'] ?? false);
     $maildir = (string)$config->get('mail.bolt_bridge_maildir', '/home/cabnet/mail/gov.cabnet.app/bolt-bridge');
+    $rotationMarkerFile = dirname(__DIR__, 3) . '/gov.cabnet.app_app/storage/security/credential_rotation_ack.json';
+    $credentialRotation = lr_credential_rotation_marker($rotationMarkerFile);
 
     $logsDir = (string)$config->get('paths.logs', '/home/cabnet/gov.cabnet.app_app/storage/logs');
     $logs = [
@@ -329,7 +390,7 @@ try {
         ['label' => 'Driver recipients resolve from driver identity directory', 'ok' => $resolveDriverDirectory && $driverDirectoryReady, 'detail' => 'mapping_drivers must contain driver names/identifiers and emails.'],
         ['label' => 'Maildir is readable', 'ok' => $maildirReady, 'detail' => $maildir],
         ['label' => 'Production cron logs are current', 'ok' => $logsHealthy, 'detail' => 'Mail intake, auto dry-run, and driver sync logs must be fresh.'],
-        ['label' => 'Credential rotation is manually required before live submit', 'ok' => false, 'manual' => true, 'detail' => 'Rotate ops key, Bolt credentials, EDXEIX credentials/session, and mailbox-related credentials before any live-submit phase.'],
+        ['label' => 'Credential rotation has been acknowledged', 'ok' => !empty($credentialRotation['complete']), 'manual' => true, 'detail' => !empty($credentialRotation['complete']) ? 'Credential rotation marker is complete. Keep live-submit disabled until v5.0 is explicitly approved.' : 'Rotate ops key, Bolt credentials, EDXEIX credentials/session, and mailbox-related credentials before any live-submit phase.'],
     ];
 
     $automaticChecks = array_filter($gateChecks, static fn(array $check): bool => empty($check['manual']));
@@ -386,6 +447,7 @@ try {
         ],
         'driver_directory' => $driverDirectory,
         'logs' => $logs,
+        'credential_rotation' => $credentialRotation,
         'gate_checks' => $gateChecks,
     ];
 } catch (Throwable $e) {
@@ -419,7 +481,7 @@ $heroText = $heroText ?? 'Launch control panel could not load.';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <title>Launch Readiness | gov.cabnet.app</title>
+    <title>Launch Readiness v4.8 | gov.cabnet.app</title>
     <style>
         :root { --bg:#f3f6fb; --panel:#fff; --ink:#07152f; --muted:#465f86; --line:#d7e1ef; --nav:#081225; --blue:#2563eb; --green:#087a4d; --orange:#b85c00; --red:#b42318; --soft:#f8fbff; --purple:#6046a8; }
         *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.top{background:var(--nav);color:#fff;min-height:58px;display:flex;gap:18px;align-items:center;padding:0 24px;overflow:auto;position:sticky;top:0;z-index:10}.top strong{white-space:nowrap}.top a{color:#fff;text-decoration:none;white-space:nowrap;font-size:14px;opacity:.92}.top a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1500px,calc(100% - 42px));margin:24px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 28px rgba(8,18,37,.04)}.hero{border-left:8px solid var(--orange)}.hero.good{border-left-color:var(--green)}.hero.bad{border-left-color:var(--red)}h1{margin:0 0 10px;font-size:32px}h2{margin:0 0 14px;font-size:22px}h3{margin:0 0 10px;font-size:17px}p{color:var(--muted);line-height:1.45}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.metric{border:1px solid var(--line);border-radius:11px;background:var(--soft);padding:14px;min-height:78px}.metric strong{display:block;font-size:29px;line-height:1.05;word-break:break-word}.metric span{display:block;color:var(--muted);font-size:13px;margin-top:6px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;margin:1px 4px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.badge-purple{background:#ede9fe;color:#5b21b6}.kv{display:grid;grid-template-columns:minmax(180px, 36%) 1fr;border:1px solid var(--line);border-radius:10px;overflow:hidden}.kv div{padding:10px 12px;border-bottom:1px solid var(--line)}.kv div:nth-last-child(-n+2){border-bottom:none}.kv .k{background:#f8fbff;color:var(--muted);font-weight:700}.checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.check{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.check.good{border-left:6px solid var(--green)}.check.bad{border-left:6px solid var(--red)}.check.manual{border-left:6px solid var(--purple)}.check strong{display:block;margin-bottom:5px}.small{font-size:13px;color:var(--muted)}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:800;font-size:14px}.btn.dark{background:#334155}.btn.good{background:var(--green)}.btn.warn{background:var(--orange)}.btn.purple{background:var(--purple)}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f8fbff;color:#29415f}.scroll{overflow:auto}.logbox{background:#081225;color:#dbeafe;border-radius:10px;padding:12px;min-height:110px;overflow:auto;font-family:Consolas,Menlo,monospace;font-size:12px;white-space:pre-wrap}.goodline{color:#166534}.warnline{color:#b45309}.badline{color:#991b1b}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.safety{background:#ecfdf3;border:1px solid #bbf7d0;border-left:7px solid var(--green);border-radius:14px;padding:16px;margin-bottom:18px}.safety strong{color:#166534}@media(max-width:1100px){.grid,.three,.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}@media(max-width:720px){.wrap{width:calc(100% - 24px);margin-top:14px}.grid,.three,.checks{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.kv .k{border-bottom:0}.top{padding:0 14px}}
@@ -429,6 +491,7 @@ $heroText = $heroText ?? 'Launch control panel could not load.';
 <nav class="top">
     <strong>gov.cabnet.app</strong>
     <a href="/ops/launch-readiness.php<?= lr_h(lr_current_key_query()) ?>">Launch Readiness</a>
+    <a href="/ops/credential-rotation.php<?= lr_h(lr_current_key_query()) ?>">Credential Rotation</a>
     <a href="/ops/mail-status.php<?= lr_h(lr_current_key_query()) ?>">Mail Status</a>
     <a href="/ops/mail-driver-notifications.php<?= lr_h(lr_current_key_query()) ?>">Driver Notifications</a>
     <a href="/ops/mail-dry-run-evidence.php<?= lr_h(lr_current_key_query()) ?>">Dry-run Evidence</a>
@@ -443,7 +506,7 @@ $heroText = $heroText ?? 'Launch control panel could not load.';
     </section>
 
     <section class="card hero <?= lr_h($heroType) ?>">
-        <h1>v4.7 Production Hardening / Launch Control Panel</h1>
+        <h1>v4.8 Credential Rotation / Launch Control Panel</h1>
         <p><?= lr_h($heroText) ?></p>
         <?php if ($error): ?><p class="badline"><strong>Error:</strong> <?= lr_h($error) ?></p><?php endif; ?>
         <div>
@@ -451,6 +514,7 @@ $heroText = $heroText ?? 'Launch control panel could not load.';
             <?= lr_badge('LIVE SUBMIT OFF', 'good') ?>
             <?= lr_badge('DRY-RUN ONLY', 'good') ?>
             <?= lr_badge('READ ONLY', 'good') ?>
+            <?= lr_badge(!empty($payload['credential_rotation']['complete']) ? 'CREDENTIAL ROTATION ACKNOWLEDGED' : 'CREDENTIAL ROTATION PENDING', !empty($payload['credential_rotation']['complete']) ? 'good' : 'purple') ?>
         </div>
         <div class="grid" style="margin-top:14px">
             <?= lr_metric($counts['submission_jobs'] ?? 'n/a', 'submission_jobs') ?>
@@ -460,6 +524,7 @@ $heroText = $heroText ?? 'Launch control panel could not load.';
         </div>
         <div class="actions">
             <a class="btn good" href="/ops/launch-readiness.php<?= lr_h(lr_current_key_query(['format' => 'json'])) ?>">Open JSON</a>
+            <a class="btn warn" href="/ops/credential-rotation.php<?= lr_h(lr_current_key_query()) ?>">Credential Rotation</a>
             <a class="btn" href="/ops/mail-status.php<?= lr_h(lr_current_key_query()) ?>">Mail Status</a>
             <a class="btn purple" href="/ops/mail-driver-notifications.php<?= lr_h(lr_current_key_query()) ?>">Driver Notifications</a>
             <a class="btn dark" href="/ops/mail-dry-run-evidence.php<?= lr_h(lr_current_key_query()) ?>">Dry-run Evidence</a>
@@ -481,6 +546,23 @@ $heroText = $heroText ?? 'Launch control panel could not load.';
                 </div>
             <?php endforeach; ?>
         </div>
+    </section>
+
+    <section class="card">
+        <h2>Credential rotation gate</h2>
+        <?php $cr = $payload['credential_rotation'] ?? []; ?>
+        <div class="kv">
+            <?= lr_render_kv('Marker file', lr_h((string)($cr['marker_file'] ?? ''))) ?>
+            <?= lr_render_kv('Marker exists', lr_bool_badge(!empty($cr['exists']))) ?>
+            <?= lr_render_kv('Rotation complete', lr_bool_badge(!empty($cr['complete']))) ?>
+            <?= lr_render_kv('Completed at', lr_h((string)($cr['completed_at'] ?? ''))) ?>
+            <?= lr_render_kv('Completed by', lr_h((string)($cr['completed_by'] ?? ''))) ?>
+            <?= lr_render_kv('Ops key rotated', lr_bool_badge(!empty($cr['items']['ops_key']))) ?>
+            <?= lr_render_kv('Bolt credentials rotated', lr_bool_badge(!empty($cr['items']['bolt_credentials']))) ?>
+            <?= lr_render_kv('EDXEIX credentials/session rotated', lr_bool_badge(!empty($cr['items']['edxeix_credentials']))) ?>
+            <?= lr_render_kv('Mailbox credentials rotated', lr_bool_badge(!empty($cr['items']['mailbox_credentials']))) ?>
+        </div>
+        <p class="small">This marker is an acknowledgement only. It stores no passwords, keys, tokens, cookies, or session contents.</p>
     </section>
 
     <section class="two">
