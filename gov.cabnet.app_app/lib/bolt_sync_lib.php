@@ -919,6 +919,117 @@ if (!function_exists('gov_bolt_extract_email_from_payload')) {
     }
 }
 
+
+if (!function_exists('gov_bolt_clean_driver_name_candidate')) {
+    function gov_bolt_clean_driver_name_candidate($value): string
+    {
+        if (!is_string($value) && !is_numeric($value)) {
+            return '';
+        }
+        $name = trim(preg_replace('/\s+/', ' ', (string)$value) ?? (string)$value);
+        if ($name === '') {
+            return '';
+        }
+        if (filter_var($name, FILTER_VALIDATE_EMAIL)) {
+            return '';
+        }
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $name)) {
+            return '';
+        }
+        if (preg_match('/^\+?[0-9 .()\-]{7,}$/', $name)) {
+            return '';
+        }
+        if (strlen($name) > 190) {
+            return '';
+        }
+        if (!preg_match('/\p{L}/u', $name)) {
+            return '';
+        }
+        return $name;
+    }
+}
+
+if (!function_exists('gov_bolt_compose_person_name_from_payload')) {
+    function gov_bolt_compose_person_name_from_payload(array $payload): string
+    {
+        $first = gov_bolt_pick($payload, ['first_name', 'firstname', 'firstName', 'given_name', 'givenName'], '');
+        $last = gov_bolt_pick($payload, ['last_name', 'lastname', 'lastName', 'family_name', 'familyName', 'surname'], '');
+        $composed = trim((string)$first . ' ' . (string)$last);
+        return gov_bolt_clean_driver_name_candidate($composed);
+    }
+}
+
+if (!function_exists('gov_bolt_extract_driver_name_from_payload')) {
+    function gov_bolt_extract_driver_name_from_payload(array $payload): string
+    {
+        // Prefer direct driver fields first.
+        $direct = gov_bolt_pick($payload, [
+            'driver_name',
+            'driver_full_name',
+            'full_name',
+            'display_name',
+            'legal_name',
+            'name',
+        ], '');
+        $clean = gov_bolt_clean_driver_name_candidate($direct);
+        if ($clean !== '') {
+            return $clean;
+        }
+
+        $composed = gov_bolt_compose_person_name_from_payload($payload);
+        if ($composed !== '') {
+            return $composed;
+        }
+
+        // Then look inside likely person containers. Avoid vehicle/car containers.
+        foreach (['driver', 'user', 'person', 'individual', 'profile', 'account', 'owner'] as $containerKey) {
+            $node = gov_bolt_pick($payload, [$containerKey], null);
+            if (is_array($node)) {
+                $direct = gov_bolt_pick($node, ['driver_name', 'driver_full_name', 'full_name', 'display_name', 'legal_name', 'name'], '');
+                $clean = gov_bolt_clean_driver_name_candidate($direct);
+                if ($clean !== '') {
+                    return $clean;
+                }
+                $composed = gov_bolt_compose_person_name_from_payload($node);
+                if ($composed !== '') {
+                    return $composed;
+                }
+            }
+        }
+
+        $stack = [[$payload, '']];
+        while ($stack) {
+            [$item, $path] = array_pop($stack);
+            if (!is_array($item)) {
+                continue;
+            }
+            foreach ($item as $key => $value) {
+                $keyText = strtolower((string)$key);
+                $childPath = $path === '' ? $keyText : $path . '.' . $keyText;
+                if (str_contains($childPath, 'vehicle') || str_contains($childPath, 'car')) {
+                    continue;
+                }
+                if (is_array($value)) {
+                    $stack[] = [$value, $childPath];
+                    continue;
+                }
+                if (!is_string($value) && !is_numeric($value)) {
+                    continue;
+                }
+                if (!in_array($keyText, ['driver_name', 'driver_full_name', 'full_name', 'display_name', 'legal_name', 'name'], true)) {
+                    continue;
+                }
+                $clean = gov_bolt_clean_driver_name_candidate($value);
+                if ($clean !== '') {
+                    return $clean;
+                }
+            }
+        }
+
+        return '';
+    }
+}
+
 if (!function_exists('gov_bolt_ts_range')) {
     function gov_bolt_ts_range(int $hoursBack = 24): array
     {
@@ -1024,7 +1135,7 @@ if (!function_exists('gov_bolt_normalize_driver')) {
     function gov_bolt_normalize_driver(array $driver): array
     {
         $uuid = (string)gov_bolt_pick($driver, ['driver_uuid', 'uuid', 'id', 'driver_id'], '');
-        $name = (string)gov_bolt_pick($driver, ['driver_name', 'full_name', 'name'], '');
+        $name = gov_bolt_extract_driver_name_from_payload($driver);
         $phone = (string)gov_bolt_pick($driver, ['driver_phone', 'phone'], '');
         $email = gov_bolt_extract_email_from_payload($driver);
         $individualIdentifier = (string)gov_bolt_deep_pick($driver, ['individual_identifier', 'individual_uuid', 'person_uuid', 'user_uuid', 'user_id'], '');

@@ -55,6 +55,7 @@ final class BoltMailDriverNotificationService
         }
 
         $driverName = trim((string)($row['driver_name'] ?? ''));
+        $driverIdentifier = trim((string)($row['driver_identifier'] ?? $row['driver_uuid'] ?? $row['external_driver_id'] ?? ''));
         $vehiclePlate = $this->normalizePlate((string)($row['vehicle_plate'] ?? ''));
         $customerName = trim((string)($row['customer_name'] ?? ''));
         $messageHash = trim((string)($row['message_hash'] ?? ''));
@@ -64,7 +65,7 @@ final class BoltMailDriverNotificationService
             return $this->recordSkipped($intakeId, $messageHash, $driverName, $vehiclePlate, null, $subject, 'test_or_synthetic_email_suppressed');
         }
 
-        $recipient = $this->resolveRecipientEmail($driverName, $vehiclePlate);
+        $recipient = $this->resolveRecipientEmail($driverName, $driverIdentifier);
         if ($recipient === '') {
             return $this->recordSkipped($intakeId, $messageHash, $driverName, $vehiclePlate, null, $subject, 'driver_email_not_found_in_bolt_directory');
         }
@@ -136,43 +137,42 @@ final class BoltMailDriverNotificationService
         return false;
     }
 
-    private function resolveRecipientEmail(string $driverName, string $vehiclePlate): string
+    private function resolveRecipientEmail(string $driverName, string $driverIdentifier = ''): string
     {
-        $recipient = $this->resolveRecipientEmailFromBoltDirectory($driverName, $vehiclePlate);
+        $recipient = $this->resolveRecipientEmailFromBoltDirectory($driverName, $driverIdentifier);
         if ($recipient !== '') {
             return $recipient;
         }
 
         if ($this->shouldSyncReferenceOnMiss()) {
             $this->syncBoltReferenceDirectory();
-            $recipient = $this->resolveRecipientEmailFromBoltDirectory($driverName, $vehiclePlate);
+            $recipient = $this->resolveRecipientEmailFromBoltDirectory($driverName, $driverIdentifier);
             if ($recipient !== '') {
                 return $recipient;
             }
         }
 
         // Emergency fallback only. Normal production behavior should resolve from
-        // mapping_drivers.driver_email, which is synced from the Bolt driver API.
-        return $this->resolveRecipientEmailFromManualFallback($driverName, $vehiclePlate);
+        // mapping_drivers.driver_email synced from the Bolt driver API, matched by
+        // immutable driver identifier when available or by the driver's own name.
+        // Vehicle plate is intentionally not used because drivers may change cars.
+        return $this->resolveRecipientEmailFromManualFallback($driverName);
     }
 
-    private function resolveRecipientEmailFromBoltDirectory(string $driverName, string $vehiclePlate): string
+    private function resolveRecipientEmailFromBoltDirectory(string $driverName, string $driverIdentifier = ''): string
     {
         $columns = $this->tableColumns('mapping_drivers');
         if (!isset($columns['driver_email'])) {
             return '';
         }
 
-        $driverName = trim($driverName);
-        if ($driverName !== '') {
-            $nameColumns = array_values(array_filter([
-                isset($columns['external_driver_name']) ? 'external_driver_name' : null,
-                isset($columns['driver_name']) ? 'driver_name' : null,
-                isset($columns['name']) ? 'name' : null,
-            ]));
-
-            foreach ($nameColumns as $nameColumn) {
-                $row = $this->fetchDriverDirectoryRow('`' . $nameColumn . '` = ?', [$driverName], 's', $columns);
+        $driverIdentifier = trim($driverIdentifier);
+        if ($driverIdentifier !== '') {
+            foreach (['driver_identifier', 'external_driver_id', 'driver_uuid', 'individual_identifier', 'external_id'] as $identifierColumn) {
+                if (!isset($columns[$identifierColumn])) {
+                    continue;
+                }
+                $row = $this->fetchDriverDirectoryRow('`' . $identifierColumn . '` = ?', [$driverIdentifier], 's', $columns);
                 $email = $this->emailFromDirectoryRow($row);
                 if ($email !== '') {
                     return $email;
@@ -180,18 +180,31 @@ final class BoltMailDriverNotificationService
             }
         }
 
-        $plate = $this->normalizePlate($vehiclePlate);
-        if ($plate !== '' && isset($columns['active_vehicle_plate'])) {
-            $row = $this->fetchDriverDirectoryRow(
-                "UPPER(REPLACE(REPLACE(`active_vehicle_plate`, ' ', ''), '-', '')) = ?",
-                [$plate],
-                's',
-                $columns
-            );
+        $driverName = trim($driverName);
+        if ($driverName === '') {
+            return '';
+        }
+
+        $nameColumns = array_values(array_filter([
+            isset($columns['external_driver_name']) ? 'external_driver_name' : null,
+            isset($columns['driver_name']) ? 'driver_name' : null,
+            isset($columns['name']) ? 'name' : null,
+        ]));
+
+        foreach ($nameColumns as $nameColumn) {
+            $row = $this->fetchDriverDirectoryRow('LOWER(TRIM(`' . $nameColumn . '`)) = LOWER(TRIM(?))', [$driverName], 's', $columns);
             $email = $this->emailFromDirectoryRow($row);
             if ($email !== '') {
                 return $email;
             }
+        }
+
+        // Last safe fallback: compare normalized driver names in PHP across recent
+        // directory rows. This still uses driver identity/name only; never plate.
+        $row = $this->fetchDriverDirectoryRowByNormalizedName($driverName, $nameColumns, $columns);
+        $email = $this->emailFromDirectoryRow($row);
+        if ($email !== '') {
+            return $email;
         }
 
         return '';
@@ -225,6 +238,47 @@ final class BoltMailDriverNotificationService
             $params,
             $types
         );
+    }
+
+
+    /**
+     * @param array<int,string> $nameColumns
+     * @param array<string,bool> $columns
+     */
+    private function fetchDriverDirectoryRowByNormalizedName(string $driverName, array $nameColumns, array $columns): ?array
+    {
+        if (!$nameColumns) {
+            return null;
+        }
+
+        $select = ['driver_email'];
+        foreach ($nameColumns as $nameColumn) {
+            $select[] = $nameColumn;
+        }
+        if (isset($columns['raw_payload_json'])) {
+            $select[] = 'raw_payload_json';
+        }
+
+        $order = isset($columns['last_seen_at']) ? '`last_seen_at` DESC, `id` DESC' : (isset($columns['updated_at']) ? '`updated_at` DESC, `id` DESC' : '`id` DESC');
+        $activeSql = isset($columns['is_active']) ? ' AND `is_active` = 1' : '';
+        $target = $this->normalizeHumanName($driverName);
+        if ($target === '') {
+            return null;
+        }
+
+        $rows = $this->db->fetchAll(
+            "SELECT `" . implode('`,`', array_values(array_unique($select))) . "` FROM mapping_drivers WHERE driver_email IS NOT NULL AND driver_email <> ''" . $activeSql . ' ORDER BY ' . $order . ' LIMIT 300'
+        );
+
+        foreach ($rows as $row) {
+            foreach ($nameColumns as $nameColumn) {
+                if ($this->normalizeHumanName((string)($row[$nameColumn] ?? '')) === $target) {
+                    return $row;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function emailFromDirectoryRow(?array $row): string
@@ -279,30 +333,20 @@ final class BoltMailDriverNotificationService
         }
     }
 
-    private function resolveRecipientEmailFromManualFallback(string $driverName, string $vehiclePlate): string
+    private function resolveRecipientEmailFromManualFallback(string $driverName): string
     {
         $driverEmails = is_array($this->config['manual_driver_emails'] ?? null) ? $this->config['manual_driver_emails'] : [];
-        $plateEmails = is_array($this->config['manual_vehicle_plate_emails'] ?? null) ? $this->config['manual_vehicle_plate_emails'] : [];
 
-        // Backward compatibility with the first v4.5 config draft. These keys are
-        // intentionally treated as manual fallback only, not the preferred method.
+        // Backward compatibility with the first v4.5 config draft. Driver-name
+        // entries remain an emergency fallback. Vehicle/plate fallbacks are ignored
+        // on purpose because drivers may use different cars at any time.
         if (!$driverEmails && is_array($this->config['driver_emails'] ?? null)) {
             $driverEmails = $this->config['driver_emails'];
-        }
-        if (!$plateEmails && is_array($this->config['vehicle_plate_emails'] ?? null)) {
-            $plateEmails = $this->config['vehicle_plate_emails'];
         }
 
         $driverKey = $this->normalizeKey($driverName);
         foreach ($driverEmails as $name => $email) {
             if ($this->normalizeKey((string)$name) === $driverKey) {
-                return trim((string)$email);
-            }
-        }
-
-        $plateKey = $this->normalizePlate($vehiclePlate);
-        foreach ($plateEmails as $plate => $email) {
-            if ($this->normalizePlate((string)$plate) === $plateKey) {
                 return trim((string)$email);
             }
         }
@@ -489,6 +533,22 @@ final class BoltMailDriverNotificationService
             return mb_strtolower($value, 'UTF-8');
         }
         return strtolower($value);
+    }
+
+    private function normalizeHumanName(string $value): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+        if ($value === '') {
+            return '';
+        }
+        if (function_exists('mb_strtolower')) {
+            $value = mb_strtolower($value, 'UTF-8');
+        } else {
+            $value = strtolower($value);
+        }
+        // Compare names, not vehicles: remove punctuation/spacing noise while
+        // preserving Greek/Latin letters and numbers.
+        return preg_replace('/[^\p{L}\p{N}]+/u', '', $value) ?? '';
     }
 
     private function normalizePlate(string $value): string

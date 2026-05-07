@@ -158,7 +158,7 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
 <main class="wrap">
     <section class="card banner">
         <h1>Bolt Driver Email Copies</h1>
-        <p>Read-only monitor for the driver notification layer. When enabled, each newly imported real Bolt pre-ride email can generate one driver email copy by matching the parsed driver name or vehicle plate to the Bolt driver directory stored in <code>mapping_drivers.driver_email</code>.</p>
+        <p>Read-only monitor for the driver notification layer. When enabled, each newly imported real Bolt pre-ride email can generate one driver email copy by matching the parsed driver identity/name to the Bolt driver directory stored in <code>mapping_drivers.driver_email</code>. Vehicle plate is displayed for context only and is not used as a recipient resolver.</p>
         <div>
             <?= mdn_badge($enabled ? 'DRIVER COPIES ENABLED' : 'DRIVER COPIES DISABLED', $enabled ? 'good' : 'warn') ?>
             <?= mdn_badge('IDEMPOTENT PER INTAKE ROW', 'good') ?>
@@ -206,11 +206,11 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                 <div class="metric"><strong><?= mdn_h($driverDirectoryReady ? 'YES' : 'NO') ?></strong><span>driver_email column</span></div>
                 <div class="metric"><strong><?= mdn_h($enabled ? 'ON' : 'OFF') ?></strong><span>Notifications</span></div>
             </div>
-            <p class="small">Run <code>/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720</code> after installing the v4.5.1 SQL migration. The notification worker can also refresh this directory automatically on a miss when <code>sync_reference_on_miss=true</code>.</p>
+            <p class="small">Run <code>/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720</code> after installing the SQL migration. The notification worker can also refresh this directory automatically on a miss when <code>sync_reference_on_miss=true</code>. Driver names/emails are resolved from Bolt driver API data; plates are not used for recipient selection because drivers may change cars.</p>
             <?php if ($driverDirectoryRows): ?>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>ID</th><th>Driver</th><th>Plate</th><th>Email</th><th>Last seen</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Driver identity</th><th>Current plate context</th><th>Email</th><th>Last seen</th></tr></thead>
                         <tbody>
                         <?php foreach ($driverDirectoryRows as $drow): ?>
                             <tr>
@@ -236,7 +236,7 @@ $keyValue = mdn_h((string)($_GET['key'] ?? ''));
                         <th>ID</th>
                         <th>Intake</th>
                         <th>Status</th>
-                        <th>Driver / Vehicle</th>
+                        <th>Driver / Vehicle context</th>
                         <th>Recipient</th>
                         <th>Ride</th>
                         <th>Reason / Error</th>

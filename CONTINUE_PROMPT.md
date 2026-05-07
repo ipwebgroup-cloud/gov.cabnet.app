@@ -1,19 +1,10 @@
-Continue gov.cabnet.app Bolt → EDXEIX bridge from v4.5.1.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Important state:
-- Live EDXEIX submit OFF.
-- Dry-run ON.
-- Mail intake cron ON.
-- Auto dry-run cron ON.
-- Driver email copy layer added.
-- v4.5.1 supersedes manual driver email config. Use Bolt driver directory API sync into `mapping_drivers.driver_email`.
+The bridge is in safe dry-run mode. Live EDXEIX submission is OFF.
 
-Next verification:
-1. Run v4.5/v4.5.1 SQL migrations.
-2. Run `sync_bolt_driver_directory.php --hours=720`.
-3. Confirm `mapping_drivers.driver_email` has rows.
-4. Enable `mail.driver_notifications.enabled=true` in server-only config.
-5. Send a real future Bolt pre-ride email.
-6. Confirm importer log shows `driver_sent=1` for mapped driver, with `submission_jobs=0` and `submission_attempts=0`.
+Latest driver-copy requirement:
+- When Bolt sends a pre-ride email to the bridge mailbox, gov.cabnet.app should send a copy to the assigned driver.
+- Recipient resolution must be driver-based, not vehicle-plate-based.
+- v4.5.2 removes vehicle plate as a recipient resolver and improves Bolt driver-directory name/email extraction.
 
-Never enable live EDXEIX submission unless Andreas explicitly asks.
+Keep all changes plain PHP/mysqli, cPanel friendly, and production safe. Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit patch.

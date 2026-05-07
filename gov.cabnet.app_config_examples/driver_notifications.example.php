@@ -5,7 +5,6 @@
  * Merge the returned 'mail' array into:
  * /home/cabnet/gov.cabnet.app_config/config.php
  *
- * Use real driver email addresses only on the server. Do not commit or paste them into chat.
  */
 
 return [
@@ -19,15 +18,15 @@ return [
             'bcc' => '',
             'subject_prefix' => 'Bolt pre-ride details',
 
-            // Preferred production mode: resolve driver email from mapping_drivers.driver_email,
-            // which is populated by the Bolt Driver Directory sync/API response.
+            // Production mode: resolve by Bolt driver identity/name only, using
+            // mapping_drivers.driver_email populated by the Bolt Driver Directory sync.
+            // Vehicle plate is never used as a recipient resolver.
             'resolve_from_bolt_driver_directory' => true,
             'sync_reference_on_miss' => true,
             'sync_reference_hours_back' => 720,
 
-            // Emergency fallback only. Leave empty unless the Bolt API does not expose an email.
+            // Emergency fallback by driver name only. Leave empty unless needed.
             'manual_driver_emails' => [],
-            'manual_vehicle_plate_emails' => [],
         ],
     ],
 ];

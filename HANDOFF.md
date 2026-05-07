@@ -1,27 +1,19 @@
-# gov.cabnet.app Handoff — v4.5.1
+# gov.cabnet.app Bolt → EDXEIX Bridge Handoff
 
-Current posture: safe automated dry-run mode. Live EDXEIX submit remains OFF.
+Current bridge posture: safe automated dry-run mode. Live EDXEIX submit remains OFF.
 
-Latest patch: v4.5.1 Bolt Driver Directory Email Sync.
+Latest patch: v4.5.2 Driver Identity Email Resolution.
 
-Change: driver email copies no longer require manual name/plate mappings in config. The system syncs Bolt driver directory data from the existing Bolt API connection into `mapping_drivers.driver_email`, then uses that email when a real Bolt pre-ride email is imported.
+Important behavior:
+- Mail intake imports Bolt pre-ride emails into `bolt_mail_intake`.
+- Auto dry-run can create local `normalized_bookings source='bolt_mail'` and `bolt_mail_dry_run_evidence` only for valid future candidates.
+- Driver email copies are optional and audited in `bolt_mail_driver_notifications`.
+- Driver email recipient resolution must use Bolt driver identity/name from `mapping_drivers.driver_email`.
+- Vehicle plate must not be used to select the recipient because drivers may change cars.
+- No `submission_jobs`, no `submission_attempts`, and no EDXEIX POST unless explicitly approved in a later live-submit patch.
 
-Safety remains:
-- no EDXEIX POST
-- no submission_jobs from mail intake/driver notifications
-- no submission_attempts from mail intake/driver notifications
-- synthetic/test emails suppressed from driver delivery
-
-Required install steps:
-1. Upload patch files.
-2. Run `2026_05_07_bolt_mail_driver_notifications.sql` if v4.5 was not already installed.
-3. Run `2026_05_07_bolt_driver_directory_email_columns.sql`.
-4. Add the `mail.driver_notifications` config block with directory mode enabled and manual arrays empty.
-5. Run `/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720`.
-6. Verify `/ops/mail-driver-notifications.php?key=INTERNAL_API_KEY`.
-
-Suggested optional cron:
-
-```cron
-*/15 * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_driver_directory_sync.log 2>&1
-```
+Next validation:
+1. Confirm config `mail.driver_notifications.enabled=true` after server config is saved.
+2. Run `/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/sync_bolt_driver_directory.php --hours=720`.
+3. Confirm `mapping_drivers.external_driver_name` and `driver_email` are populated.
+4. Test with a real future Bolt pre-ride email.
