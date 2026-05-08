@@ -1,49 +1,24 @@
-# gov.cabnet.app Handoff — v6.2.8
+# HANDOFF — gov.cabnet.app v6.2.9
 
-## Current state
+Current focus: stabilize Bolt pre-ride email → AADE receipt delivery at pickup time.
 
-- Bolt mail intake is live.
-- AADE/myDATA production receipt issuing is live.
-- Driver receipt PDF email copy is live.
-- EDXEIX live submission remains blocked.
-- `submission_jobs = 0` and `submission_attempts = 0` must remain true unless Andreas explicitly approves EDXEIX live submission.
+v6.2.8 proved the mail-intake path works, but a live run issued two receipts for two near-duplicate mail intake rows. v6.2.9 adds a duplicate logical-trip guard and a process lock.
 
-## Critical event
+Key rules:
+- EDXEIX remains disabled/untouched.
+- `submission_jobs` and `submission_attempts` must remain zero unless Andreas explicitly approves live EDXEIX work.
+- The receipt worker uses parsed Bolt email intake as the reliable source.
+- Duplicate official receipts already issued must not be modified automatically; accountant review is required.
 
-During a live ride for intake 26:
+Primary worker:
+`/home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php`
 
-- customer: Diego Rodrigue
-- driver: Efthymios Giakis
-- plate: ITK7702
-- parsed pickup: 2026-05-08 15:31:18 EEST
-- estimated price: 50.00 - 55.00 eur
+Cron:
+`* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --minutes=240 --limit=25 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_receipts.log 2>&1`
 
-The emergency intake-based flow created booking 67 and sent the receipt after pickup. This proved the reliable fallback: use Bolt pre-ride email intake for receipt preparation and issue at pickup, instead of waiting for Bolt API finish data.
+Validation:
+`php -l /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php`
 
-## v6.2.8 change
-
-Added:
-
-```text
-/home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
-```
-
-This worker scans recent parsed Bolt mail intake rows, creates/links a receipt-only local booking if needed, waits for the existing pickup-time gate, then calls the existing duplicate-protected AADE issuer and driver email system.
-
-## Recommended cron
-
-```cron
-* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --minutes=240 --limit=25 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_receipts.log 2>&1
-```
-
-## Safety rules
-
-- Do not enable EDXEIX live submission.
-- Do not create submission jobs or attempts.
-- Do not reissue already-issued receipts.
-- Do not expose credentials.
-- Keep emergency scripts removed after v6.2.8 worker is deployed and verified.
-
-## Next step
-
-Deploy v6.2.8, run dry-run, run one live tick, add the cron, then monitor the next live transfer.
+Safety:
+`mysql cabnet_gov -e "SELECT COUNT(*) AS submission_jobs FROM submission_jobs;"`
+`mysql cabnet_gov -e "SELECT COUNT(*) AS submission_attempts FROM submission_attempts;"`

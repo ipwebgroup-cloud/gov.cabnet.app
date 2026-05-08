@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Bolt mail AADE receipt worker v6.2.8
+ * gov.cabnet.app — Bolt mail AADE receipt worker v6.2.9
  *
  * Purpose:
  * - Stabilize driver receipt delivery without depending on Bolt API finishing data.
@@ -32,10 +32,33 @@ $container = require __DIR__ . '/../src/bootstrap.php';
 $config = $container['config'];
 $db = $container['db'];
 
+$runtimeDir = '/home/cabnet/gov.cabnet.app_app/storage/runtime';
+if (!is_dir($runtimeDir)) {
+    @mkdir($runtimeDir, 0750, true);
+}
+$lockHandle = @fopen($runtimeDir . '/bolt_mail_receipt_worker.lock', 'c');
+if (!is_resource($lockHandle) || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
+    $skipped = [
+        'ok' => true,
+        'script' => 'cli/bolt_mail_receipt_worker.php',
+        'version' => 'v6.2.9',
+        'started_at' => date('c'),
+        'finished_at' => date('c'),
+        'status' => 'skipped_lock_active',
+        'message' => 'Another bolt_mail_receipt_worker process is already running.',
+        'safety' => [
+            'does_not_call_edxeix' => true,
+            'does_not_issue_aade_receipts_when_locked' => true,
+        ],
+    ];
+    echo json_encode($skipped, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    exit(0);
+}
+
 $options = getopt('', ['minutes::', 'limit::', 'dry-run', 'json', 'help']);
 
 if (isset($options['help'])) {
-    echo "Bolt Mail AADE Receipt Worker v6.2.8\n";
+    echo "Bolt Mail AADE Receipt Worker v6.2.9\n";
     echo "Usage: php bolt_mail_receipt_worker.php [--minutes=240] [--limit=25] [--dry-run] [--json]\n";
     echo "Safety: creates/links local receipt bookings and issues AADE only through existing gates; no EDXEIX jobs/calls.\n";
     exit(0);
@@ -49,7 +72,7 @@ $json = array_key_exists('json', $options);
 $out = [
     'ok' => false,
     'script' => 'cli/bolt_mail_receipt_worker.php',
-    'version' => 'v6.2.8',
+    'version' => 'v6.2.9',
     'started_at' => date('c'),
     'finished_at' => null,
     'minutes' => $minutes,
@@ -60,6 +83,7 @@ $out = [
         'created_bookings' => 0,
         'linked_existing_bookings' => 0,
         'already_issued' => 0,
+        'dedupe_suppressed' => 0,
         'aade_attempted' => 0,
         'aade_issued' => 0,
         'aade_emailed' => 0,
@@ -78,12 +102,13 @@ $out = [
         'uses_email_estimated_price_first_number' => true,
         'uses_existing_aade_duplicate_gates' => true,
         'uses_existing_driver_email_delivery' => true,
+        'suppresses_near_duplicate_mail_intakes' => true,
     ],
     'error' => null,
 ];
 
 try {
-    $worker = new BoltMailReceiptWorkerV628($db, $config);
+    $worker = new BoltMailReceiptWorkerV629($db, $config);
     $result = $worker->run($minutes, $limit, $dryRun);
     $out = array_replace_recursive($out, $result);
     $out['ok'] = ($out['summary']['errors'] ?? 0) === 0;
@@ -97,13 +122,14 @@ $out['finished_at'] = date('c');
 if ($json) {
     echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } else {
-    echo '[' . $out['finished_at'] . '] Bolt Mail AADE Receipt Worker v6.2.8' . PHP_EOL;
+    echo '[' . $out['finished_at'] . '] Bolt Mail AADE Receipt Worker v6.2.9' . PHP_EOL;
     if (!empty($out['ok'])) {
         $s = $out['summary'];
         echo 'OK candidates=' . $s['candidate_rows']
             . ' created_bookings=' . $s['created_bookings']
             . ' linked_existing=' . $s['linked_existing_bookings']
             . ' already_issued=' . $s['already_issued']
+            . ' dedupe_suppressed=' . ($s['dedupe_suppressed'] ?? 0)
             . ' aade_attempted=' . $s['aade_attempted']
             . ' aade_issued=' . $s['aade_issued']
             . ' aade_emailed=' . $s['aade_emailed']
@@ -120,7 +146,7 @@ if ($json) {
 
 exit(!empty($out['ok']) ? 0 : 1);
 
-final class BoltMailReceiptWorkerV628
+final class BoltMailReceiptWorkerV629
 {
     public function __construct(
         private readonly Database $db,
@@ -139,6 +165,7 @@ final class BoltMailReceiptWorkerV628
             'created_bookings' => 0,
             'linked_existing_bookings' => 0,
             'already_issued' => 0,
+            'dedupe_suppressed' => 0,
             'aade_attempted' => 0,
             'aade_issued' => 0,
             'aade_emailed' => 0,
@@ -170,6 +197,16 @@ final class BoltMailReceiptWorkerV628
             ];
 
             try {
+                $duplicate = $this->duplicateIssuedIntakeReceipt($row, 45);
+                if (is_array($duplicate)) {
+                    $summary['dedupe_suppressed']++;
+                    $item['status'] = 'duplicate_logical_trip_suppressed';
+                    $item['message'] = 'A near-duplicate Bolt mail intake already has an issued AADE receipt. Skipping to prevent duplicate driver receipts.';
+                    $item['duplicate_guard'] = $duplicate;
+                    $items[] = $item;
+                    continue;
+                }
+
                 $bookingId = (int)($row['linked_booking_id'] ?? 0);
 
                 if ($bookingId <= 0) {
@@ -220,7 +257,7 @@ final class BoltMailReceiptWorkerV628
                     continue;
                 }
 
-                $issue = $issuer->issueAndEmailForBooking($bookingId, 'bolt-mail-receipt-worker-v6.2.8');
+                $issue = $issuer->issueAndEmailForBooking($bookingId, 'bolt-mail-receipt-worker-v6.2.9');
                 $item['issue_result'] = $issue;
 
                 if (!empty($issue['attempted'])) {
@@ -286,6 +323,7 @@ final class BoltMailReceiptWorkerV628
                 'uses_email_estimated_price_first_number' => true,
                 'uses_existing_aade_duplicate_gates' => true,
                 'uses_existing_driver_email_delivery' => true,
+                'suppresses_near_duplicate_mail_intakes' => true,
                 'submission_jobs_before' => $beforeJobs,
                 'submission_jobs_after' => $afterJobs,
                 'submission_attempts_before' => $beforeAttempts,
@@ -478,7 +516,7 @@ final class BoltMailReceiptWorkerV628
             'dropoff_address' => $dropoff,
             'parsed_pickup_at' => $pickupAt,
             'estimated_price_raw' => (string)($intake['estimated_price_raw'] ?? ''),
-            'receipt_source' => 'bolt_mail_receipt_worker_v6_2_8',
+            'receipt_source' => 'bolt_mail_receipt_worker_v6_2_9',
             'edxeix_submission_not_created' => true,
         ];
 
@@ -512,7 +550,7 @@ final class BoltMailReceiptWorkerV628
             'price' => $price,
             'currency' => 'EUR',
             'broker_key' => (string)$this->config->get('edxeix.default_broker', 'Bolt'),
-            'notes' => 'v6.2.8 Bolt mail AADE receipt booking from intake #' . $intakeId . '. No EDXEIX submission job created.',
+            'notes' => 'v6.2.9 Bolt mail AADE receipt booking from intake #' . $intakeId . '. No EDXEIX submission job created.',
             'is_scheduled' => 1,
             'edxeix_ready' => 0,
             'is_test_booking' => 0,
@@ -527,6 +565,88 @@ final class BoltMailReceiptWorkerV628
         $payload['normalized_payload_json'] = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         return $payload;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function duplicateIssuedIntakeReceipt(array $intake, int $windowMinutes = 45): ?array
+    {
+        $intakeId = (int)($intake['id'] ?? 0);
+        $pickupAt = $this->mysqlDate((string)($intake['parsed_pickup_at'] ?? ''));
+        if ($intakeId <= 0 || $pickupAt === null) {
+            return null;
+        }
+
+        $windowMinutes = max(5, min(180, $windowMinutes));
+        $start = date('Y-m-d H:i:s', strtotime($pickupAt . ' -' . $windowMinutes . ' minutes'));
+        $end = date('Y-m-d H:i:s', strtotime($pickupAt . ' +' . $windowMinutes . ' minutes'));
+        $customer = trim((string)($intake['customer_name'] ?? ''));
+        $driver = trim((string)($intake['driver_name'] ?? ''));
+        $plate = strtoupper(trim((string)($intake['vehicle_plate'] ?? '')));
+        $pickup = $this->comparableText((string)($intake['pickup_address'] ?? ''));
+        $dropoff = $this->comparableText((string)($intake['dropoff_address'] ?? ''));
+        $price = $this->firstMoney((string)($intake['estimated_price_raw'] ?? ''));
+
+        if ($customer === '' || $driver === '' || $plate === '' || $pickup === '' || $dropoff === '' || (float)$price <= 0) {
+            return null;
+        }
+
+        $rows = $this->db->fetchAll(
+            "SELECT
+                j.id AS duplicate_intake_id,
+                j.linked_booking_id AS duplicate_booking_id,
+                j.customer_name,
+                j.driver_name,
+                j.vehicle_plate,
+                j.pickup_address,
+                j.dropoff_address,
+                j.parsed_pickup_at,
+                j.estimated_price_raw,
+                r.id AS receipt_attempt_id,
+                r.mark,
+                r.total_amount,
+                r.created_at AS receipt_created_at
+             FROM bolt_mail_intake j
+             INNER JOIN receipt_issuance_attempts r
+                ON r.intake_id = j.id
+               AND r.provider = 'aade_mydata'
+               AND r.provider_status = 'issued'
+             WHERE j.id <> ?
+               AND LOWER(TRIM(COALESCE(j.customer_name,''))) = LOWER(TRIM(?))
+               AND LOWER(TRIM(COALESCE(j.driver_name,''))) = LOWER(TRIM(?))
+               AND UPPER(TRIM(COALESCE(j.vehicle_plate,''))) = UPPER(TRIM(?))
+               AND j.parsed_pickup_at BETWEEN ? AND ?
+             ORDER BY ABS(TIMESTAMPDIFF(SECOND, j.parsed_pickup_at, ?)) ASC, r.id DESC
+             LIMIT 10",
+            [$intakeId, $customer, $driver, $plate, $start, $end, $pickupAt],
+            'issssss'
+        );
+
+        foreach ($rows as $row) {
+            if ($this->comparableText((string)($row['pickup_address'] ?? '')) !== $pickup) {
+                continue;
+            }
+            if ($this->comparableText((string)($row['dropoff_address'] ?? '')) !== $dropoff) {
+                continue;
+            }
+            if ($this->firstMoney((string)($row['estimated_price_raw'] ?? '')) !== $price) {
+                continue;
+            }
+
+            return [
+                'matched' => true,
+                'rule' => 'same_customer_driver_plate_route_price_pickup_window_after_issued_receipt',
+                'window_minutes' => $windowMinutes,
+                'duplicate_intake_id' => (int)($row['duplicate_intake_id'] ?? 0),
+                'duplicate_booking_id' => isset($row['duplicate_booking_id']) ? (int)$row['duplicate_booking_id'] : null,
+                'receipt_attempt_id' => (int)($row['receipt_attempt_id'] ?? 0),
+                'mark_present' => trim((string)($row['mark'] ?? '')) !== '',
+                'total_amount' => (string)($row['total_amount'] ?? ''),
+                'duplicate_pickup_at' => (string)($row['parsed_pickup_at'] ?? ''),
+                'current_pickup_at' => $pickupAt,
+            ];
+        }
+
+        return null;
     }
 
     private function issuedReceiptExistsForBooking(int $bookingId): bool
@@ -623,6 +743,13 @@ final class BoltMailReceiptWorkerV628
             return '0.00';
         }
         return number_format((float)$m[0], 2, '.', '');
+    }
+
+    private function comparableText(string $value): string
+    {
+        $value = $this->lower($value);
+        $value = preg_replace('/\s+/u', ' ', $value) ?: $value;
+        return trim($value);
     }
 
     private function normalizePhone(string $value): string
