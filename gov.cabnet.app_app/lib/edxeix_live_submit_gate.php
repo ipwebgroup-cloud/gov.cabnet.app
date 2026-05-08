@@ -1,6 +1,7 @@
 <?php
 /**
  * gov.cabnet.app — Disabled-by-default EDXEIX live submit safety gate.
+ * v6.3.0: receipt-only Bolt mail bookings are permanently blocked from EDXEIX.
  *
  * This library prepares the final live-submit control path without enabling it.
  * It performs candidate analysis, duplicate checks, config checks, and payload
@@ -142,12 +143,34 @@ if (!function_exists('gov_live_terminal_status')) {
         $terminal = [
             'finished', 'completed', 'client_cancelled', 'driver_cancelled',
             'driver_cancelled_after_accept', 'cancelled', 'canceled', 'expired',
-            'rejected', 'failed',
+            'rejected', 'failed', 'no_show', 'client_did_not_show',
+            'driver_did_not_respond', 'client_no_show', 'rider_no_show',
         ];
         return in_array($status, $terminal, true)
             || strpos($status, 'cancel') !== false
             || strpos($status, 'finished') !== false
             || strpos($status, 'complete') !== false;
+    }
+}
+
+if (!function_exists('gov_live_is_receipt_only_booking')) {
+    function gov_live_is_receipt_only_booking(array $booking): bool
+    {
+        $source = strtolower((string)gov_live_value($booking, ['source_system', 'source_type', 'source'], ''));
+        $ref = strtolower((string)gov_live_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_id', 'source_trip_reference'], ''));
+        $blockReason = strtolower((string)gov_live_value($booking, ['live_submit_block_reason'], ''));
+        $notes = strtolower((string)gov_live_value($booking, ['notes'], ''));
+        $raw = strtolower((string)gov_live_value($booking, ['raw_payload_json', 'normalized_payload_json'], ''));
+
+        if ($source === 'bolt_mail' || $source === 'mail' || str_starts_with($ref, 'mail:')) {
+            return true;
+        }
+        foreach (['receipt_only', 'aade_receipt_only', 'no_edxeix_job', 'emergency_aade_receipt_only'] as $needle) {
+            if (str_contains($blockReason, $needle) || str_contains($notes, $needle) || str_contains($raw, $needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
@@ -165,6 +188,9 @@ if (!function_exists('gov_live_is_lab_or_test_booking')) {
 if (!function_exists('gov_live_is_real_bolt_booking')) {
     function gov_live_is_real_bolt_booking(array $booking): bool
     {
+        if (gov_live_is_receipt_only_booking($booking)) {
+            return false;
+        }
         $source = strtolower((string)gov_live_value($booking, ['source_system', 'source_type', 'source'], ''));
         return strpos($source, 'bolt') !== false && !gov_live_is_lab_or_test_booking($booking);
     }
@@ -391,6 +417,7 @@ if (!function_exists('gov_live_analyze_booking')) {
         $bookingId = (string)gov_live_value($booking, ['id'], '');
         $orderRef = (string)gov_live_value($booking, ['order_reference', 'external_order_id', 'external_reference', 'source_trip_reference', 'source_trip_id'], '');
         $isLab = gov_live_is_lab_or_test_booking($booking);
+        $isReceiptOnly = gov_live_is_receipt_only_booking($booking);
         $isRealBolt = gov_live_is_real_bolt_booking($booking);
         $terminal = gov_live_terminal_status($status);
         $futureGuard = gov_live_future_guard_passes($startedAt, $guardMinutes);
@@ -418,6 +445,7 @@ if (!function_exists('gov_live_analyze_booking')) {
         if (empty($liveConfig['edxeix_session_connected'])) { $liveBlockers[] = 'edxeix_session_not_connected'; }
         if (!empty($liveConfig['require_one_shot_lock']) && empty($liveConfig['allowed_booking_id']) && empty($liveConfig['allowed_order_reference'])) { $liveBlockers[] = 'one_shot_live_lock_missing'; }
         if (!$isRealBolt) { $liveBlockers[] = 'not_real_bolt_source'; }
+        if ($isReceiptOnly) { $liveBlockers[] = 'receipt_only_booking_blocked_from_edxeix'; }
         if ($isLab) { $liveBlockers[] = 'lab_or_test_booking_blocked'; }
         if (!$session['ready']) { $liveBlockers[] = 'edxeix_session_not_ready'; }
         if (trim((string)($liveConfig['edxeix_submit_url'] ?? '')) === '') { $liveBlockers[] = 'edxeix_submit_url_missing'; }
@@ -434,6 +462,7 @@ if (!function_exists('gov_live_analyze_booking')) {
             'driver_name' => (string)gov_live_value($booking, ['driver_name', 'external_driver_name'], ''),
             'plate' => (string)gov_live_value($booking, ['vehicle_plate', 'plate'], ''),
             'is_real_bolt' => $isRealBolt,
+            'is_receipt_only_booking' => $isReceiptOnly,
             'is_lab_or_test' => $isLab,
             'mapping_ready' => $driverMapped && $vehicleMapped && $startingPointMapped,
             'future_guard_passed' => $futureGuard,

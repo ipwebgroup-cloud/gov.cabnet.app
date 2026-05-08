@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Bolt mail AADE receipt worker v6.2.9
+ * gov.cabnet.app — Bolt mail AADE receipt worker v6.3.0
  *
  * Purpose:
  * - Stabilize driver receipt delivery without depending on Bolt API finishing data.
@@ -41,7 +41,7 @@ if (!is_resource($lockHandle) || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
     $skipped = [
         'ok' => true,
         'script' => 'cli/bolt_mail_receipt_worker.php',
-        'version' => 'v6.2.9',
+        'version' => 'v6.3.0',
         'started_at' => date('c'),
         'finished_at' => date('c'),
         'status' => 'skipped_lock_active',
@@ -72,7 +72,7 @@ $json = array_key_exists('json', $options);
 $out = [
     'ok' => false,
     'script' => 'cli/bolt_mail_receipt_worker.php',
-    'version' => 'v6.2.9',
+    'version' => 'v6.3.0',
     'started_at' => date('c'),
     'finished_at' => null,
     'minutes' => $minutes,
@@ -108,7 +108,7 @@ $out = [
 ];
 
 try {
-    $worker = new BoltMailReceiptWorkerV629($db, $config);
+    $worker = new BoltMailReceiptWorkerV630($db, $config);
     $result = $worker->run($minutes, $limit, $dryRun);
     $out = array_replace_recursive($out, $result);
     $out['ok'] = ($out['summary']['errors'] ?? 0) === 0;
@@ -146,7 +146,7 @@ if ($json) {
 
 exit(!empty($out['ok']) ? 0 : 1);
 
-final class BoltMailReceiptWorkerV629
+final class BoltMailReceiptWorkerV630
 {
     public function __construct(
         private readonly Database $db,
@@ -257,7 +257,7 @@ final class BoltMailReceiptWorkerV629
                     continue;
                 }
 
-                $issue = $issuer->issueAndEmailForBooking($bookingId, 'bolt-mail-receipt-worker-v6.2.9');
+                $issue = $issuer->issueAndEmailForBooking($bookingId, 'bolt-mail-receipt-worker-v6.3.0');
                 $item['issue_result'] = $issue;
 
                 if (!empty($issue['attempted'])) {
@@ -516,7 +516,7 @@ final class BoltMailReceiptWorkerV629
             'dropoff_address' => $dropoff,
             'parsed_pickup_at' => $pickupAt,
             'estimated_price_raw' => (string)($intake['estimated_price_raw'] ?? ''),
-            'receipt_source' => 'bolt_mail_receipt_worker_v6_2_9',
+            'receipt_source' => 'bolt_mail_receipt_worker_v6_3_0',
             'edxeix_submission_not_created' => true,
         ];
 
@@ -550,12 +550,12 @@ final class BoltMailReceiptWorkerV629
             'price' => $price,
             'currency' => 'EUR',
             'broker_key' => (string)$this->config->get('edxeix.default_broker', 'Bolt'),
-            'notes' => 'v6.2.9 Bolt mail AADE receipt booking from intake #' . $intakeId . '. No EDXEIX submission job created.',
+            'notes' => 'v6.3.0 Bolt mail AADE receipt-only booking from intake #' . $intakeId . '. No EDXEIX submission job created.',
             'is_scheduled' => 1,
             'edxeix_ready' => 0,
             'is_test_booking' => 0,
-            'never_submit_live' => 0,
-            'live_submit_block_reason' => 'aade_receipt_only_no_edxeix_job',
+            'never_submit_live' => 1,
+            'live_submit_block_reason' => 'aade_receipt_only_no_edxeix_submission_allowed',
             'raw_payload_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'edxeix_payload_json' => null,
             'dedupe_hash' => $dedupeHash,
