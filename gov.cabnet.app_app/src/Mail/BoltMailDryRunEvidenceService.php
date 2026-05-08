@@ -322,17 +322,29 @@ final class BoltMailDryRunEvidenceService
         $startedAtRaw = (string)($booking['started_at'] ?? '');
         $startedAt = $this->parseLocalDateTime($startedAtRaw);
 
+        $lateAadeReceiptRecovery = $this->isLateAadeReceiptRecovery($booking, $intake, $startedAt, $now);
+
         if (!$startedAt) {
             $blockers[] = 'missing_started_at';
         } elseif ($startedAt <= $now->modify('+' . $guard . ' minutes')) {
-            $blockers[] = 'started_at_not_future_guard_safe';
+            if ($lateAadeReceiptRecovery) {
+                $warnings[] = 'started_at_not_future_guard_safe_but_allowed_for_aade_receipt_recovery';
+                $warnings[] = 'not_edxeix_live_safe_if_pickup_is_past';
+            } else {
+                $blockers[] = 'started_at_not_future_guard_safe';
+            }
         }
 
         if (!$mapping['driver_ok']) {
             $blockers[] = 'driver_not_mapped';
         }
         if (!$mapping['vehicle_ok']) {
-            $blockers[] = 'vehicle_not_mapped';
+            if (!empty($lateAadeReceiptRecovery)) {
+                $warnings[] = 'vehicle_not_mapped_but_allowed_for_aade_receipt_recovery';
+                $warnings[] = 'not_edxeix_live_safe_until_vehicle_is_mapped';
+            } else {
+                $blockers[] = 'vehicle_not_mapped';
+            }
         }
         if (!$mapping['starting_point_ok']) {
             $blockers[] = 'starting_point_not_mapped';
@@ -366,8 +378,43 @@ final class BoltMailDryRunEvidenceService
             'intake_id' => $intake['id'] ?? null,
             'intake_safety_status' => $intake['safety_status'] ?? null,
             'synthetic' => $synthetic,
+            'late_aade_receipt_recovery' => $lateAadeReceiptRecovery,
             'guarantee' => 'This evidence record does not create submission_jobs and does not POST to EDXEIX.',
         ];
+    }
+
+    private function isLateAadeReceiptRecovery(array $booking, ?array $intake, ?DateTimeImmutable $startedAt, DateTimeImmutable $now): bool
+    {
+        if (empty($this->config['receipts']['aade_mydata']['allow_late_bolt_mail_receipt'])) {
+            return false;
+        }
+
+        if ((string)($booking['source'] ?? '') !== 'bolt_mail') {
+            return false;
+        }
+
+        if (!$startedAt || $startedAt > $now) {
+            return false;
+        }
+
+        if (!is_array($intake)) {
+            return false;
+        }
+
+        if ((string)($intake['parse_status'] ?? '') !== 'parsed') {
+            return false;
+        }
+
+        if (!in_array((string)($intake['safety_status'] ?? ''), ['blocked_past', 'blocked_too_soon', 'future_candidate'], true)) {
+            return false;
+        }
+
+        $customer = strtoupper((string)($booking['customer_name'] ?? $intake['customer_name'] ?? ''));
+        if (str_contains($customer, 'CABNET TEST') || str_contains($customer, 'DO NOT SUBMIT')) {
+            return false;
+        }
+
+        return true;
     }
 
     private function buildEdxeixPayload(array $booking, array $mapping): array

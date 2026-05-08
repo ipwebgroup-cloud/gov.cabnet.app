@@ -210,8 +210,74 @@ final class BoltMailDriverNotificationService
             return ['status' => 'failed', 'recipient' => $recipient, 'reason' => null, 'error' => (string)($send['error'] ?? $send['reason'] ?? 'receipt_email_send_failed')];
         }
 
+        $copyResults = [];
+        foreach ($this->officialReceiptCopyRecipients() as $copyRecipient) {
+            try {
+                $copySubject = '[COPY] ' . $subject;
+                $copySend = $this->sendReceiptEmailWithPdfBytes(
+                    $copyRecipient,
+                    $copySubject,
+                    $intakeId,
+                    $row,
+                    $fromEmail,
+                    $fromName,
+                    $pdfBytes,
+                    $pdfName,
+                    'bolt-mail-office-aade-mydata-receipt-pdf-copy'
+                );
+
+                $copyResults[] = [
+                    'recipient' => $copyRecipient,
+                    'status' => (string)($copySend['status'] ?? 'unknown'),
+                    'reason' => $copySend['reason'] ?? null,
+                    'error' => $copySend['error'] ?? null,
+                ];
+            } catch (Throwable $e) {
+                $copyResults[] = [
+                    'recipient' => $copyRecipient,
+                    'status' => 'failed',
+                    'reason' => null,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
         $this->upsertReceiptAudit($intakeId, $messageHash, $driverName, $vehiclePlate, $recipient, $subject, 'sent', null, (new DateTimeImmutable('now', $this->timezone))->format('Y-m-d H:i:s'), $aadeReceipt);
-        return ['status' => 'sent', 'recipient' => $recipient, 'reason' => null, 'error' => null, 'pdf_path' => $pdfPath];
+
+        $out = ['status' => 'sent', 'recipient' => $recipient, 'reason' => null, 'error' => null, 'pdf_path' => $pdfPath];
+        if ($copyResults !== []) {
+            $out['copy_results'] = $copyResults;
+        }
+        return $out;
+    }
+
+    /** @return array<int,string> */
+    private function officialReceiptCopyRecipients(): array
+    {
+        if (!filter_var($this->config['official_receipt_copy_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return [];
+        }
+
+        $raw = $this->config['official_receipt_copy_emails'] ?? ($this->config['official_receipt_copy_email'] ?? []);
+        $values = [];
+
+        if (is_array($raw)) {
+            foreach ($raw as $value) {
+                $values[] = (string)$value;
+            }
+        } else {
+            $values = preg_split('/[;,]+/', (string)$raw) ?: [];
+        }
+
+        $emails = [];
+        foreach ($values as $value) {
+            $email = trim($value);
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $emails[strtolower($email)] = $email;
+            }
+        }
+
+        return array_values($emails);
     }
 
     /** @param array<string,mixed> $row @param array<string,mixed> $aadeReceipt */

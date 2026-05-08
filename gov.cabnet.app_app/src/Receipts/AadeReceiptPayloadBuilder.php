@@ -69,11 +69,18 @@ final class AadeReceiptPayloadBuilder
         $orderReference = trim((string)($booking['order_reference'] ?? $booking['source_trip_id'] ?? ''));
 
         $series = trim((string)($aade['series'] ?? 'BOLT'));
-        $aaPrefix = trim((string)($aade['aa_prefix'] ?? 'BOLT-'));
+        /*
+         * v6.1.4:
+         * AADE/myDATA requires invoiceHeader/aa to be numeric for Greek issuers.
+         * Keep the human-readable series as BOLT, but use numeric AA only.
+         */
         $aa = trim((string)($aade['aa'] ?? ''));
         if ($aa === '') {
-            $aa = $aaPrefix . ($bookingId > 0 ? (string)$bookingId : substr(hash('sha256', $orderReference), 0, 10));
+            $aa = $bookingId > 0
+                ? (string)$bookingId
+                : (string)abs((int)crc32($orderReference));
         }
+        $aa = preg_replace('/\D+/', '', $aa) ?: ($bookingId > 0 ? (string)$bookingId : '1');
 
         $invoiceType = trim((string)($aade['invoice_type'] ?? '11.2'));
         $currency = trim((string)($booking['currency'] ?? 'EUR')) ?: 'EUR';
@@ -258,9 +265,9 @@ final class AadeReceiptPayloadBuilder
         $this->el($doc, $details, 'lineComments', $this->lineComment($summary, $description));
 
         $class = $details->appendChild($doc->createElement('incomeClassification'));
-        $this->el($doc, $class, 'classificationType', (string)$summary['income_classification_type']);
-        $this->el($doc, $class, 'classificationCategory', (string)$summary['income_classification_category']);
-        $this->el($doc, $class, 'amount', $this->fmt((float)$summary['net_amount']));
+        $this->elIncomeClassification($doc, $class, 'classificationType', (string)$summary['income_classification_type']);
+        $this->elIncomeClassification($doc, $class, 'classificationCategory', (string)$summary['income_classification_category']);
+        $this->elIncomeClassification($doc, $class, 'amount', $this->fmt((float)$summary['net_amount']));
 
         $summaryNode = $invoice->appendChild($doc->createElement('invoiceSummary'));
         $this->el($doc, $summaryNode, 'totalNetValue', $this->fmt((float)$summary['net_amount']));
@@ -273,29 +280,67 @@ final class AadeReceiptPayloadBuilder
         $this->el($doc, $summaryNode, 'totalGrossValue', $this->fmt((float)$summary['gross_amount']));
 
         $class2 = $summaryNode->appendChild($doc->createElement('incomeClassification'));
-        $this->el($doc, $class2, 'classificationType', (string)$summary['income_classification_type']);
-        $this->el($doc, $class2, 'classificationCategory', (string)$summary['income_classification_category']);
-        $this->el($doc, $class2, 'amount', $this->fmt((float)$summary['net_amount']));
+        $this->elIncomeClassification($doc, $class2, 'classificationType', (string)$summary['income_classification_type']);
+        $this->elIncomeClassification($doc, $class2, 'classificationCategory', (string)$summary['income_classification_category']);
+        $this->elIncomeClassification($doc, $class2, 'amount', $this->fmt((float)$summary['net_amount']));
 
         return (string)$doc->saveXML();
     }
 
     private function lineComment(array $summary, string $description): string
     {
-        $parts = [$description];
-        if (!empty($summary['order_reference'])) {
-            $parts[] = 'Ref: ' . (string)$summary['order_reference'];
+        /*
+         * v6.1.2:
+         * AADE/myDATA lineComments has a strict max length.
+         * Do not include full pickup/dropoff addresses here.
+         * Keep the official receipt comment short and stable.
+         */
+        $bookingId = trim((string)($summary['booking_id'] ?? ''));
+        $driver = trim((string)($summary['driver_name'] ?? ''));
+        $plate = trim((string)($summary['vehicle_plate'] ?? ''));
+
+        $parts = [];
+        $parts[] = trim($description) !== '' ? trim($description) : 'Transfer services';
+
+        if ($bookingId !== '') {
+            $parts[] = 'Booking ' . $bookingId;
         }
-        if (!empty($summary['driver_name'])) {
-            $parts[] = 'Driver: ' . (string)$summary['driver_name'];
+        if ($driver !== '') {
+            $parts[] = 'Driver ' . $driver;
         }
-        if (!empty($summary['vehicle_plate'])) {
-            $parts[] = 'Vehicle: ' . (string)$summary['vehicle_plate'];
+        if ($plate !== '') {
+            $parts[] = 'Vehicle ' . $plate;
         }
-        if (!empty($summary['boarding_point']) || !empty($summary['disembark_point'])) {
-            $parts[] = 'Route: ' . trim((string)$summary['boarding_point']) . ' -> ' . trim((string)$summary['disembark_point']);
+
+        $comment = implode(' | ', $parts);
+        $comment = preg_replace('/\s+/u', ' ', $comment) ?: 'Transfer services';
+
+        $max = (int)$this->config->get('receipts.aade_mydata.line_comments_max_length', 100);
+        if ($max < 40 || $max > 120) {
+            $max = 100;
         }
-        return mb_substr(implode(' | ', $parts), 0, 500, 'UTF-8');
+
+        if (function_exists('mb_substr')) {
+            return mb_substr($comment, 0, $max, 'UTF-8');
+        }
+
+        return substr($comment, 0, $max);
+    }
+
+
+    private function elIncomeClassification(DOMDocument $doc, \DOMNode $parent, string $name, string $value): void
+    {
+        /*
+         * v6.1.3:
+         * AADE/myDATA incomeClassification child elements must use the
+         * incomeClassificaton namespace. The spelling below intentionally matches
+         * the AADE production schema namespace shown in validation errors.
+         */
+        $parent->appendChild($doc->createElementNS(
+            'https://www.aade.gr/myDATA/incomeClassificaton/v1.0',
+            'icls:' . $name,
+            $value
+        ));
     }
 
     private function el(DOMDocument $doc, \DOMNode $parent, string $name, string $value): void

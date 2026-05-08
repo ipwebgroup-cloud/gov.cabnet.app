@@ -30,10 +30,45 @@ final class BoltMailIntakeBookingBridge
     {
         $limit = max(1, min(200, $limit));
 
+        /*
+         * v6.1.1:
+         * For EDXEIX, only true future candidates may live-submit.
+         * For AADE/myDATA receipts, however, a real parsed Bolt mail that arrives
+         * at/after pickup still needs a normalized booking so the official receipt
+         * can be issued. Limit late recovery to rows created after the configured
+         * AADE auto-issue window, and never include synthetic/test customer rows.
+         */
+        $notBefore = trim((string)$this->config->get('receipts.aade_mydata.auto_issue_not_before', '1970-01-01 00:00:00'));
+        $lateRecoveryEnabled = filter_var(
+            $this->config->get('receipts.aade_mydata.allow_late_bolt_mail_receipt', true),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        if ($lateRecoveryEnabled) {
+            return $this->db->fetchAll(
+                "SELECT * FROM bolt_mail_intake
+                 WHERE parse_status = 'parsed'
+                   AND linked_booking_id IS NULL
+                   AND (
+                        safety_status = 'future_candidate'
+                        OR (
+                            safety_status IN ('blocked_past','blocked_too_soon')
+                            AND created_at >= ?
+                            AND UPPER(COALESCE(customer_name,'')) NOT LIKE '%CABNET TEST%'
+                            AND UPPER(COALESCE(customer_name,'')) NOT LIKE '%DO NOT SUBMIT%'
+                        )
+                   )
+                 ORDER BY parsed_pickup_at ASC, id ASC
+                 LIMIT " . $limit,
+                [$notBefore]
+            );
+        }
+
         return $this->db->fetchAll(
             "SELECT * FROM bolt_mail_intake
              WHERE parse_status = 'parsed'
                AND safety_status = 'future_candidate'
+               AND linked_booking_id IS NULL
              ORDER BY parsed_pickup_at ASC, id ASC
              LIMIT " . $limit
         );
@@ -68,8 +103,13 @@ final class BoltMailIntakeBookingBridge
             $errors[] = 'intake_not_parsed';
         }
 
-        if ($safetyStatus !== 'future_candidate') {
+        $lateReceiptRecovery = $this->isLateReceiptRecoveryRow($row);
+        if ($safetyStatus !== 'future_candidate' && !$lateReceiptRecovery) {
             $errors[] = 'intake_not_future_candidate';
+        }
+        if ($lateReceiptRecovery) {
+            $warnings[] = 'late_bolt_mail_receipt_recovery';
+            $warnings[] = 'not_edxeix_live_safe_if_pickup_is_past';
         }
 
         foreach ([
@@ -86,8 +126,11 @@ final class BoltMailIntakeBookingBridge
         }
 
         $timeCheck = $this->checkFutureGuard((string)($row['parsed_pickup_at'] ?? ''));
-        if (!$timeCheck['ok']) {
+        if (!$timeCheck['ok'] && !$lateReceiptRecovery) {
             $errors[] = $timeCheck['code'];
+        }
+        if (!$timeCheck['ok'] && $lateReceiptRecovery) {
+            $warnings[] = 'future_guard_bypassed_for_aade_receipt_only:' . $timeCheck['code'];
         }
 
         $normalized = $this->buildNormalizedCandidate($row);
@@ -96,7 +139,12 @@ final class BoltMailIntakeBookingBridge
             $errors[] = 'driver_not_mapped';
         }
         if (!$mapping['vehicle']['ok']) {
-            $errors[] = 'vehicle_not_mapped';
+            if (!empty($lateReceiptRecovery)) {
+                $warnings[] = 'vehicle_not_mapped_but_allowed_for_aade_receipt_recovery';
+                $warnings[] = 'not_edxeix_live_safe_until_vehicle_is_mapped';
+            } else {
+                $errors[] = 'vehicle_not_mapped';
+            }
         }
         if (!$mapping['starting_point']['ok']) {
             $errors[] = 'starting_point_not_mapped';
@@ -249,6 +297,7 @@ final class BoltMailIntakeBookingBridge
             'Customer mobile: ' . $mobile,
             'Operator: ' . (string)($row['operator_raw'] ?? ''),
             'Safety: local preflight candidate only; no EDXEIX live submit.',
+            $this->isLateReceiptRecoveryRow($row) ? 'v6.1.1: Late Bolt mail AADE receipt recovery booking. EDXEIX live gate still blocks past trips.' : '',
         ]));
 
         $normalized = [
@@ -382,6 +431,44 @@ final class BoltMailIntakeBookingBridge
             'ended_at' => $this->formatEdxeixDate((string)($normalized['ended_at'] ?? '')),
             'price' => number_format((float)($normalized['price'] ?? 0), 2, '.', ''),
         ];
+    }
+
+    private function isLateReceiptRecoveryRow(array $row): bool
+    {
+        if (!filter_var($this->config->get('receipts.aade_mydata.allow_late_bolt_mail_receipt', true), FILTER_VALIDATE_BOOLEAN)) {
+            return false;
+        }
+
+        if ((string)($row['parse_status'] ?? '') !== 'parsed') {
+            return false;
+        }
+
+        if (!in_array((string)($row['safety_status'] ?? ''), ['blocked_past', 'blocked_too_soon'], true)) {
+            return false;
+        }
+
+        if (!empty($row['linked_booking_id'])) {
+            return false;
+        }
+
+        $customer = strtoupper((string)($row['customer_name'] ?? ''));
+        if (str_contains($customer, 'CABNET TEST') || str_contains($customer, 'DO NOT SUBMIT')) {
+            return false;
+        }
+
+        $notBeforeRaw = trim((string)$this->config->get('receipts.aade_mydata.auto_issue_not_before', ''));
+        if ($notBeforeRaw === '') {
+            return false;
+        }
+
+        try {
+            $timezone = new DateTimeZone((string)$this->config->get('app.timezone', 'Europe/Athens'));
+            $createdAt = new DateTimeImmutable((string)($row['created_at'] ?? ''), $timezone);
+            $notBefore = new DateTimeImmutable($notBeforeRaw, $timezone);
+            return $createdAt >= $notBefore;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function checkFutureGuard(string $pickupAt): array
