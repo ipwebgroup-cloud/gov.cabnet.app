@@ -1,34 +1,33 @@
-# gov.cabnet.app v6.2.6 — Pickup audit + passenger-name receipt fix
+# gov.cabnet.app v6.2.8 Patch — Stabilized Bolt Mail AADE Receipt Worker
 
 ## What changed
 
-- Fixes receipt passenger/customer-name resolution for Bolt API bookings linked to Bolt mail intake.
-- Prefers the real `bolt_mail_intake.customer_name` over empty API booking fields and generic placeholders such as `Bolt Passenger`.
-- Adds passenger name to AADE line comments when available.
-- Ensures driver receipt PDF/email row uses the real passenger name from the matched Bolt email.
-- Adds a read-only Bolt order audit CLI for proving whether pickup timestamps appear before finish.
+- Added `bolt_mail_receipt_worker.php` to issue AADE receipts from Bolt pre-ride email intake at/after pickup time.
+- The worker creates/links a receipt-only `normalized_bookings` row when the intake is not yet linked.
+- It uses the first number from Bolt `estimated_price_raw` as the receipt amount.
+- It uses the existing AADE duplicate-protected issuer and existing driver PDF/email delivery.
+- It keeps EDXEIX untouched and does not create submission queues.
+- Included receipt passenger-name fixes from v6.2.6.
 
 ## Files included
 
 ```text
+gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
 gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
 gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
-gov.cabnet.app_app/cli/bolt_live_order_audit.php
-docs/V6_2_6_BOLT_PICKUP_AUDIT_AND_PASSENGER_NAME.md
+docs/V6_2_8_BOLT_MAIL_RECEIPT_WORKER.md
 PATCH_README.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 ```
 
-## Exact upload paths
-
-Upload files to:
+## Upload paths
 
 ```text
+/home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
 /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
 /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
-/home/cabnet/gov.cabnet.app_app/cli/bolt_live_order_audit.php
-/home/cabnet/docs/V6_2_6_BOLT_PICKUP_AUDIT_AND_PASSENGER_NAME.md
+/home/cabnet/docs/V6_2_8_BOLT_MAIL_RECEIPT_WORKER.md
 /home/cabnet/PATCH_README.md
 /home/cabnet/HANDOFF.md
 /home/cabnet/CONTINUE_PROMPT.md
@@ -36,60 +35,61 @@ Upload files to:
 
 ## SQL
 
-No SQL migration is required.
+No SQL required.
 
-## Verification commands
+## Validation
 
 ```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
 php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
 php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/bolt_live_order_audit.php
 ```
 
-Preview payload customer name for a linked booking, for example booking 64:
+Dry-run:
 
 ```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=64
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --dry-run --minutes=240 --limit=25 --json
 ```
 
-Expected preview result:
+Live run:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --minutes=240 --limit=25 --json
+```
+
+Recommended cron:
+
+```cron
+* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --minutes=240 --limit=25 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_receipts.log 2>&1
+```
+
+Safety verification:
+
+```bash
+mysql cabnet_gov -e "SELECT COUNT(*) AS submission_jobs FROM submission_jobs;"
+mysql cabnet_gov -e "SELECT COUNT(*) AS submission_attempts FROM submission_attempts;"
+```
+
+Expected:
 
 ```text
-summary.customer_name = Elizabeth Brokou
+submission_jobs = 0
+submission_attempts = 0
 ```
-
-Run live/raw audit once:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_live_order_audit.php --minutes=240 --limit=50
-```
-
-Run during next active ride:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_live_order_audit.php --watch --sleep=60 --minutes=240 --limit=50
-```
-
-## Expected result
-
-- New AADE receipt payloads use the real passenger/customer name from the matched Bolt email.
-- New driver PDF/email receipt copies show the passenger name.
-- Existing issued receipts are not reissued.
-- EDXEIX remains untouched.
 
 ## Git commit title
 
 ```text
-v6.2.6 Fix Bolt receipt passenger name and add pickup audit
+v6.2.8 Stabilize Bolt mail AADE receipt worker
 ```
 
 ## Git commit description
 
 ```text
-- Prefer matched Bolt mail intake customer name for AADE receipt payloads.
-- Ignore empty API booking names and generic Bolt Passenger/Bolt Customer placeholders.
-- Add passenger name to AADE lineComments when available.
-- Ensure driver receipt PDF/email copy displays the real passenger name.
-- Add read-only Bolt live/raw order audit CLI for pickup timestamp diagnostics.
+- Add dedicated Bolt mail AADE receipt worker for pickup-time driver receipt delivery.
+- Create/link receipt-only normalized bookings from parsed Bolt pre-ride email intake.
+- Use first estimated price value from Bolt email as official receipt amount.
+- Reuse existing AADE duplicate gates and driver receipt PDF/email delivery.
 - Keep EDXEIX live submission disabled and queues untouched.
+- Carry forward passenger-name fixes for AADE payloads and driver receipt PDFs.
 ```

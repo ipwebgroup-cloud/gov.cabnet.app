@@ -1,38 +1,31 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from v6.2.6.
+Current priority: stabilize Bolt driver AADE receipt delivery at pickup time.
 
-Critical rules:
-- Do not enable EDXEIX live submission unless Andreas explicitly asks.
-- Keep `submission_jobs` and `submission_attempts` at zero unless explicitly approved.
-- AADE receipt issuing is live production; preserve duplicate protection.
-- Never expose credentials, cookies, tokens, or real config secrets.
-- Preserve plain PHP/mysqli/cPanel workflow.
+Project constraints:
+- Plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
+- Do not introduce frameworks, Composer, Node, or heavy dependencies.
+- EDXEIX live submission must remain blocked unless Andreas explicitly approves.
+- submission_jobs and submission_attempts must remain zero.
+- AADE receipt issuing is live production and must remain duplicate-protected.
 
-Current state:
-- Bolt mail intake is live.
-- Bolt API sync is live via cron.
-- AADE/myDATA receipt issuing and driver receipt PDF emails are live.
-- EDXEIX live submission remains blocked.
-- Uploaded SQL dump confirmed no inserted rows for `submission_jobs` or `submission_attempts`.
+Current patch state:
+- v6.2.8 adds `gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php`.
+- This worker uses parsed Bolt pre-ride email intake to create/link local receipt bookings and issue AADE receipts at/after parsed pickup time.
+- It does not call EDXEIX and does not create submission queues.
+- It uses first value from estimated price ranges, e.g. `50.00 - 55.00 eur` => `50.00`.
+- It carries forward the passenger-name fix: prefer `bolt_mail_intake.customer_name` over generic API placeholders like `Bolt Passenger`.
 
-v6.2.6 patch intent:
-- Fix missing passenger/customer name on receipts by preferring matched `bolt_mail_intake.customer_name`.
-- Ignore generic API placeholders like `Bolt Passenger` and `Bolt Customer`.
-- Add real passenger name to AADE `lineComments` when available.
-- Ensure driver PDF/email receipt copy uses the same real passenger name.
-- Add read-only CLI `bolt_live_order_audit.php` to inspect sanitized recent Bolt raw payload state/timestamps.
+Recommended cron after deployment:
+`* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --minutes=240 --limit=25 >> /home/cabnet/gov.cabnet.app_app/storage/logs/bolt_mail_receipts.log 2>&1`
 
-Important real example:
-- Intake 25 customer: Elizabeth Brokou
-- Intake 25 linked booking: 64
-- Booking 64 had empty `customer_name` and placeholder `passenger_name = Bolt Passenger`
-- Expected after patch: `/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=64` should show `summary.customer_name = Elizabeth Brokou`.
+Validation commands:
+`php -l /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php`
+`php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php`
+`php -l /home/cabnet/gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php`
+`/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php --dry-run --minutes=240 --limit=25 --json`
+`mysql cabnet_gov -e "SELECT COUNT(*) AS submission_jobs FROM submission_jobs;"`
+`mysql cabnet_gov -e "SELECT COUNT(*) AS submission_attempts FROM submission_attempts;"`
 
-Next safest step:
-1. Deploy v6.2.6 changed files.
-2. Run PHP lint commands.
-3. Preview booking 64 receipt payload only; do not send/reissue.
-4. During the next live ride, run:
-   `/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/bolt_live_order_audit.php --watch --sleep=60 --minutes=240 --limit=50`
-5. Determine whether Bolt `getFleetOrders` exposes pickup state before finish.
+Next safe action:
+Deploy v6.2.8, validate lint, run dry-run, run one live tick, add cron, monitor next live ride receipt email.

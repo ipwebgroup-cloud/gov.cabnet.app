@@ -1,17 +1,17 @@
 <?php
 /**
- * gov.cabnet.app — Bolt live/raw order audit
+ * gov.cabnet.app — Bolt direct live order audit v6.2.7
  *
  * Purpose:
- * - Inspect recent Bolt raw payloads already collected by sync_bolt.php.
- * - Optionally run the canonical Bolt sync function in dry-run mode first.
- * - Print sanitized order state/timestamp fields needed to prove whether Bolt
- *   exposes pickup state before trip finish.
+ * - Call Bolt getFleetOrders directly and print sanitized live order state.
+ * - Prove whether Bolt exposes order_pickup_timestamp before order_finished_timestamp.
+ * - Classify possible pickup-receipt candidates without issuing receipts.
  *
  * Safety:
  * - Does not call EDXEIX.
  * - Does not create submission_jobs or submission_attempts.
  * - Does not issue AADE/myDATA receipts.
+ * - Does not store Bolt payloads.
  * - Does not print tokens, credentials, cookies, full raw payloads, or mobile numbers.
  */
 
@@ -46,18 +46,13 @@ function audit_int(string $name, int $default, int $min, int $max): int
     return max($min, min($max, (int)$value));
 }
 
-function audit_first_text(array $values, string $fallback = ''): string
+function audit_text($value): string
 {
-    foreach ($values as $value) {
-        if ($value === null || is_array($value) || is_object($value)) {
-            continue;
-        }
-        $text = trim((string)$value);
-        if ($text !== '') {
-            return preg_replace('/\s+/u', ' ', $text) ?: $text;
-        }
+    if ($value === null || is_array($value) || is_object($value)) {
+        return '';
     }
-    return $fallback;
+    $text = trim((string)$value);
+    return $text !== '' ? (preg_replace('/\s+/u', ' ', $text) ?: $text) : '';
 }
 
 function audit_nested_text(array $row, array $paths): string
@@ -71,11 +66,9 @@ function audit_nested_text(array $row, array $paths): string
             }
             $value = $value[$part];
         }
-        if ($value !== null && !is_array($value) && !is_object($value)) {
-            $text = trim((string)$value);
-            if ($text !== '') {
-                return preg_replace('/\s+/u', ' ', $text) ?: $text;
-            }
+        $text = audit_text($value);
+        if ($text !== '') {
+            return $text;
         }
     }
     return '';
@@ -96,66 +89,62 @@ function audit_timestamp($value, DateTimeZone $tz): ?string
         }
         return (new DateTimeImmutable((string)$value, $tz))->setTimezone($tz)->format('Y-m-d H:i:s T');
     } catch (Throwable) {
-        return (string)$value;
+        return audit_text($value) ?: null;
     }
 }
 
-function audit_decode_json(?string $json): ?array
+function audit_price_text(array $order): string
 {
-    if ($json === null || trim($json) === '') {
-        return null;
-    }
-    $decoded = json_decode($json, true);
-    return is_array($decoded) ? $decoded : null;
-}
-
-function audit_collect_orders($node, array &$orders, int $depth = 0): void
-{
-    if (!is_array($node) || $depth > 8) {
-        return;
-    }
-
-    $keys = array_change_key_case(array_keys($node), CASE_LOWER);
-    $keyMap = array_flip($keys);
-    $looksLikeOrder = false;
     foreach ([
-        'order_reference', 'order_ref', 'order_id', 'order_status', 'status',
-        'order_pickup_timestamp', 'order_drop_off_timestamp', 'order_finished_timestamp',
-        'driver_name', 'vehicle_plate', 'ride_price', 'pickup_address', 'destination_address'
-    ] as $needle) {
-        if (isset($keyMap[$needle])) {
-            $looksLikeOrder = true;
-            break;
+        'ride_price', 'price', 'total_price', 'amount', 'booking_price',
+        ['order_price', 'ride_price'], ['order_price', 'total_price'], ['order_price', 'amount'],
+        ['price', 'amount'], ['ride_price', 'amount'], ['total_price', 'amount'],
+    ] as $path) {
+        $value = $order;
+        foreach ((array)$path as $part) {
+            if (!is_array($value) || !array_key_exists($part, $value)) {
+                $value = null;
+                break;
+            }
+            $value = $value[$part];
+        }
+        if (is_array($value) && function_exists('gov_bolt_extract_price')) {
+            $price = gov_bolt_extract_price($value);
+            if ($price !== '0.00') {
+                return $price;
+            }
+        }
+        $text = audit_text($value);
+        if ($text !== '') {
+            return $text;
         }
     }
-
-    if ($looksLikeOrder) {
-        $orders[] = $node;
-        return;
-    }
-
-    foreach ($node as $child) {
-        audit_collect_orders($child, $orders, $depth + 1);
-    }
+    return '';
 }
 
-function audit_order_summary(array $order, DateTimeZone $tz): array
+function audit_order_summary(array $order, DateTimeZone $tz, string $source, string $observedEest, string $observedUtc): array
 {
     $driverName = audit_nested_text($order, [
         'driver_name', 'driverName', ['driver', 'name'], ['driver', 'full_name'], ['driver', 'driver_name'],
     ]);
-    $vehiclePlate = audit_nested_text($order, [
-        'vehicle_plate', 'vehiclePlate', 'vehicle_license_plate', 'license_plate', 'licence_plate', ['vehicle', 'plate'], ['vehicle', 'license_plate'], ['vehicle', 'licence_plate'],
-    ]);
+    $vehiclePlate = strtoupper(audit_nested_text($order, [
+        'vehicle_plate', 'vehiclePlate', 'vehicle_license_plate', 'license_plate', 'licence_plate', 'reg_number',
+        ['vehicle', 'plate'], ['vehicle', 'license_plate'], ['vehicle', 'licence_plate'], ['vehicle', 'reg_number'],
+    ]));
 
     $pickup = audit_nested_text($order, [
-        'pickup_address', 'pickup', 'boarding_point', ['pickup', 'address'], ['pickup', 'name'], ['pickup_location', 'address'], ['route', 'pickup'],
+        'pickup_address', 'pickup', 'boarding_point', 'origin_address',
+        ['pickup', 'address'], ['pickup', 'name'], ['pickup_location', 'address'], ['route', 'pickup'],
     ]);
     $destination = audit_nested_text($order, [
-        'destination_address', 'dropoff_address', 'drop_off_address', 'destination', 'disembark_point', ['destination', 'address'], ['dropoff', 'address'], ['drop_off', 'address'], ['route', 'destination'],
+        'destination_address', 'dropoff_address', 'drop_off_address', 'destination', 'disembark_point',
+        ['destination', 'address'], ['dropoff', 'address'], ['drop_off', 'address'], ['route', 'destination'],
     ]);
 
-    return [
+    $summary = [
+        'source' => $source,
+        'observed_at_eest' => $observedEest,
+        'observed_at_utc' => $observedUtc,
         'order_reference' => audit_nested_text($order, ['order_reference', 'order_ref', 'reference', 'order_id', 'id', 'uuid']),
         'driver_name' => $driverName,
         'vehicle_plate' => $vehiclePlate,
@@ -165,9 +154,62 @@ function audit_order_summary(array $order, DateTimeZone $tz): array
         'order_pickup_timestamp' => audit_timestamp($order['order_pickup_timestamp'] ?? $order['pickup_timestamp'] ?? $order['picked_up_at'] ?? null, $tz),
         'order_drop_off_timestamp' => audit_timestamp($order['order_drop_off_timestamp'] ?? $order['dropoff_timestamp'] ?? $order['drop_off_timestamp'] ?? null, $tz),
         'order_finished_timestamp' => audit_timestamp($order['order_finished_timestamp'] ?? $order['finished_at'] ?? null, $tz),
-        'ride_price' => audit_nested_text($order, ['ride_price', 'price', 'total_price', 'amount', ['order_price', 'ride_price'], ['order_price', 'total_price'], ['price', 'amount'], ['ride_price', 'amount']]),
+        'ride_price' => audit_price_text($order),
         'pickup' => $pickup,
         'destination' => $destination,
+    ];
+
+    $summary['state_analysis'] = audit_state_analysis($summary);
+    return $summary;
+}
+
+function audit_state_analysis(array $order): array
+{
+    $status = strtolower(trim((string)($order['order_status'] ?? '')));
+    $pickupPresent = trim((string)($order['order_pickup_timestamp'] ?? '')) !== '';
+    $dropoffPresent = trim((string)($order['order_drop_off_timestamp'] ?? '')) !== '';
+    $finishedPresent = trim((string)($order['order_finished_timestamp'] ?? '')) !== '';
+
+    $unsafeStatuses = [
+        'client_cancelled',
+        'driver_cancelled_after_accept',
+        'driver_did_not_respond',
+        'client_did_not_show',
+        'no_show',
+        'cancelled',
+        'canceled',
+    ];
+    $finishedStatuses = ['finished', 'completed', 'complete', 'done'];
+
+    $unsafe = in_array($status, $unsafeStatuses, true);
+    $finished = $finishedPresent || in_array($status, $finishedStatuses, true);
+    $activePickedUpBeforeFinish = $pickupPresent && !$dropoffPresent && !$finishedPresent && !$unsafe && !$finished;
+
+    $group = 'unknown_or_pending';
+    $reason = 'No pickup evidence yet in this poll.';
+
+    if ($unsafe) {
+        $group = 'unsafe_terminal_or_cancelled';
+        $reason = 'Unsafe terminal/cancelled/no-show status; must never issue receipt from this row.';
+    } elseif ($finished) {
+        $group = 'finished';
+        $reason = 'Finished row; useful as history, not proof of pickup-time visibility.';
+    } elseif ($activePickedUpBeforeFinish) {
+        $group = 'active_picked_up_before_finish';
+        $reason = 'This is the evidence needed: pickup timestamp is visible before finish.';
+    } elseif ($pickupPresent) {
+        $group = 'pickup_present_but_not_candidate';
+        $reason = 'Pickup timestamp exists, but status/timestamps do not satisfy safe live pickup criteria.';
+    }
+
+    return [
+        'status_group' => $group,
+        'pickup_timestamp_present' => $pickupPresent,
+        'dropoff_timestamp_present' => $dropoffPresent,
+        'finished_timestamp_present' => $finishedPresent,
+        'unsafe_status' => $unsafe,
+        'pickup_receipt_probe_candidate' => $activePickedUpBeforeFinish,
+        'reason' => $reason,
     ];
 }
 
@@ -188,95 +230,44 @@ function audit_submission_counts(mysqli $db): array
     return $out;
 }
 
-function audit_payload_column(array $columns): ?string
-{
-    foreach (['payload_json', 'raw_payload_json', 'response_json', 'body_json', 'payload', 'raw_payload'] as $candidate) {
-        if (isset($columns[$candidate])) {
-            return $candidate;
-        }
-    }
-    return null;
-}
-
-function audit_recent_raw_payload_orders(mysqli $db, int $minutes, int $limit, DateTimeZone $tz): array
-{
-    if (!gov_bridge_table_exists($db, 'bolt_raw_payloads')) {
-        return ['available' => false, 'reason' => 'bolt_raw_payloads_table_missing', 'orders' => []];
-    }
-
-    $columns = gov_bridge_table_columns($db, 'bolt_raw_payloads');
-    $payloadColumn = audit_payload_column($columns);
-    if ($payloadColumn === null) {
-        return ['available' => false, 'reason' => 'payload_json_column_missing', 'orders' => []];
-    }
-
-    $select = ['id', '`' . $payloadColumn . '` AS payload_json'];
-    foreach (['endpoint', 'external_reference', 'created_at', 'captured_at', 'received_at'] as $column) {
-        if (isset($columns[$column])) {
-            $select[] = '`' . $column . '`';
-        }
-    }
-
-    $timeColumn = isset($columns['created_at']) ? 'created_at' : (isset($columns['captured_at']) ? 'captured_at' : null);
-    $where = '';
-    $params = [];
-    if ($timeColumn !== null) {
-        $where = ' WHERE `' . $timeColumn . '` >= DATE_SUB(NOW(), INTERVAL ? MINUTE)';
-        $params[] = (string)$minutes;
-    }
-    if (isset($columns['endpoint'])) {
-        $where .= ($where === '' ? ' WHERE ' : ' AND ') . '`endpoint` LIKE ?';
-        $params[] = '%getFleetOrders%';
-    }
-
-    $sql = 'SELECT ' . implode(', ', $select) . ' FROM bolt_raw_payloads' . $where . ' ORDER BY id DESC LIMIT ' . max(1, min(500, $limit));
-    $rows = gov_bridge_fetch_all($db, $sql, $params);
-    $orders = [];
-
-    foreach ($rows as $row) {
-        $decoded = audit_decode_json($row['payload_json'] ?? null);
-        if (!is_array($decoded)) {
-            continue;
-        }
-        $found = [];
-        audit_collect_orders($decoded, $found);
-        foreach ($found as $order) {
-            $summary = audit_order_summary($order, $tz);
-            $summary['raw_payload_id'] = (int)($row['id'] ?? 0);
-            $summary['raw_payload_captured_at'] = $row['created_at'] ?? $row['captured_at'] ?? $row['received_at'] ?? null;
-            $orders[] = $summary;
-        }
-    }
-
-    return ['available' => true, 'rows_scanned' => count($rows), 'orders' => $orders];
-}
-
 function audit_match_mail_intake(mysqli $db, array $order): array
 {
     $orderReference = trim((string)($order['order_reference'] ?? ''));
-    if ($orderReference === '') {
-        return ['matched' => false, 'reason' => 'order_reference_missing'];
-    }
+    $linked = null;
 
-    if (gov_bridge_table_exists($db, 'normalized_bookings')) {
+    if ($orderReference !== '' && gov_bridge_table_exists($db, 'normalized_bookings')) {
         $columns = gov_bridge_table_columns($db, 'normalized_bookings');
-        $orderColumns = array_values(array_filter(['order_reference', 'source_trip_id', 'source_trip_reference', 'external_order_id'], static fn($c) => isset($columns[$c])));
+        $orderColumns = array_values(array_filter(
+            ['order_reference', 'source_trip_id', 'source_trip_reference', 'external_order_id'],
+            static fn($c) => isset($columns[$c])
+        ));
+
         foreach ($orderColumns as $column) {
-            $booking = gov_bridge_fetch_one($db, 'SELECT id FROM normalized_bookings WHERE `' . $column . '`=? ORDER BY id DESC LIMIT 1', [$orderReference]);
-            if (is_array($booking) && gov_bridge_table_exists($db, 'bolt_mail_intake')) {
-                $intake = gov_bridge_fetch_one($db, 'SELECT id, customer_name, driver_name, vehicle_plate, estimated_price_raw FROM bolt_mail_intake WHERE linked_booking_id=? ORDER BY id DESC LIMIT 1', [(string)(int)$booking['id']]);
-                if (is_array($intake)) {
-                    return [
-                        'matched' => true,
-                        'method' => 'linked_booking_id',
-                        'booking_id' => (int)$booking['id'],
-                        'intake_id' => (int)$intake['id'],
-                        'customer_name_present' => trim((string)($intake['customer_name'] ?? '')) !== '',
-                        'customer_name' => trim((string)($intake['customer_name'] ?? '')),
-                        'estimated_price_raw' => trim((string)($intake['estimated_price_raw'] ?? '')),
-                    ];
-                }
+            $booking = gov_bridge_fetch_one(
+                $db,
+                'SELECT id FROM normalized_bookings WHERE `' . $column . '`=? ORDER BY id DESC LIMIT 1',
+                [$orderReference]
+            );
+            if (is_array($booking)) {
                 $linked = ['matched' => true, 'booking_id' => (int)$booking['id'], 'intake_id' => null, 'reason' => 'booking_found_but_intake_not_linked'];
+                if (gov_bridge_table_exists($db, 'bolt_mail_intake')) {
+                    $intake = gov_bridge_fetch_one(
+                        $db,
+                        'SELECT id, customer_name, driver_name, vehicle_plate, estimated_price_raw FROM bolt_mail_intake WHERE linked_booking_id=? ORDER BY id DESC LIMIT 1',
+                        [(string)(int)$booking['id']]
+                    );
+                    if (is_array($intake)) {
+                        return [
+                            'matched' => true,
+                            'method' => 'linked_booking_id',
+                            'booking_id' => (int)$booking['id'],
+                            'intake_id' => (int)$intake['id'],
+                            'customer_name_present' => trim((string)($intake['customer_name'] ?? '')) !== '',
+                            'customer_name' => trim((string)($intake['customer_name'] ?? '')),
+                            'estimated_price_raw' => trim((string)($intake['estimated_price_raw'] ?? '')),
+                        ];
+                    }
+                }
                 break;
             }
         }
@@ -316,86 +307,164 @@ function audit_match_mail_intake(mysqli $db, array $order): array
         }
     }
 
-    return $linked ?? ['matched' => false, 'reason' => 'no_booking_or_intake_match'];
+    return $linked ?? ['matched' => false, 'reason' => $orderReference === '' ? 'order_reference_missing' : 'no_booking_or_intake_match'];
 }
 
-function audit_once(int $hours, int $minutes, int $limit, bool $apiDryRun): array
+function audit_direct_live_orders(mysqli $db, int $hours, int $limit, bool $onlyCandidates): array
 {
     $tz = new DateTimeZone('Europe/Athens');
-    $db = gov_bridge_db();
-    $apiResult = null;
+    $utc = new DateTimeZone('UTC');
+    $now = new DateTimeImmutable('now');
+    $observedEest = $now->setTimezone($tz)->format('Y-m-d H:i:s T');
+    $observedUtc = $now->setTimezone($utc)->format('Y-m-d H:i:s T');
 
-    if ($apiDryRun && function_exists('gov_bolt_sync_orders')) {
-        try {
-            $apiResult = gov_bolt_sync_orders($hours, true);
-        } catch (Throwable $e) {
-            $apiResult = ['ok' => false, 'error' => $e->getMessage()];
-        }
+    if (!function_exists('gov_bolt_get_fleet_orders')) {
+        return ['ok' => false, 'error' => 'gov_bolt_get_fleet_orders_not_available', 'orders' => []];
     }
 
-    $raw = audit_recent_raw_payload_orders($db, $minutes, $limit, $tz);
-    $orders = $raw['orders'] ?? [];
-    $seen = [];
-    $clean = [];
-    foreach ($orders as $order) {
-        $key = sha1(json_encode([
-            $order['order_reference'] ?? '',
-            $order['order_status'] ?? '',
-            $order['order_pickup_timestamp'] ?? '',
-            $order['order_finished_timestamp'] ?? '',
-            $order['raw_payload_id'] ?? '',
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        if (isset($seen[$key])) {
+    $result = gov_bolt_get_fleet_orders($hours);
+    $items = is_array($result['items'] ?? null) ? $result['items'] : [];
+    $orders = [];
+
+    foreach ($items as $item) {
+        if (!is_array($item)) {
             continue;
         }
-        $seen[$key] = true;
-        $order['matching_mail_intake'] = audit_match_mail_intake($db, $order);
-        $clean[] = $order;
-        if (count($clean) >= $limit) {
+        $summary = audit_order_summary($item, $tz, 'live_api_direct_no_store', $observedEest, $observedUtc);
+        $summary['matching_mail_intake'] = audit_match_mail_intake($db, $summary);
+        $candidate = !empty($summary['state_analysis']['pickup_receipt_probe_candidate']);
+        $hasMail = !empty($summary['matching_mail_intake']['matched']) && !empty($summary['matching_mail_intake']['intake_id']);
+        $hasEstimate = trim((string)($summary['matching_mail_intake']['estimated_price_raw'] ?? '')) !== '';
+        $summary['pickup_receipt_readiness'] = [
+            'would_be_candidate_if_worker_saw_this_now' => $candidate && $hasMail && $hasEstimate,
+            'requires_active_pickup_before_finish' => $candidate,
+            'requires_matched_mail_intake' => $hasMail,
+            'requires_email_estimated_price' => $hasEstimate,
+            'would_not_issue_reason' => $candidate && $hasMail && $hasEstimate ? null : audit_not_ready_reason($candidate, $hasMail, $hasEstimate),
+        ];
+
+        if ($onlyCandidates && empty($summary['pickup_receipt_readiness']['would_be_candidate_if_worker_saw_this_now'])) {
+            continue;
+        }
+
+        $orders[] = $summary;
+        if (count($orders) >= $limit) {
             break;
         }
     }
 
     return [
         'ok' => true,
+        'orders_seen_by_api' => count($items),
+        'orders_returned' => count($orders),
+        'pagination' => $result['pages'] ?? null,
+        'orders' => $orders,
+    ];
+}
+
+function audit_not_ready_reason(bool $candidate, bool $hasMail, bool $hasEstimate): string
+{
+    if (!$candidate) {
+        return 'not_active_picked_up_before_finish_or_unsafe_status';
+    }
+    if (!$hasMail) {
+        return 'matched_mail_intake_missing';
+    }
+    if (!$hasEstimate) {
+        return 'email_estimated_price_missing';
+    }
+    return 'unknown';
+}
+
+function audit_proof_summary(array $orders): array
+{
+    $counts = [
+        'returned_orders' => count($orders),
+        'active_picked_up_before_finish' => 0,
+        'would_be_pickup_receipt_candidate' => 0,
+        'finished_with_pickup' => 0,
+        'unsafe_with_pickup' => 0,
+        'no_pickup_timestamp' => 0,
+    ];
+
+    foreach ($orders as $order) {
+        $analysis = $order['state_analysis'] ?? [];
+        if (!empty($analysis['pickup_receipt_probe_candidate'])) {
+            $counts['active_picked_up_before_finish']++;
+        }
+        if (!empty($order['pickup_receipt_readiness']['would_be_candidate_if_worker_saw_this_now'])) {
+            $counts['would_be_pickup_receipt_candidate']++;
+        }
+        if (($analysis['status_group'] ?? '') === 'finished' && !empty($analysis['pickup_timestamp_present'])) {
+            $counts['finished_with_pickup']++;
+        }
+        if (!empty($analysis['unsafe_status']) && !empty($analysis['pickup_timestamp_present'])) {
+            $counts['unsafe_with_pickup']++;
+        }
+        if (empty($analysis['pickup_timestamp_present'])) {
+            $counts['no_pickup_timestamp']++;
+        }
+    }
+
+    $conclusion = 'No active picked-up-before-finish order was visible in this poll. This is not conclusive unless the command was running exactly during/after pickup and before finish.';
+    if ($counts['would_be_pickup_receipt_candidate'] > 0) {
+        $conclusion = 'Bolt getFleetOrders exposed a safe pickup-time candidate before finish in this poll.';
+    } elseif ($counts['active_picked_up_before_finish'] > 0) {
+        $conclusion = 'Bolt getFleetOrders exposed pickup before finish, but mail intake/estimate matching was not ready for issuance.';
+    }
+
+    return $counts + ['conclusion' => $conclusion];
+}
+
+function audit_once(int $hours, int $limit, bool $onlyCandidates): array
+{
+    $tz = new DateTimeZone('Europe/Athens');
+    $db = gov_bridge_db();
+    $live = audit_direct_live_orders($db, $hours, $limit, $onlyCandidates);
+    $orders = is_array($live['orders'] ?? null) ? $live['orders'] : [];
+
+    return [
+        'ok' => (bool)($live['ok'] ?? false),
         'script' => 'cli/bolt_live_order_audit.php',
-        'generated_at' => (new DateTimeImmutable('now', $tz))->format('Y-m-d H:i:s T'),
+        'generated_at_eest' => (new DateTimeImmutable('now', $tz))->format('Y-m-d H:i:s T'),
         'mode' => [
-            'api_dry_run_first' => $apiDryRun,
+            'live_api_direct' => true,
+            'stores_payloads' => false,
             'hours' => $hours,
-            'raw_payload_minutes' => $minutes,
             'limit' => $limit,
+            'only_candidates' => $onlyCandidates,
         ],
         'safety' => array_merge([
             'does_not_call_edxeix' => true,
             'does_not_issue_aade_receipts' => true,
+            'does_not_store_bolt_payloads' => true,
             'does_not_print_credentials' => true,
         ], audit_submission_counts($db)),
-        'api_dry_run_result_summary' => is_array($apiResult) ? array_intersect_key($apiResult, array_flip(['ok', 'dry_run', 'hours', 'orders_seen', 'orders_upserted', 'raw_payloads_stored', 'error'])) : null,
-        'raw_payload_audit' => [
-            'available' => (bool)($raw['available'] ?? false),
-            'reason' => $raw['reason'] ?? null,
-            'rows_scanned' => (int)($raw['rows_scanned'] ?? 0),
-            'orders_returned' => count($clean),
+        'proof_summary' => audit_proof_summary($orders),
+        'live_api_result' => [
+            'ok' => (bool)($live['ok'] ?? false),
+            'orders_seen_by_api' => (int)($live['orders_seen_by_api'] ?? 0),
+            'orders_returned' => (int)($live['orders_returned'] ?? 0),
+            'pagination' => $live['pagination'] ?? null,
+            'error' => $live['error'] ?? null,
         ],
-        'orders' => $clean,
-        'interpretation_hint' => 'Run during a live ride. If order_pickup_timestamp appears before order_finished_timestamp, the pickup worker can issue at pickup. If rows only appear after finish, Bolt getFleetOrders is not enough for pickup-time receipts.',
+        'orders' => $orders,
+        'interpretation_hint' => 'Run --watch during a real live ride. The decisive row is status_group=active_picked_up_before_finish with would_be_candidate_if_worker_saw_this_now=true. Historical finished rows do not prove pickup-time visibility.',
     ];
 }
 
-$hours = audit_int('hours', 6, 1, 720);
-$minutes = audit_int('minutes', 240, 1, 10080);
-$limit = audit_int('limit', 50, 1, 500);
+$hours = audit_int('hours', 24, 1, 720);
+$limit = audit_int('limit', 80, 1, 500);
 $watch = audit_bool('watch', false);
-$apiDryRun = audit_bool('api-dry-run', false);
+$onlyCandidates = audit_bool('only-candidates', false);
 $iterations = audit_int('iterations', $watch ? 0 : 1, 0, 10000);
-$sleep = audit_int('sleep', 60, 5, 3600);
+$sleep = audit_int('sleep', 30, 5, 3600);
 
 try {
     $i = 0;
     do {
         $i++;
-        echo json_encode(audit_once($hours, $minutes, $limit, $apiDryRun), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+        echo json_encode(audit_once($hours, $limit, $onlyCandidates), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
         if (!$watch || ($iterations > 0 && $i >= $iterations)) {
             break;
         }
