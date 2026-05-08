@@ -1314,18 +1314,19 @@ if (!function_exists('gov_store_raw_payload')) {
 if (!function_exists('gov_bolt_datetime_from_ts')) {
     function gov_bolt_datetime_from_ts($value): ?string
     {
-        if ($value === null || $value === '') {
+        $ts = is_numeric($value) ? (int)$value : 0;
+        if ($ts <= 0) {
             return null;
         }
-        if (is_numeric($value)) {
-            $ts = (int)$value;
-            if ($ts > 20000000000) {
-                $ts = (int)floor($ts / 1000);
-            }
-            return date('Y-m-d H:i:s', $ts);
-        }
-        $ts = strtotime((string)$value);
-        return $ts ? date('Y-m-d H:i:s', $ts) : null;
+
+        /*
+         * v6.2.4:
+         * Bolt Fleet API timestamps are Unix epoch seconds.
+         * Store operational booking times in Europe/Athens local time.
+         */
+        return (new DateTimeImmutable('@' . $ts))
+            ->setTimezone(new DateTimeZone('Europe/Athens'))
+            ->format('Y-m-d H:i:s');
     }
 }
 
@@ -1459,15 +1460,60 @@ if (!function_exists('gov_build_edxeix_preview_payload')) {
         $config = gov_bridge_load_config();
         $driverMapping = null;
         $vehicleMapping = null;
+        $startingPointMapping = null;
 
-        if (!empty($normalized['driver_external_id'])) {
-            $driverMapping = gov_bridge_fetch_one($db, 'SELECT * FROM mapping_drivers WHERE source_system = ? AND external_driver_id = ? LIMIT 1', ['bolt', $normalized['driver_external_id']]);
+        $driverExternalId = trim((string)($normalized['driver_external_id'] ?? ''));
+        $driverName = trim((string)($normalized['driver_name'] ?? $normalized['external_driver_name'] ?? ''));
+
+        if ($driverExternalId !== '') {
+            $driverMapping = gov_bridge_fetch_one(
+                $db,
+                'SELECT * FROM mapping_drivers WHERE source_system = ? AND external_driver_id = ? AND is_active = 1 LIMIT 1',
+                ['bolt', $driverExternalId]
+            );
         }
-        if (!empty($normalized['vehicle_external_id'])) {
-            $vehicleMapping = gov_bridge_fetch_one($db, 'SELECT * FROM mapping_vehicles WHERE source_system = ? AND external_vehicle_id = ? LIMIT 1', ['bolt', $normalized['vehicle_external_id']]);
+
+        if (!$driverMapping && $driverName !== '') {
+            $driverMapping = gov_bridge_fetch_one(
+                $db,
+                'SELECT * FROM mapping_drivers WHERE source_system = ? AND external_driver_name = ? AND is_active = 1 LIMIT 1',
+                ['bolt', $driverName]
+            );
         }
-        if (!$vehicleMapping && !empty($normalized['vehicle_plate'])) {
-            $vehicleMapping = gov_bridge_fetch_one($db, 'SELECT * FROM mapping_vehicles WHERE source_system = ? AND plate = ? LIMIT 1', ['bolt', $normalized['vehicle_plate']]);
+
+        $vehicleExternalId = trim((string)($normalized['vehicle_external_id'] ?? ''));
+        $vehiclePlate = trim((string)($normalized['vehicle_plate'] ?? $normalized['plate'] ?? ''));
+
+        if ($vehicleExternalId !== '') {
+            $vehicleMapping = gov_bridge_fetch_one(
+                $db,
+                'SELECT * FROM mapping_vehicles WHERE source_system = ? AND external_vehicle_id = ? AND is_active = 1 LIMIT 1',
+                ['bolt', $vehicleExternalId]
+            );
+        }
+
+        if (!$vehicleMapping && $vehiclePlate !== '') {
+            $vehicleMapping = gov_bridge_fetch_one(
+                $db,
+                'SELECT * FROM mapping_vehicles WHERE source_system = ? AND plate = ? AND is_active = 1 LIMIT 1',
+                ['bolt', $vehiclePlate]
+            );
+        }
+
+        $startingPointKey = trim((string)($normalized['starting_point_key'] ?? ($config['edxeix']['default_starting_point_key'] ?? 'edra_mas')));
+
+        if ($startingPointKey !== '') {
+            $startingPointMapping = gov_bridge_fetch_one(
+                $db,
+                'SELECT * FROM mapping_starting_points WHERE internal_key = ? AND is_active = 1 LIMIT 1',
+                [$startingPointKey]
+            );
+        }
+
+        $startingPointId = trim((string)($startingPointMapping['edxeix_starting_point_id'] ?? ''));
+
+        if ($startingPointId === '') {
+            $startingPointId = (string)($config['edxeix']['default_starting_point_id'] ?? '');
         }
 
         $startedAt = $normalized['started_at'] ?? null;
@@ -1477,16 +1523,17 @@ if (!function_exists('gov_build_edxeix_preview_payload')) {
         return [
             '_token' => '[loaded from saved EDXEIX session only at submit time]',
             'broker' => 'Bolt',
-            'lessor' => (string)$config['edxeix']['lessor_id'],
+            'lessor' => (string)($config['edxeix']['lessor_id'] ?? ''),
             'lessee' => [
                 'type' => 'physical_person',
-                'name' => $normalized['passenger_name'] ?? $normalized['lessee_name'] ?? 'Bolt Passenger',
+                'name' => $normalized['passenger_name'] ?? $normalized['lessee_name'] ?? $normalized['customer_name'] ?? 'Bolt Passenger',
                 'vat_number' => '',
                 'legal_representative' => '',
             ],
             'driver' => (string)($driverMapping['edxeix_driver_id'] ?? ''),
             'vehicle' => (string)($vehicleMapping['edxeix_vehicle_id'] ?? ''),
-            'starting_point_id' => (string)$config['edxeix']['default_starting_point_id'],
+            'starting_point' => $startingPointId,
+            'starting_point_id' => $startingPointId,
             'boarding_point' => $normalized['boarding_point'] ?? $normalized['pickup_address'] ?? '',
             'coordinates' => '',
             'disembark_point' => $normalized['disembark_point'] ?? $normalized['destination_address'] ?? '',
@@ -1497,7 +1544,9 @@ if (!function_exists('gov_build_edxeix_preview_payload')) {
             '_mapping_status' => [
                 'driver_mapped' => !empty($driverMapping['edxeix_driver_id']),
                 'vehicle_mapped' => !empty($vehicleMapping['edxeix_vehicle_id']),
-                'future_guard_minutes' => (int)$config['edxeix']['future_start_guard_minutes'],
+                'starting_point_mapped' => $startingPointId !== '',
+                'starting_point_key' => $startingPointKey,
+                'future_guard_minutes' => (int)($config['edxeix']['future_start_guard_minutes'] ?? 30),
                 'passes_future_guard' => gov_edxeix_future_guard_passes($startedAt),
             ],
         ];

@@ -1,23 +1,49 @@
-# gov.cabnet.app — v6.1.6 Live Production Commit Patch
+# gov.cabnet.app v6.2.5 Pickup Receipts Patch
 
-## Included changes
+## What changed
 
-- Adds Bolt mail production tick wrapper.
-- Allows late real Bolt mail to create/link normalized bookings for AADE receipt recovery.
-- Fixes AADE lineComments max-length issue.
-- Fixes AADE incomeClassification namespace.
-- Fixes AADE numeric AA requirement.
-- Adds official receipt office-copy support.
-- Allows AADE receipt recovery without requiring EDXEIX vehicle mapping when Bolt vehicle plate exists.
-- Keeps EDXEIX vehicle mapping required for EDXEIX live submit.
-- Does not include real config, logs, sessions, cookies, PDFs, backups, or one-shot recovery scripts.
+- Added Bolt API pickup-swipe receipt worker.
+- Updated Bolt sync wrapper to canonical library path.
+- Updated canonical Bolt sync library for Fleet Orders and Athens timestamps.
+- Added AADE auto-issuer gate for Bolt API bookings linked to real Bolt mail intake rows.
+- Added receipt copy delivery to mykonoscab@gmail.com.
+- Included lessor-scoped starting point SQL migration.
 
-## Commit title
+## Files included
 
-Validate AADE late Bolt mail receipt recovery
+- public_html/gov.cabnet.app/.htaccess
+- gov.cabnet.app_app/cli/bolt_mail_production_tick.php
+- gov.cabnet.app_app/cli/sync_bolt.php
+- gov.cabnet.app_app/cli/bolt_pickup_receipt_worker.php
+- gov.cabnet.app_app/lib/bolt_sync_lib.php
+- gov.cabnet.app_app/src/Mail/BoltMailDriverNotificationService.php
+- gov.cabnet.app_app/src/Mail/BoltMailIntakeBookingBridge.php
+- gov.cabnet.app_app/src/Mail/BoltMailDryRunEvidenceService.php
+- gov.cabnet.app_app/src/Receipts/AadeReceiptPayloadBuilder.php
+- gov.cabnet.app_app/src/Receipts/AadeReceiptAutoIssuer.php
+- gov.cabnet.app_sql/2026_05_08_v6_0_2_lessor_scoped_starting_points.sql
+- docs/V6_2_5_PICKUP_RECEIPTS.md
 
-## Commit description
+## SQL
 
-Adds and validates late Bolt mail recovery for AADE/myDATA receipt issuance. Real parsed Bolt mail can now create a normalized booking even after pickup time for receipt purposes, while EDXEIX live submission remains protected.
+Already applied on live server.
 
-Fixes AADE XML schema issues for lineComments length, incomeClassification namespace, and numeric AA values. Adds configurable office copy recipients for official AADE receipt emails. Allows AADE receipt recovery without requiring EDXEIX vehicle mapping when the Bolt vehicle plate is present. Confirms official PDF generation and driver receipt email delivery with no EDXEIX jobs or attempts created.
+Backup before SQL:
+`/home/cabnet/gov_pre_v6_0_2_lessor_starting_points_20260508_124120.sql`
+
+## Expected result
+
+- Bolt API sync returns ok.
+- Pickup receipt worker returns ok.
+- Already issued bookings are skipped.
+- New valid pickup-swiped bookings are issued and emailed.
+- submission_jobs remains 0.
+- submission_attempts remains 0.
+
+## Git commit title
+
+Add Bolt pickup-swipe AADE receipt worker
+
+## Git commit description
+
+Adds production Bolt pickup-swipe AADE receipt issuing for gov.cabnet.app. The workflow syncs Bolt fleet orders, detects order_pickup_timestamp, links API orders back to real Bolt mail intake rows, uses the first value from the Bolt estimated price range, issues AADE/myDATA receipts, emails official PDFs to drivers, and sends an office copy to mykonoscab@gmail.com. EDXEIX submission remains disabled and no submission jobs or attempts are created.

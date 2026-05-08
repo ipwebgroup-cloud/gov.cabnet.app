@@ -207,7 +207,35 @@ final class AadeReceiptAutoIssuer
             return ['enabled' => $this->isAutoEnabled(), 'blockers' => $blockers];
         }
 
-        if ((string)($booking['source'] ?? '') !== 'bolt_mail') {
+        /*
+         * v6.2.5:
+         * Standard auto receipts were originally gated to source=bolt_mail only.
+         * For pickup-swipe AADE issuance, the official trigger comes from the
+         * Bolt API order_pickup_timestamp, but the booking must still be linked
+         * back to a real Bolt mail intake row for customer/driver/email context.
+         *
+         * This allows:
+         * - source/source_system bolt API bookings
+         * - only when bolt_mail_intake.linked_booking_id = booking id
+         *
+         * It still blocks unmatched pure API bookings, tests, zero-price rows,
+         * duplicate receipts, and not-yet-picked-up rides through the other gates.
+         */
+        $bookingSource = (string)($booking['source'] ?? '');
+        $bookingSourceSystem = (string)($booking['source_system'] ?? '');
+
+        $linkedIntakeForSourceGate = $this->db->fetchOne(
+            'SELECT id FROM bolt_mail_intake WHERE linked_booking_id=? ORDER BY id DESC LIMIT 1',
+            [$bookingId],
+            'i'
+        );
+
+        $isBoltApiBookingLinkedToMailIntake = (
+            ($bookingSource === 'bolt' || $bookingSourceSystem === 'bolt')
+            && is_array($linkedIntakeForSourceGate)
+        );
+
+        if ($bookingSource !== 'bolt_mail' && !$isBoltApiBookingLinkedToMailIntake) {
             $blockers[] = 'booking_source_not_bolt_mail';
         }
         if (!empty($booking['is_test_booking'])) {
