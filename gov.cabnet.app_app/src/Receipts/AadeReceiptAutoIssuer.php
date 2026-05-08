@@ -346,7 +346,7 @@ final class AadeReceiptAutoIssuer
         $intake = $this->db->fetchOne('SELECT * FROM bolt_mail_intake WHERE linked_booking_id=? ORDER BY id DESC LIMIT 1', [$bookingId], 'i') ?: [];
 
         return array_merge($intake, [
-            'customer_name' => $booking['customer_name'] ?? $intake['customer_name'] ?? '',
+            'customer_name' => $this->effectiveReceiptCustomerName($booking, $intake),
             'customer_mobile' => $intake['customer_mobile'] ?? '',
             'driver_name' => $booking['driver_name'] ?? $intake['driver_name'] ?? '',
             'vehicle_plate' => $booking['vehicle_plate'] ?? $intake['vehicle_plate'] ?? '',
@@ -358,6 +358,56 @@ final class AadeReceiptAutoIssuer
             'message_hash' => $intake['message_hash'] ?? '',
             'operator_raw' => $intake['operator_raw'] ?? 'Fleet Mykonos LUXLIMO Ι Κ Ε||MYKONOS CAB',
         ]);
+    }
+
+    /**
+     * For driver receipt PDFs, prefer the real passenger name from the matched
+     * Bolt pre-ride email. Bolt API rows may contain empty customer_name and
+     * generic placeholders such as "Bolt Passenger".
+     *
+     * @param array<string,mixed> $booking
+     * @param array<string,mixed> $intake
+     */
+    private function effectiveReceiptCustomerName(array $booking, array $intake): string
+    {
+        return $this->firstRealReceiptCustomerName([
+            $intake['customer_name'] ?? null,
+            $booking['customer_name'] ?? null,
+            $booking['passenger_name'] ?? null,
+            $booking['lessee_name'] ?? null,
+        ]);
+    }
+
+    /** @param array<int,mixed> $values */
+    private function firstRealReceiptCustomerName(array $values): string
+    {
+        foreach ($values as $value) {
+            if ($value === null || is_array($value) || is_object($value)) {
+                continue;
+            }
+            $text = preg_replace('/\s+/u', ' ', trim((string)$value)) ?: '';
+            if ($text === '' || $this->isGenericReceiptCustomerName($text)) {
+                continue;
+            }
+            return $text;
+        }
+
+        return '';
+    }
+
+    private function isGenericReceiptCustomerName(string $value): bool
+    {
+        $value = preg_replace('/\s+/u', ' ', trim($value)) ?: '';
+        $upper = function_exists('mb_strtoupper') ? mb_strtoupper($value, 'UTF-8') : strtoupper($value);
+
+        return in_array($upper, [
+            'BOLT PASSENGER',
+            'BOLT CUSTOMER',
+            'ΠΕΛΑΤΗΣ ΛΙΑΝΙΚΗΣ',
+            'ΠΕΛΑΤΗΣ',
+            'CUSTOMER',
+            'PASSENGER',
+        ], true);
     }
 
     /** @param array<string,mixed> $summary @param array<string,mixed>|null $http @param array<string,mixed>|null $parsed */

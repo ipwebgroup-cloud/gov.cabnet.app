@@ -94,10 +94,7 @@ final class AadeReceiptPayloadBuilder
         $issuerCountry = strtoupper(trim((string)($aade['issuer_country'] ?? 'GR'))) ?: 'GR';
         $issuerBranch = (int)($aade['issuer_branch'] ?? $aade['branch'] ?? 0);
 
-        $customerName = trim((string)($booking['customer_name'] ?? $booking['passenger_name'] ?? $intake['customer_name'] ?? 'ΠΕΛΑΤΗΣ ΛΙΑΝΙΚΗΣ'));
-        if ($customerName === '') {
-            $customerName = 'ΠΕΛΑΤΗΣ ΛΙΑΝΙΚΗΣ';
-        }
+        $customerName = $this->effectiveCustomerName($booking, $intake);
 
         $summary = [
             'booking_id' => $bookingId,
@@ -296,6 +293,7 @@ final class AadeReceiptPayloadBuilder
          * Keep the official receipt comment short and stable.
          */
         $bookingId = trim((string)($summary['booking_id'] ?? ''));
+        $customer = trim((string)($summary['customer_name'] ?? ''));
         $driver = trim((string)($summary['driver_name'] ?? ''));
         $plate = trim((string)($summary['vehicle_plate'] ?? ''));
 
@@ -304,6 +302,9 @@ final class AadeReceiptPayloadBuilder
 
         if ($bookingId !== '') {
             $parts[] = 'Booking ' . $bookingId;
+        }
+        if ($customer !== '' && !$this->isGenericCustomerName($customer)) {
+            $parts[] = 'Passenger ' . $customer;
         }
         if ($driver !== '') {
             $parts[] = 'Driver ' . $driver;
@@ -327,6 +328,60 @@ final class AadeReceiptPayloadBuilder
         return substr($comment, 0, $max);
     }
 
+
+    /**
+     * Resolve the passenger/customer name for receipts.
+     *
+     * Bolt API bookings often contain empty customer_name plus the placeholder
+     * "Bolt Passenger" in passenger_name/lessee_name. The matched pre-ride
+     * email intake is the authoritative source for the real passenger name.
+     *
+     * @param array<string,mixed> $booking
+     * @param array<string,mixed> $intake
+     */
+    private function effectiveCustomerName(array $booking, array $intake): string
+    {
+        $customerName = $this->firstRealCustomerName([
+            $intake['customer_name'] ?? null,
+            $booking['customer_name'] ?? null,
+            $booking['passenger_name'] ?? null,
+            $booking['lessee_name'] ?? null,
+        ]);
+
+        return $customerName !== '' ? $customerName : 'ΠΕΛΑΤΗΣ ΛΙΑΝΙΚΗΣ';
+    }
+
+    /** @param array<int,mixed> $values */
+    private function firstRealCustomerName(array $values): string
+    {
+        foreach ($values as $value) {
+            if ($value === null || is_array($value) || is_object($value)) {
+                continue;
+            }
+            $text = preg_replace('/\s+/u', ' ', trim((string)$value)) ?: '';
+            if ($text === '' || $this->isGenericCustomerName($text)) {
+                continue;
+            }
+            return $text;
+        }
+
+        return '';
+    }
+
+    private function isGenericCustomerName(string $value): bool
+    {
+        $value = preg_replace('/\s+/u', ' ', trim($value)) ?: '';
+        $upper = function_exists('mb_strtoupper') ? mb_strtoupper($value, 'UTF-8') : strtoupper($value);
+
+        return in_array($upper, [
+            'BOLT PASSENGER',
+            'BOLT CUSTOMER',
+            'ΠΕΛΑΤΗΣ ΛΙΑΝΙΚΗΣ',
+            'ΠΕΛΑΤΗΣ',
+            'CUSTOMER',
+            'PASSENGER',
+        ], true);
+    }
 
     private function elIncomeClassification(DOMDocument $doc, \DOMNode $parent, string $name, string $value): void
     {
