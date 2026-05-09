@@ -1,20 +1,16 @@
-# gov.cabnet.app Patch — v6.6.2 EDXEIX stale mail candidate reporting
+# gov.cabnet.app Patch — v6.7.0 EDXEIX Mail Preflight Bridge
 
 ## What changed
 
-Improves the read-only EDXEIX readiness report so stale `bolt_mail_intake.safety_status = future_candidate` rows are not presented as active future candidates after their pickup time has passed.
+Adds a safe CLI bridge for creating local normalized EDXEIX preflight bookings from future pre-ride Bolt email intake rows.
 
-This patch keeps the EDXEIX source policy unchanged:
-
-- EDXEIX uses pre-ride Bolt email only.
-- Bolt API pickup/finalized data is not an EDXEIX submission source.
-- AADE uses only the Bolt API pickup timestamp worker.
+Default mode is preview-only. DB writes only occur when `--create` is explicitly supplied.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/edxeix_readiness_report.php
-docs/EDXEIX_READINESS_REPORT.md
+gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php
+docs/EDXEIX_MAIL_PREFLIGHT_BRIDGE.md
 PATCH_README.md
 ```
 
@@ -23,13 +19,13 @@ PATCH_README.md
 Upload:
 
 ```text
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
+/home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php
 ```
 
 Local repo docs:
 
 ```text
-docs/EDXEIX_READINESS_REPORT.md
+docs/EDXEIX_MAIL_PREFLIGHT_BRIDGE.md
 PATCH_README.md
 ```
 
@@ -37,14 +33,12 @@ PATCH_README.md
 
 None.
 
-## Verification
+## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php
 
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --future-hours=72 --past-minutes=60 --limit=50 --json
-
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --limit=20 --json
 
 mysql cabnet_gov -e "
 SELECT COUNT(*) AS submission_jobs FROM submission_jobs;
@@ -56,26 +50,59 @@ SELECT COUNT(*) AS submission_attempts FROM submission_attempts;
 
 ```text
 ok: true
-version: v6.6.2
-queue_counts.queues_unchanged: true
-mail_intake_summary.currently_future_candidates reflects only rows with parsed_pickup_at > NOW()
-mail_intake_summary.stale_future_candidate_rows shows old rows that still carry the legacy future_candidate label
+version: v6.7.0
+preview_only: true
+queues_unchanged: true
+submission_jobs = 0
+submission_attempts = 0
 ```
+
+If a future pre-ride email is present and unlinked, `preview_ready` should be greater than zero.
+
+## Optional create command
+
+Only after preview review:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --intake-id=ID --create --json
+```
+
+Then run:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
+```
+
+## Safety
+
+This patch does not:
+
+- call EDXEIX;
+- issue AADE receipts;
+- create `submission_jobs`;
+- create `submission_attempts`;
+- enable live submission;
+- expose secrets.
 
 ## Git commit title
 
 ```text
-Clarify stale Bolt mail candidates in EDXEIX readiness report
+Add EDXEIX mail preflight bridge CLI
 ```
 
 ## Git commit description
 
 ```text
-Improves the read-only EDXEIX readiness report so mail intake rows that were originally marked future_candidate but now have past pickup times are reported separately as stale future-candidate rows.
+Adds a safe CLI bridge for the EDXEIX source path, using pre-ride Bolt email intake rows only.
 
-Keeps the source policy unchanged: EDXEIX uses pre-ride Bolt email only, while AADE invoice issuing remains limited to the Bolt API pickup timestamp worker.
+The script previews future unlinked Bolt mail intake rows and can create local normalized EDXEIX preflight bookings only when --create is explicitly supplied.
 
-The report remains read-only and does not call EDXEIX, issue AADE receipts, create submission_jobs, create submission_attempts, or expose session cookies/CSRF tokens.
+Safety posture:
+- Does not call EDXEIX.
+- Does not issue AADE receipts.
+- Does not create submission_jobs.
+- Does not create submission_attempts.
+- Does not expose session cookies, CSRF tokens, API keys, or private config values.
 
-No SQL changes and no live-submit activation.
+This preserves the source split: EDXEIX uses pre-ride Bolt email only, while AADE invoice issuing remains limited to the Bolt API pickup timestamp worker.
 ```
