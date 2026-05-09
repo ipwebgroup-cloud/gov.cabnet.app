@@ -13,66 +13,58 @@ Server layout:
 - /home/cabnet/gov.cabnet.app_sql
 
 Workflow:
-1. Code with ChatGPT.
-2. Download a zip package.
-3. Extract locally into the GitHub Desktop repo.
-4. Upload manually to server if needed.
-5. Test on server.
-6. Commit via GitHub Desktop after production confirmation.
-
-All future file deliverables must be zip packages. The zip root must mirror the repository/server structure directly, without an extra wrapper folder.
-
-Source-of-truth priority:
-1. Latest pasted terminal output, screenshots, uploaded files, SQL output, and live audit output in the current chat.
-2. HANDOFF.md / CONTINUE_PROMPT.md.
-3. README.md, SCOPE.md, DEPLOYMENT.md, SECURITY.md, docs/, PROJECT_FILE_MANIFEST.md.
-4. GitHub repo.
-5. Prior memory only as background, never proof of current code state.
+- All future file deliverables must be zip packages.
+- Andreas downloads the zip, extracts it locally into the GitHub Desktop repo, uploads manually to the server, tests production, then commits through GitHub Desktop.
 
 Current state:
-- Version: v6.5.2 code committed; v6.5.3 documentation sync pending/created.
-- Latest code commit: 79f86ac — Restore AADE pickup-swipe-only receipt flow and harden duplicate guards.
-- AADE invoices are active only through:
-  /home/cabnet/gov.cabnet.app_app/cli/bolt_pickup_receipt_worker.php
-- Root cron runs pickup worker every minute.
-- Emergency AADE lock is absent.
-- Pre-ride Bolt email intake is preparation/context only.
-- Mail/auto/manual AADE send paths are blocked/no-op.
+- Version: v6.6.1.
+- EDXEIX readiness source policy corrected.
+- EDXEIX submission data source is strictly the pre-ride Bolt email.
+- Bolt API pickup/finalized data is not the EDXEIX submission source.
+- AADE invoice issuing remains strictly Bolt API pickup timestamp worker only.
 - EDXEIX live submission remains disabled.
-- submission_jobs and submission_attempts must remain zero unless explicitly approved.
+- submission_jobs and submission_attempts must remain zero.
+
+Correct source split:
+- EDXEIX:
+  Pre-ride Bolt email → bolt_mail_intake → mail-derived normalized local preflight booking → EDXEIX readiness/browser-fill/future one-shot live submit.
+- AADE:
+  Bolt API pickup timestamp → bolt_pickup_receipt_worker.php → AADE invoice issue.
 
 Critical safety:
-- Never expose credentials, tokens, cookies, AADE credentials, DB passwords, API keys, session files, or private config.
+- Never expose credentials, tokens, cookies, AADE credentials, or private config.
 - Do not enable EDXEIX live submission unless Andreas explicitly asks.
-- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
-- AADE invoices must only issue from the Bolt API pickup timestamp worker path.
+- Historical, cancelled, terminal, expired, invalid, duplicate, unmapped, or past Bolt orders must never be submitted to EDXEIX.
 - Pre-ride Bolt email must not issue AADE invoices.
 - Manual AADE send is blocked.
 - Mail/auto dry-run AADE issue paths are blocked/no-op.
 
 Important AADE incident:
 - Duplicate AADE receipts were observed for same logical trips:
-  - Liam Bradbury: bookings 83 and 85, same route within about 5 minutes.
-  - Elizabeth Brokou: bookings 68 and 69, same route within about 6 minutes.
+  - Liam Bradbury: bookings 83 and 85.
+  - Elizabeth Brokou: bookings 68 and 69.
 - v6.5.2 corrected the posture by restoring only pickup timestamp worker issuing and hard-blocking non-pickup paths.
 
 Bolt API timing evidence:
 - A live ride was done after v6.5.2.
 - Receipt was sent when the ride concluded.
-- Monitoring did not find:
-  PROOF_CANDIDATE_PICKUP_BEFORE_FINISH
+- Monitoring did not find PROOF_CANDIDATE_PICKUP_BEFORE_FINISH.
 - Do not claim certainty that Bolt exposes order_pickup_timestamp before ride finish.
-- Preferred wording:
-  “AADE invoice is issued only through the Bolt API pickup timestamp path, subject to when Bolt exposes that timestamp.”
+- Preferred wording: “AADE invoice is issued only through the Bolt API pickup timestamp path, subject to when Bolt exposes that timestamp.”
 
-EDXEIX current status:
-- Pre-live / browser-assisted readiness mode only.
-- Firefox EDXEIX browser-fill payload bridge exists.
-- EDXEIX live submit is disabled.
-- Automatic queue creation is disabled/not approved.
-- No live EDXEIX API posting.
+EDXEIX v6.6.1 tool:
+- /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
+- Read-only.
+- Does not call EDXEIX.
+- Does not issue AADE.
+- Does not create submission_jobs.
+- Does not create submission_attempts.
+- Does not print session cookies or CSRF tokens.
 
 Next safe task:
-- Commit v6.5.3 documentation sync if not already committed.
-- Then create a read-only reusable CLI audit/report for pickup timestamp timing and EDXEIX readiness.
-- Do not write DB rows or call AADE/EDXEIX from the monitor/audit.
+- Verify v6.6.1 on production.
+- Commit after production confirmation.
+- Wait for a real future pre-ride Bolt email candidate.
+- Confirm a mail-derived normalized booking shows preflight_ready=true.
+- Only then run analyze-only for that exact booking.
+- Do not live-submit unless Andreas explicitly asks.

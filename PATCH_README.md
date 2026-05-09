@@ -1,104 +1,98 @@
-# gov.cabnet.app v6.6.0 — EDXEIX Readiness Report
+# gov.cabnet.app Patch — v6.6.1 EDXEIX Mail Source Policy
 
-## What changed
+## What Changed
 
-Adds a read-only EDXEIX readiness report CLI script.
+Corrects the EDXEIX readiness report so the EDXEIX submission data source is strictly pre-ride Bolt email / mail-derived normalized bookings.
 
-This is a pre-live audit/report tool only. It does not submit to EDXEIX, does not create queue rows, does not issue AADE receipts, and does not expose secrets.
+This patch also documents the source split:
 
-## Files included
+- EDXEIX source: pre-ride Bolt email only.
+- AADE source: Bolt API pickup timestamp worker only.
+
+## Files Included
 
 ```text
 gov.cabnet.app_app/cli/edxeix_readiness_report.php
 docs/EDXEIX_READINESS_REPORT.md
+HANDOFF.md
+CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Exact upload paths
+## Upload Paths
 
-Upload/extract these files to:
+Upload to server:
 
 ```text
 /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
 ```
 
-and into the local repository path:
+Local repo/docs files:
 
 ```text
 docs/EDXEIX_READINESS_REPORT.md
+HANDOFF.md
+CONTINUE_PROMPT.md
 PATCH_README.md
 ```
-
-The project workflow is:
-
-1. Download this zip.
-2. Extract locally into the GitHub Desktop repo root.
-3. Review changes.
-4. Upload changed files manually to the server.
-5. Test on server.
-6. Commit after production confirmation.
 
 ## SQL
 
 None.
 
-## Verification commands
-
-Syntax check:
+## Verification Commands
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
-```
 
-Run read-only JSON report:
-
-```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --future-hours=72 --past-minutes=60 --limit=50 --json
-```
 
-Run only-ready view:
-
-```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
-```
 
-Confirm queues remain unchanged/zero:
-
-```bash
 mysql cabnet_gov -e "
 SELECT COUNT(*) AS submission_jobs FROM submission_jobs;
 SELECT COUNT(*) AS submission_attempts FROM submission_attempts;
 "
 ```
 
-## Expected result
+Optional diagnostic command to prove non-mail/API rows are blocked as the wrong EDXEIX source:
 
-- Script syntax passes.
-- JSON output shows `ok: true`.
-- Safety flags show no EDXEIX calls, no AADE issuing, no queue creation.
-- `queue_counts.queues_unchanged` is `true`.
-- `submission_jobs` and `submission_attempts` remain zero unless they already contained rows before the report.
-
-## Git commit title
-
-```text
-Add read-only EDXEIX readiness report
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --include-non-mail --future-hours=168 --limit=100 --json
 ```
 
-## Git commit description
+## Expected Result
 
 ```text
-Adds a read-only CLI report for EDXEIX pre-live readiness.
+ok: true
+version: v6.6.1
+source_policy.edxeix_submission_source: pre_ride_bolt_email_only
+source_policy.edxeix_uses_bolt_api_as_source: false
+source_policy.aade_invoice_source: bolt_api_pickup_timestamp_worker_only
+safety.does_not_call_edxeix: true
+safety.does_not_issue_aade_receipts: true
+queue_counts.queues_unchanged: true
+submission_jobs: 0
+submission_attempts: 0
+```
 
-The report analyzes normalized Bolt bookings and classifies whether each one is preflight-ready, blocked, receipt-only, not real Bolt, lab/test, terminal/past, missing mapping, duplicate, or blocked by live config/session state.
+## Git Commit Title
 
-Safety posture:
-- Does not call EDXEIX.
-- Does not issue AADE receipts.
-- Does not create submission_jobs.
-- Does not create submission_attempts.
-- Does not print cookies, CSRF tokens, API keys, or private config values.
+```text
+Correct EDXEIX readiness source policy to pre-ride email
+```
 
-No SQL changes and no production behavior changes.
-EDXEIX live submit remains disabled.
+## Git Commit Description
+
+```text
+Updates the EDXEIX readiness report and continuity docs so EDXEIX submission readiness is based strictly on pre-ride Bolt email / mail-derived normalized bookings.
+
+Clarifies the source split:
+- EDXEIX uses pre-ride Bolt email intake only.
+- Bolt API pickup/finalized data is not an EDXEIX submission source.
+- AADE invoice issuing remains limited to the Bolt API pickup timestamp worker.
+
+The report remains read-only and does not call EDXEIX, issue AADE receipts, create submission_jobs, create submission_attempts, or expose session cookies/CSRF tokens.
+
+No SQL changes and no live-submit activation.
 ```

@@ -1,24 +1,41 @@
-# EDXEIX Readiness Report v6.6.0
+# EDXEIX Readiness Report v6.6.1
 
-This read-only CLI report checks whether normalized Bolt bookings are ready for EDXEIX pre-live review.
+## Purpose
+
+`edxeix_readiness_report.php` is a read-only CLI report for EDXEIX pre-live readiness.
+
+v6.6.1 corrects the source policy:
+
+- EDXEIX submission data source is strictly pre-ride Bolt email intake / mail-derived normalized bookings.
+- Bolt API pickup/finalized data is not an EDXEIX submission source.
+- AADE invoice issuing remains strictly limited to the Bolt API pickup timestamp worker.
 
 ## Safety
 
-The script does not:
+The report:
 
-- call EDXEIX
-- create `submission_jobs`
-- create `submission_attempts`
-- issue AADE receipts
-- print cookies, CSRF tokens, API keys, or private config values
+- Does not call EDXEIX.
+- Does not issue AADE receipts.
+- Does not create `submission_jobs` rows.
+- Does not create `submission_attempts` rows.
+- Does not print cookies, CSRF tokens, API keys, or private config values.
 
-## Script
+## Correct Source Split
 
 ```text
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
+Pre-ride Bolt email
+→ bolt_mail_intake
+→ mail-derived normalized local preflight booking
+→ EDXEIX readiness / browser-fill / future one-shot live submit
 ```
 
-## Recommended commands
+```text
+Bolt API pickup timestamp
+→ bolt_pickup_receipt_worker.php
+→ AADE invoice issue
+```
+
+## Commands
 
 Syntax check:
 
@@ -26,40 +43,65 @@ Syntax check:
 php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
 ```
 
-JSON report:
+Standard JSON report:
 
 ```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --future-hours=72 --past-minutes=60 --limit=50 --json
 ```
 
-Only bookings that pass preflight readiness:
+Only ready mail-derived bookings:
 
 ```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
 ```
 
-Queue safety confirmation:
+Diagnostic view including non-mail rows:
 
 ```bash
-mysql cabnet_gov -e "
-SELECT COUNT(*) AS submission_jobs FROM submission_jobs;
-SELECT COUNT(*) AS submission_attempts FROM submission_attempts;
-"
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --include-non-mail --future-hours=168 --limit=100 --json
 ```
 
-## Interpreting output
+## Expected Safe Output
 
-`preflight_ready=true` means the booking appears structurally ready for EDXEIX review, ignoring the intentional live-submit blockers such as disabled config, missing one-shot lock, and disconnected EDXEIX session.
+```json
+{
+  "ok": true,
+  "version": "v6.6.1",
+  "source_policy": {
+    "edxeix_submission_source": "pre_ride_bolt_email_only",
+    "edxeix_uses_bolt_api_as_source": false,
+    "aade_invoice_source": "bolt_api_pickup_timestamp_worker_only",
+    "pre_ride_email_may_issue_aade": false
+  },
+  "safety": {
+    "does_not_call_edxeix": true,
+    "does_not_issue_aade_receipts": true,
+    "does_not_create_submission_jobs": true,
+    "does_not_create_submission_attempts": true
+  },
+  "queue_counts": {
+    "queues_unchanged": true
+  }
+}
+```
 
-A booking is not ready when it is:
+## Readiness Meaning
 
-- receipt-only / mail-only
-- not a real Bolt API booking
-- lab/test
-- terminal, cancelled, finished, expired, historical, or too close/past
-- missing driver, vehicle, or starting-point mapping
-- duplicate of an already successful EDXEIX submission attempt/audit
+A booking is `preflight_ready=true` only when it is:
 
-## Production rule
+- mail-derived from pre-ride Bolt email,
+- future enough to satisfy the configured guard,
+- not terminal/past/cancelled/finished,
+- not receipt-only or late AADE recovery,
+- not flagged `never_submit_live`,
+- not lab/test,
+- mapped to EDXEIX driver, vehicle, and starting point,
+- not a duplicate.
 
-EDXEIX live submission remains disabled unless Andreas explicitly requests live-submit activation for one exact eligible future Bolt trip.
+`preflight_ready=true` does not mean live submit is enabled. It only means the booking is ready for manual/analyze-only review before any future one-shot live activation.
+
+## Commit Scope
+
+No SQL changes.
+No production behavior changes.
+No live EDXEIX activation.
