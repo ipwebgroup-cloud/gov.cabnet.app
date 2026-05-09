@@ -1,88 +1,104 @@
-# gov.cabnet.app v6.5.3 Documentation Sync
+# gov.cabnet.app v6.6.0 — EDXEIX Readiness Report
 
 ## What changed
 
-Documentation-only sync so repository continuity matches the confirmed v6.5.2 production-safe code state.
+Adds a read-only EDXEIX readiness report CLI script.
 
-No PHP code changes.
-No SQL changes.
-No production behavior changes.
-No EDXEIX live activation.
-No AADE behavior changes.
+This is a pre-live audit/report tool only. It does not submit to EDXEIX, does not create queue rows, does not issue AADE receipts, and does not expose secrets.
 
 ## Files included
 
 ```text
-HANDOFF.md
-CONTINUE_PROMPT.md
+gov.cabnet.app_app/cli/edxeix_readiness_report.php
+docs/EDXEIX_READINESS_REPORT.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Exact upload paths
 
-This package is intended primarily for the local GitHub Desktop repo.
-
-Extract into the local repo root:
+Upload/extract these files to:
 
 ```text
-<local-repo-root>/HANDOFF.md
-<local-repo-root>/CONTINUE_PROMPT.md
-<local-repo-root>/PATCH_README.md
+/home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
 ```
 
-Server upload is optional for these docs. If uploaded to server for reference:
+and into the local repository path:
 
 ```text
-/home/cabnet/HANDOFF.md
-/home/cabnet/CONTINUE_PROMPT.md
-/home/cabnet/PATCH_README.md
+docs/EDXEIX_READINESS_REPORT.md
+PATCH_README.md
 ```
+
+The project workflow is:
+
+1. Download this zip.
+2. Extract locally into the GitHub Desktop repo root.
+3. Review changes.
+4. Upload changed files manually to the server.
+5. Test on server.
+6. Commit after production confirmation.
 
 ## SQL
 
 None.
 
-## Verification
+## Verification commands
 
-After extracting locally, GitHub Desktop should show only documentation changes.
+Syntax check:
 
-Expected files changed:
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
+```
 
-```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
+Run read-only JSON report:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --future-hours=72 --past-minutes=60 --limit=50 --json
+```
+
+Run only-ready view:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
+```
+
+Confirm queues remain unchanged/zero:
+
+```bash
+mysql cabnet_gov -e "
+SELECT COUNT(*) AS submission_jobs FROM submission_jobs;
+SELECT COUNT(*) AS submission_attempts FROM submission_attempts;
+"
 ```
 
 ## Expected result
 
-The repo handoff files reflect:
-
-- v6.5.2 code commit is complete.
-- AADE issuing is pickup timestamp worker-only.
-- Mail/manual AADE issuing paths are blocked/no-op.
-- EDXEIX live submission remains disabled.
-- EDXEIX queues must remain zero unless explicitly approved.
-- Bolt pickup timestamp timing is not proven before ride finish.
+- Script syntax passes.
+- JSON output shows `ok: true`.
+- Safety flags show no EDXEIX calls, no AADE issuing, no queue creation.
+- `queue_counts.queues_unchanged` is `true`.
+- `submission_jobs` and `submission_attempts` remain zero unless they already contained rows before the report.
 
 ## Git commit title
 
 ```text
-Sync handoff docs with AADE pickup-only v6.5.2 state
+Add read-only EDXEIX readiness report
 ```
 
 ## Git commit description
 
 ```text
-Updates HANDOFF.md and CONTINUE_PROMPT.md so repository continuity matches the confirmed v6.5.2 production posture.
+Adds a read-only CLI report for EDXEIX pre-live readiness.
 
-Documents:
-- AADE issuing is active only through the Bolt API pickup timestamp worker.
-- Pre-ride mail/manual/auto AADE issue paths are blocked or no-op.
-- Duplicate AADE receipt incident and the central duplicate/source guards.
-- EDXEIX remains disabled with queues expected at zero.
-- Bolt pickup timestamp timing is not proven before ride finish.
-- Future deliverables must be zip packages extracted locally before manual upload/commit.
+The report analyzes normalized Bolt bookings and classifies whether each one is preflight-ready, blocked, receipt-only, not real Bolt, lab/test, terminal/past, missing mapping, duplicate, or blocked by live config/session state.
 
-No PHP code changes, no SQL changes, and no production behavior changes.
+Safety posture:
+- Does not call EDXEIX.
+- Does not issue AADE receipts.
+- Does not create submission_jobs.
+- Does not create submission_attempts.
+- Does not print cookies, CSRF tokens, API keys, or private config values.
+
+No SQL changes and no production behavior changes.
+EDXEIX live submit remains disabled.
 ```
