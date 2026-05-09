@@ -1,13 +1,18 @@
-# v6.3.0 EDXEIX Pre-live Hardening Patch
+# gov.cabnet.app v6.5.3 Documentation Sync
+
+## What changed
+
+Documentation-only sync so repository continuity matches the confirmed v6.5.2 production-safe code state.
+
+No PHP code changes.
+No SQL changes.
+No production behavior changes.
+No EDXEIX live activation.
+No AADE behavior changes.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
-gov.cabnet.app_app/cli/edxeix_prelive_audit.php
-gov.cabnet.app_sql/2026_05_08_v6_3_0_receipt_only_edxeix_block.sql
-docs/V6_3_0_EDXEIX_PRELIVE_HARDENING.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -15,12 +20,19 @@ PATCH_README.md
 
 ## Upload paths
 
+This package is intended primarily for the local GitHub Desktop repo.
+
+Extract into the local repo root:
+
 ```text
-/home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-/home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_prelive_audit.php
-/home/cabnet/gov.cabnet.app_sql/2026_05_08_v6_3_0_receipt_only_edxeix_block.sql
-/home/cabnet/docs/V6_3_0_EDXEIX_PRELIVE_HARDENING.md
+<local-repo-root>/HANDOFF.md
+<local-repo-root>/CONTINUE_PROMPT.md
+<local-repo-root>/PATCH_README.md
+```
+
+Server upload is optional for these docs. If uploaded to server for reference:
+
+```text
 /home/cabnet/HANDOFF.md
 /home/cabnet/CONTINUE_PROMPT.md
 /home/cabnet/PATCH_README.md
@@ -28,38 +40,49 @@ PATCH_README.md
 
 ## SQL
 
-Back up first:
+None.
 
-```bash
-mysqldump cabnet_gov > /home/cabnet/gov_pre_v6_3_0_edxeix_prelive_$(date +%Y%m%d_%H%M%S).sql
-```
+## Verification
 
-Apply:
+After extracting locally, GitHub Desktop should show only documentation changes.
 
-```bash
-mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_08_v6_3_0_receipt_only_edxeix_block.sql
-```
-
-## Verify
-
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/bolt_mail_receipt_worker.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_prelive_audit.php
-
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_prelive_audit.php --future-hours=24 --past-minutes=60 --limit=50 --json
-
-mysql cabnet_gov -e "SELECT COUNT(*) AS submission_jobs FROM submission_jobs;"
-mysql cabnet_gov -e "SELECT COUNT(*) AS submission_attempts FROM submission_attempts;"
-```
-
-Expected:
+Expected files changed:
 
 ```text
-submission_jobs = 0
-submission_attempts = 0
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-## Important
+## Expected result
 
-This patch does not enable live EDXEIX submission. It makes the pre-live path safer by blocking receipt-only AADE bookings from EDXEIX and adding a read-only pre-live audit tool.
+The repo handoff files reflect:
+
+- v6.5.2 code commit is complete.
+- AADE issuing is pickup timestamp worker-only.
+- Mail/manual AADE issuing paths are blocked/no-op.
+- EDXEIX live submission remains disabled.
+- EDXEIX queues must remain zero unless explicitly approved.
+- Bolt pickup timestamp timing is not proven before ride finish.
+
+## Git commit title
+
+```text
+Sync handoff docs with AADE pickup-only v6.5.2 state
+```
+
+## Git commit description
+
+```text
+Updates HANDOFF.md and CONTINUE_PROMPT.md so repository continuity matches the confirmed v6.5.2 production posture.
+
+Documents:
+- AADE issuing is active only through the Bolt API pickup timestamp worker.
+- Pre-ride mail/manual/auto AADE issue paths are blocked or no-op.
+- Duplicate AADE receipt incident and the central duplicate/source guards.
+- EDXEIX remains disabled with queues expected at zero.
+- Bolt pickup timestamp timing is not proven before ride finish.
+- Future deliverables must be zip packages extracted locally before manual upload/commit.
+
+No PHP code changes, no SQL changes, and no production behavior changes.
+```
