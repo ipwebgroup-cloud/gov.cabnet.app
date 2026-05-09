@@ -1,10 +1,10 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX readiness report v6.6.1
+ * gov.cabnet.app — EDXEIX readiness report v6.6.2
  *
  * Read-only CLI report for pre-live EDXEIX readiness.
  *
- * v6.6.1 source policy:
+ * v6.6.2 source policy:
  * - EDXEIX source is strictly pre-ride Bolt email intake / mail-derived normalized bookings.
  * - Bolt API pickup/finalized data is not an EDXEIX submission source.
  * - AADE invoice issuing remains strictly Bolt API pickup timestamp worker only.
@@ -39,7 +39,7 @@ $options = getopt('', [
 ]);
 
 if (array_key_exists('help', $options)) {
-    echo "EDXEIX Readiness Report v6.6.1\n";
+    echo "EDXEIX Readiness Report v6.6.2\n";
     echo "Usage:\n";
     echo "  php edxeix_readiness_report.php --future-hours=72 --past-minutes=60 --limit=50 --json\n";
     echo "  php edxeix_readiness_report.php --only-ready --json\n";
@@ -64,7 +64,7 @@ if (!empty($config['app']['timezone'])) {
 $out = [
     'ok' => false,
     'script' => 'cli/edxeix_readiness_report.php',
-    'version' => 'v6.6.1',
+    'version' => 'v6.6.2',
     'generated_at' => date('c'),
     'source_policy' => [
         'edxeix_submission_source' => 'pre_ride_bolt_email_only',
@@ -182,7 +182,7 @@ try {
     $out['items'] = $items;
     $out['next_safe_steps'] = [
         'Keep EDXEIX live submission disabled until a future pre-ride Bolt email creates a mail-derived normalized booking with preflight_ready=true.',
-        'If mail_intake_summary.future_unlinked_candidates is greater than zero, preview/create the local normalized preflight booking through the existing mail intake bridge before live review.',
+        'If mail_intake_summary.currently_future_unlinked_candidates is greater than zero, preview/create the local normalized preflight booking through the existing mail intake bridge before live review.',
         'For a ready mail-derived booking, run live_submit_one_booking.php with --analyze-only before any live action.',
         'Do not stage or submit Bolt API finished rides, receipt-only recovery rows, mail-only past rows, cancelled, finished, expired, historical, duplicate, or unmapped bookings.',
         'Only enable one-shot live submission for one exact eligible future pre-ride email booking after Andreas explicitly approves.',
@@ -216,6 +216,13 @@ function edxeix_report_mail_intake_summary(mysqli $db): array
         'table_exists' => false,
         'total_rows' => 0,
         'parsed_rows' => 0,
+        'legacy_status_future_candidate_rows' => 0,
+        'currently_future_candidates' => 0,
+        'currently_future_unlinked_candidates' => 0,
+        'currently_future_linked_candidates' => 0,
+        'stale_future_candidate_rows' => 0,
+        'stale_future_linked_candidates' => 0,
+        'stale_future_unlinked_candidates' => 0,
         'future_candidates' => 0,
         'future_unlinked_candidates' => 0,
         'future_linked_candidates' => 0,
@@ -231,6 +238,12 @@ function edxeix_report_mail_intake_summary(mysqli $db): array
         COUNT(*) AS total_rows,
         SUM(CASE WHEN parse_status='parsed' THEN 1 ELSE 0 END) AS parsed_rows,
         SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' THEN 1 ELSE 0 END) AS future_candidates,
+        SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND parsed_pickup_at > NOW() THEN 1 ELSE 0 END) AS currently_future_candidates,
+        SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND parsed_pickup_at > NOW() AND linked_booking_id IS NULL THEN 1 ELSE 0 END) AS currently_future_unlinked_candidates,
+        SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND parsed_pickup_at > NOW() AND linked_booking_id IS NOT NULL THEN 1 ELSE 0 END) AS currently_future_linked_candidates,
+        SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND (parsed_pickup_at IS NULL OR parsed_pickup_at <= NOW()) THEN 1 ELSE 0 END) AS stale_future_candidate_rows,
+        SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND (parsed_pickup_at IS NULL OR parsed_pickup_at <= NOW()) AND linked_booking_id IS NOT NULL THEN 1 ELSE 0 END) AS stale_future_linked_candidates,
+        SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND (parsed_pickup_at IS NULL OR parsed_pickup_at <= NOW()) AND linked_booking_id IS NULL THEN 1 ELSE 0 END) AS stale_future_unlinked_candidates,
         SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND linked_booking_id IS NULL THEN 1 ELSE 0 END) AS future_unlinked_candidates,
         SUM(CASE WHEN parse_status='parsed' AND safety_status='future_candidate' AND linked_booking_id IS NOT NULL THEN 1 ELSE 0 END) AS future_linked_candidates,
         SUM(CASE WHEN parse_status='parsed' AND safety_status IN ('blocked_past','blocked_too_soon') THEN 1 ELSE 0 END) AS blocked_timing_rows,
@@ -241,9 +254,17 @@ function edxeix_report_mail_intake_summary(mysqli $db): array
         'table_exists' => true,
         'total_rows' => (int)($row['total_rows'] ?? 0),
         'parsed_rows' => (int)($row['parsed_rows'] ?? 0),
-        'future_candidates' => (int)($row['future_candidates'] ?? 0),
-        'future_unlinked_candidates' => (int)($row['future_unlinked_candidates'] ?? 0),
-        'future_linked_candidates' => (int)($row['future_linked_candidates'] ?? 0),
+        'legacy_status_future_candidate_rows' => (int)($row['future_candidates'] ?? 0),
+        'currently_future_candidates' => (int)($row['currently_future_candidates'] ?? 0),
+        'currently_future_unlinked_candidates' => (int)($row['currently_future_unlinked_candidates'] ?? 0),
+        'currently_future_linked_candidates' => (int)($row['currently_future_linked_candidates'] ?? 0),
+        'stale_future_candidate_rows' => (int)($row['stale_future_candidate_rows'] ?? 0),
+        'stale_future_linked_candidates' => (int)($row['stale_future_linked_candidates'] ?? 0),
+        'stale_future_unlinked_candidates' => (int)($row['stale_future_unlinked_candidates'] ?? 0),
+        // Backwards-compatible aliases. These are active/current future counts, not stale labels.
+        'future_candidates' => (int)($row['currently_future_candidates'] ?? 0),
+        'future_unlinked_candidates' => (int)($row['currently_future_unlinked_candidates'] ?? 0),
+        'future_linked_candidates' => (int)($row['currently_future_linked_candidates'] ?? 0),
         'blocked_timing_rows' => (int)($row['blocked_timing_rows'] ?? 0),
         'synthetic_or_do_not_submit_rows' => (int)($row['synthetic_or_do_not_submit_rows'] ?? 0),
     ];

@@ -1,38 +1,35 @@
-# gov.cabnet.app Patch — v6.6.1 EDXEIX Mail Source Policy
+# gov.cabnet.app Patch — v6.6.2 EDXEIX stale mail candidate reporting
 
-## What Changed
+## What changed
 
-Corrects the EDXEIX readiness report so the EDXEIX submission data source is strictly pre-ride Bolt email / mail-derived normalized bookings.
+Improves the read-only EDXEIX readiness report so stale `bolt_mail_intake.safety_status = future_candidate` rows are not presented as active future candidates after their pickup time has passed.
 
-This patch also documents the source split:
+This patch keeps the EDXEIX source policy unchanged:
 
-- EDXEIX source: pre-ride Bolt email only.
-- AADE source: Bolt API pickup timestamp worker only.
+- EDXEIX uses pre-ride Bolt email only.
+- Bolt API pickup/finalized data is not an EDXEIX submission source.
+- AADE uses only the Bolt API pickup timestamp worker.
 
-## Files Included
+## Files included
 
 ```text
 gov.cabnet.app_app/cli/edxeix_readiness_report.php
 docs/EDXEIX_READINESS_REPORT.md
-HANDOFF.md
-CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload Paths
+## Upload paths
 
-Upload to server:
+Upload:
 
 ```text
 /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
 ```
 
-Local repo/docs files:
+Local repo docs:
 
 ```text
 docs/EDXEIX_READINESS_REPORT.md
-HANDOFF.md
-CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
@@ -40,7 +37,7 @@ PATCH_README.md
 
 None.
 
-## Verification Commands
+## Verification
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
@@ -55,42 +52,28 @@ SELECT COUNT(*) AS submission_attempts FROM submission_attempts;
 "
 ```
 
-Optional diagnostic command to prove non-mail/API rows are blocked as the wrong EDXEIX source:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --include-non-mail --future-hours=168 --limit=100 --json
-```
-
-## Expected Result
+## Expected result
 
 ```text
 ok: true
-version: v6.6.1
-source_policy.edxeix_submission_source: pre_ride_bolt_email_only
-source_policy.edxeix_uses_bolt_api_as_source: false
-source_policy.aade_invoice_source: bolt_api_pickup_timestamp_worker_only
-safety.does_not_call_edxeix: true
-safety.does_not_issue_aade_receipts: true
+version: v6.6.2
 queue_counts.queues_unchanged: true
-submission_jobs: 0
-submission_attempts: 0
+mail_intake_summary.currently_future_candidates reflects only rows with parsed_pickup_at > NOW()
+mail_intake_summary.stale_future_candidate_rows shows old rows that still carry the legacy future_candidate label
 ```
 
-## Git Commit Title
+## Git commit title
 
 ```text
-Correct EDXEIX readiness source policy to pre-ride email
+Clarify stale Bolt mail candidates in EDXEIX readiness report
 ```
 
-## Git Commit Description
+## Git commit description
 
 ```text
-Updates the EDXEIX readiness report and continuity docs so EDXEIX submission readiness is based strictly on pre-ride Bolt email / mail-derived normalized bookings.
+Improves the read-only EDXEIX readiness report so mail intake rows that were originally marked future_candidate but now have past pickup times are reported separately as stale future-candidate rows.
 
-Clarifies the source split:
-- EDXEIX uses pre-ride Bolt email intake only.
-- Bolt API pickup/finalized data is not an EDXEIX submission source.
-- AADE invoice issuing remains limited to the Bolt API pickup timestamp worker.
+Keeps the source policy unchanged: EDXEIX uses pre-ride Bolt email only, while AADE invoice issuing remains limited to the Bolt API pickup timestamp worker.
 
 The report remains read-only and does not call EDXEIX, issue AADE receipts, create submission_jobs, create submission_attempts, or expose session cookies/CSRF tokens.
 
