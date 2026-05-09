@@ -183,7 +183,7 @@ final class BoltMailAutoDryRunService
                 'future_guard_minutes' => (int)$this->config->get('edxeix.future_start_guard_minutes', 2),
                 'no_bolt_call' => true,
                 'no_edxeix_call' => true,
-                'calls_aade_mydata_when_enabled' => (bool)$this->config->get('receipts.aade_mydata.auto_send_invoices', false),
+                'calls_aade_mydata_when_enabled' => false,
                 'no_submission_jobs_created' => true,
                 'no_live_submit' => true,
             ] + $jobs,
@@ -197,33 +197,35 @@ final class BoltMailAutoDryRunService
      */
     private function processAadeReceipt(int $bookingId, string $createdBy, array &$summary, array &$item): void
     {
-        $result = $this->aadeReceiptIssuer->issueAndEmailForBooking($bookingId, $createdBy);
-        $item['aade_receipt'] = $result;
+        /*
+         * AADE_MAIL_AUTO_DRY_RUN_NEVER_ISSUES_V6_5_0
+         *
+         * Production rule:
+         * Bolt mail auto dry-run may import, link, and record evidence only.
+         * It must never issue or email AADE receipts.
+         *
+         * AADE issue is allowed only from cli/bolt_pickup_receipt_worker.php
+         * after Bolt API confirms order_pickup_timestamp.
+         */
+        $summary['aade_receipt_skipped'] = (int)($summary['aade_receipt_skipped'] ?? 0) + 1;
 
-        if (empty($result['enabled'])) {
-            $summary['aade_receipt_skipped']++;
-            return;
+        $item['aade_receipt'] = [
+            'enabled' => false,
+            'attempted' => false,
+            'issued' => false,
+            'emailed' => false,
+            'status' => 'blocked',
+            'booking_id' => $bookingId,
+            'created_by' => $createdBy,
+            'blockers' => ['mail_auto_dry_run_never_issues_aade_pickup_swipe_only'],
+            'strict_rule' => 'AADE may only issue after Bolt API confirms order_pickup_timestamp.',
+        ];
+
+        if (!isset($item['blockers']) || !is_array($item['blockers'])) {
+            $item['blockers'] = [];
         }
 
-        if (!empty($result['attempted'])) {
-            $summary['aade_receipt_attempted']++;
-        } else {
-            $summary['aade_receipt_skipped']++;
-        }
-
-        if (!empty($result['issued'])) {
-            $summary['aade_receipt_issued']++;
-        }
-        if (!empty($result['emailed'])) {
-            $summary['aade_receipt_emailed']++;
-        }
-
-        $status = (string)($result['status'] ?? '');
-        if (in_array($status, ['aade_failed', 'error', 'issued_email_not_sent'], true)) {
-            $summary['aade_receipt_failed']++;
-            $summary['errors']++;
-            $item['blockers'][] = 'aade_receipt_' . $status;
-        }
+        $item['blockers'][] = 'aade_mail_auto_dry_run_disabled_pickup_swipe_only';
     }
 
     public function status(): array

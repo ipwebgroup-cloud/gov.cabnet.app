@@ -109,7 +109,7 @@ $out = [
         'preview' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=BOOKING_ID',
         'preview_with_xml' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=BOOKING_ID --show-xml',
         'record_prepared' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=BOOKING_ID --record-prepared --by=Andreas',
-        'send_blocked_until_enabled' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/aade_mydata_receipt_payload.php --booking-id=BOOKING_ID --send --confirm=CONFIRM_PHRASE --by=Andreas',
+        'send_disabled_pickup_swipe_only' => 'Manual --send disabled. AADE issues only from cli/bolt_pickup_receipt_worker.php after Bolt API order_pickup_timestamp.',
     ],
 ];
 

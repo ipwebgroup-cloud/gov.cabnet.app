@@ -1,219 +1,308 @@
-(() => {
-  'use strict';
+'use strict';
 
-  const api = typeof browser !== 'undefined' ? browser : chrome;
-  const VERSION = '0.1.2';
-  const GOV_CAPTURE_ENDPOINT = 'https://gov.cabnet.app/ops/edxeix-session-capture.php';
-  const GOV_SESSION_URL = 'https://gov.cabnet.app/ops/edxeix-session.php';
-  const GOV_LIVE_GATE_URL = 'https://gov.cabnet.app/ops/live-submit.php';
-  const FIXED_SUBMIT_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement';
-  const EDXEIX_URL_FOR_COOKIES = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
+const EXT_VERSION = '0.1.4';
+const EDXEIX_ORIGIN = 'https://edxeix.yme.gov.gr';
+const GOV_ORIGIN = 'https://gov.cabnet.app';
+const CAPTURE_URL = GOV_ORIGIN + '/ops/edxeix-session-capture.php';
+const PAYLOAD_URL = GOV_ORIGIN + '/edxeix-extension-payload.php';
 
-  let captured = null;
+function $(id) {
+  return document.getElementById(id);
+}
 
-  const el = (id) => document.getElementById(id);
-  const status = el('status');
-  const captureBtn = el('captureBtn');
-  const saveBtn = el('saveBtn');
-  const openSessionBtn = el('openSessionBtn');
-  const openLiveGateBtn = el('openLiveGateBtn');
+function setStatus(message, kind = 'ok') {
+  const el = $('status');
+  el.textContent = message;
+  el.className = kind === 'bad' ? 'warn' : 'okbox';
+}
 
-  function setStatus(message, type = 'neutral') {
-    status.textContent = message;
-    status.className = `status ${type}`;
+function safeJsonPreview(obj) {
+  $('payloadPreview').textContent = JSON.stringify(obj, null, 2);
+}
+
+async function getActiveTab() {
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  if (!tabs || !tabs[0]) {
+    throw new Error('No active tab found.');
+  }
+  return tabs[0];
+}
+
+async function requireActiveEdxeixTab() {
+  const tab = await getActiveTab();
+  if (!tab.url || !tab.url.startsWith(EDXEIX_ORIGIN + '/')) {
+    throw new Error('Active tab must be an EDXEIX page.');
+  }
+  return tab;
+}
+
+async function saveSessionFromCurrentTab() {
+  setStatus('Reading current EDXEIX tab and cookies...');
+
+  const tab = await requireActiveEdxeixTab();
+
+  const cookies = await browser.cookies.getAll({ url: EDXEIX_ORIGIN });
+  const cookieHeader = cookies
+    .filter(c => c && c.name && typeof c.value === 'string')
+    .map(c => `${c.name}=${c.value}`)
+    .join('; ');
+
+  if (!cookieHeader) {
+    throw new Error('No EDXEIX cookies found. Make sure you are logged in.');
   }
 
-  function setText(id, text) {
-    el(id).textContent = String(text);
+  const csrfResults = await browser.tabs.executeScript(tab.id, {
+    code: `(() => {
+      const input = document.querySelector('input[name="_token"]');
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      return (input && input.value) || (meta && meta.content) || '';
+    })();`
+  });
+
+  const csrfToken = (csrfResults && csrfResults[0]) ? String(csrfResults[0]) : '';
+
+  const body = new URLSearchParams();
+  body.set('cookie_header', cookieHeader);
+  body.set('csrf_token', csrfToken);
+  body.set('extension_version', EXT_VERSION);
+
+  const res = await fetch(CAPTURE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    body: body.toString(),
+    cache: 'no-store'
+  });
+
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Session capture endpoint did not return JSON.');
   }
 
-  function validTabUrl(url) {
-    try {
-      const u = new URL(url);
-      return u.protocol === 'https:'
-        && u.hostname === 'edxeix.yme.gov.gr'
-        && u.pathname.indexOf('/dashboard/lease-agreement') === 0;
-    } catch (_) {
-      return false;
+  safeJsonPreview({
+    ok: json.ok,
+    script: json.script,
+    session_ready: json.session_ready,
+    live_submit_enabled: json.live_submit_enabled,
+    http_submit_enabled: json.http_submit_enabled,
+    message: json.message || null
+  });
+
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error || json.message || 'Session capture failed.');
+  }
+
+  setStatus('EDXEIX browser session saved server-side. Live server submit remains disabled.');
+}
+
+async function fetchLockedPayload() {
+  setStatus('Fetching locked payload...');
+
+  const bookingId = $('bookingId').value.trim();
+  const url = new URL(PAYLOAD_URL);
+  if (bookingId) {
+    url.searchParams.set('booking_id', bookingId);
+  }
+
+  const res = await fetch(url.toString(), { cache: 'no-store' });
+  const text = await res.text();
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Payload endpoint did not return JSON.');
+  }
+
+  if (!res.ok || !json.ok) {
+    safeJsonPreview(json);
+    throw new Error(json.error || json.message || 'Payload is not ready.');
+  }
+
+  await browser.storage.local.set({ edxeixLockedPayload: json });
+
+  safeJsonPreview({
+    ok: true,
+    booking_id: json.booking_id,
+    order_reference: json.order_reference,
+    payload_hash: json.payload_hash,
+    driver: json.analysis_summary && json.analysis_summary.driver_name,
+    vehicle_plate: json.analysis_summary && json.analysis_summary.vehicle_plate,
+    started_at: json.analysis_summary && json.analysis_summary.started_at,
+    price: json.payload && json.payload.price
+  });
+
+  setStatus('Locked payload loaded. Open the EDXEIX create form tab and click fill.');
+}
+
+function fillEdxeixPayloadIntoPage(payload) {
+  const summary = { filled: [], missing: [], skipped: [] };
+
+  function attrEscape(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function byNameOrId(names) {
+    for (const name of names) {
+      const byId = document.getElementById(name);
+      if (byId) return byId;
+
+      const byName = document.querySelector(`[name="${attrEscape(name)}"]`);
+      if (byName) return byName;
+    }
+    return null;
+  }
+
+  function fire(el) {
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    if (window.jQuery) {
+      try { window.jQuery(el).trigger('change'); } catch (e) {}
     }
   }
 
-  function isCreateFormUrl(url) {
-    try {
-      const u = new URL(url);
-      return u.protocol === 'https:'
-        && u.hostname === 'edxeix.yme.gov.gr'
-        && u.pathname === '/dashboard/lease-agreement/create';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function looksPlaceholder(value) {
-    const v = String(value || '').toUpperCase();
-    return !v || ['PASTE', 'REPLACE', 'EXAMPLE', 'DUMMY', 'DEMO', 'TODO', 'COOKIE_HEADER', 'CSRF_TOKEN', 'YYYY-MM-DD', 'HH:MM:SS'].some((marker) => v.includes(marker));
-  }
-
-  function cookieHeaderFromCookies(cookies) {
-    const seen = new Set();
-    return cookies
-      .filter((cookie) => cookie && cookie.name)
-      .sort((a, b) => {
-        const ap = (a.path || '').length;
-        const bp = (b.path || '').length;
-        return bp - ap || String(a.name).localeCompare(String(b.name));
-      })
-      .filter((cookie) => {
-        const key = cookie.name;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map((cookie) => `${cookie.name}=${cookie.value || ''}`)
-      .join('; ');
-  }
-
-  async function getActiveTab() {
-    const tabs = await api.tabs.query({ active: true, currentWindow: true });
-    return tabs && tabs.length ? tabs[0] : null;
-  }
-
-  async function captureFromPage(tabId) {
-    const code = `(() => {
-      const tokenInput = document.querySelector('input[name="_token"]');
-      const forms = Array.from(document.querySelectorAll('form'));
-      const preferred = forms.find((form) => String(form.action || '').includes('/dashboard/lease-agreement')) || forms[0] || null;
-      return {
-        page_url: location.href,
-        title: document.title,
-        detected_form_action: preferred ? String(preferred.action || '') : '',
-        detected_form_method: preferred ? String(preferred.method || 'POST').toUpperCase() : 'POST',
-        csrf_token: tokenInput ? String(tokenInput.value || '') : '',
-        visible_cookie_length: String(document.cookie || '').length
-      };
-    })();`;
-    const result = await api.tabs.executeScript(tabId, { code });
-    return result && result.length ? result[0] : null;
-  }
-
-  async function captureCookies() {
-    const cookies = await api.cookies.getAll({ url: EDXEIX_URL_FOR_COOKIES });
-    return {
-      count: cookies.length,
-      header: cookieHeaderFromCookies(cookies),
-    };
-  }
-
-  function updateDetectedState(data) {
-    setText('tabState', data && data.page_url ? (isCreateFormUrl(data.page_url) ? 'ok' : 'lease page') : 'missing');
-    setText('actionState', 'fixed');
-    setText('csrfState', data && data.csrf_token ? `${data.csrf_token.length} chars` : 'missing');
-    setText('cookieState', data && data.cookie_count ? `${data.cookie_count} cookies` : 'missing');
-    setText('cookieLength', data && data.cookie_header ? `${data.cookie_header.length}` : '0');
-    setText('versionState', VERSION);
-    saveBtn.disabled = !(data && data.csrf_token && data.cookie_header);
-  }
-
-  async function doCapture() {
-    setStatus('Capturing from active EDXEIX tab...', 'warn');
-    saveBtn.disabled = true;
-    captured = null;
-
-    const tab = await getActiveTab();
-    if (!tab || !validTabUrl(tab.url || '')) {
-      updateDetectedState(null);
-      setStatus('Open the EDXEIX lease-agreement create form first, then click this extension.', 'bad');
+  function setValue(names, value, label) {
+    if (value === undefined || value === null || String(value) === '') {
+      summary.skipped.push(label);
       return;
     }
 
-    const page = await captureFromPage(tab.id);
-    const cookieData = await captureCookies();
+    const el = byNameOrId(names);
+    if (!el) {
+      summary.missing.push(label);
+      return;
+    }
 
-    const data = {
-      page_url: page ? page.page_url : (tab.url || ''),
-      fixed_submit_url: FIXED_SUBMIT_URL,
-      detected_form_action: page ? page.detected_form_action : '',
-      detected_form_method: page ? page.detected_form_method : 'POST',
-      form_method: 'POST',
-      csrf_token: page ? page.csrf_token : '',
-      cookie_header: cookieData.header,
-      cookie_count: cookieData.count,
-    };
+    let str = String(value);
 
-    updateDetectedState(data);
+    if (el.type === 'datetime-local') {
+      str = str.replace(' ', 'T').slice(0, 16);
+    }
 
-    const warnings = [];
-    if (!isCreateFormUrl(data.page_url)) warnings.push('not on /create form');
-    if (!data.csrf_token || looksPlaceholder(data.csrf_token)) warnings.push('CSRF token missing/placeholder');
-    if (!data.cookie_header || looksPlaceholder(data.cookie_header)) warnings.push('cookie header missing/placeholder');
-
-    captured = data;
-
-    if (warnings.length) {
-      setStatus(`Captured with warnings: ${warnings.join(', ')}.`, 'bad');
+    if (el.tagName === 'SELECT') {
+      let matched = false;
+      for (const opt of Array.from(el.options || [])) {
+        if (String(opt.value) === str || String(opt.textContent).trim() === str) {
+          el.value = opt.value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        el.value = str;
+      }
+    } else if (el.type === 'checkbox') {
+      el.checked = ['1', 'true', 'yes', 'on'].includes(str.toLowerCase());
     } else {
-      setStatus('Captured. Click save to update server-only session values.', 'good');
+      el.value = str;
     }
+
+    el.style.outline = '2px solid #16a34a';
+    fire(el);
+    summary.filled.push(label);
   }
 
-  async function doSave() {
-    if (!captured) {
-      setStatus('Capture values first.', 'bad');
+  function setRadio(names, value, label) {
+    if (value === undefined || value === null || String(value) === '') {
+      summary.skipped.push(label);
       return;
     }
 
-    setStatus('Saving to gov.cabnet.app server-only storage...', 'warn');
-    saveBtn.disabled = true;
+    const str = String(value);
 
-    const body = new URLSearchParams();
-    body.set('form_method', 'POST');
-    body.set('cookie_header', captured.cookie_header || '');
-    body.set('csrf_token', captured.csrf_token || '');
-    body.set('source_url', captured.page_url || '');
-    body.set('detected_form_action', captured.detected_form_action || '');
-    body.set('extension_version', VERSION);
+    for (const name of names) {
+      const radio = document.querySelector(`input[type="radio"][name="${attrEscape(name)}"][value="${attrEscape(str)}"]`);
+      if (radio) {
+        radio.checked = true;
+        radio.style.outline = '2px solid #16a34a';
+        fire(radio);
+        summary.filled.push(label);
+        return;
+      }
+    }
 
-    let response;
-    let json;
-    try {
-      response = await fetch(GOV_CAPTURE_ENDPOINT, {
-        method: 'POST',
-        credentials: 'omit',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-        body: body.toString(),
+    setValue(names, value, label);
+  }
+
+  const lessee = payload.lessee || {};
+
+  setValue(['broker', 'broker_id'], payload.broker, 'broker');
+  setValue(['lessor', 'lessor_id'], payload.lessor, 'lessor');
+
+  setRadio(['lessee[type]', 'lessee_type', 'customer_type'], lessee.type, 'lessee type');
+  setValue(['lessee[name]', 'lessee_name', 'customer_name'], lessee.name, 'lessee name');
+  setValue(['lessee[vat_number]', 'lessee_vat_number', 'customer_vat_number'], lessee.vat_number, 'lessee VAT');
+  setValue(['lessee[legal_representative]', 'lessee_legal_representative', 'customer_representative'], lessee.legal_representative, 'lessee representative');
+
+  setValue(['driver', 'driver_id'], payload.driver, 'driver');
+  setValue(['vehicle', 'vehicle_id'], payload.vehicle, 'vehicle');
+  setValue(['starting_point', 'starting_point_id'], payload.starting_point || payload.starting_point_id, 'starting point');
+
+  setValue(['boarding_point', 'pickup_address'], payload.boarding_point, 'boarding point');
+  setValue(['coordinates'], payload.coordinates, 'coordinates');
+  setValue(['disembark_point', 'destination_address'], payload.disembark_point, 'disembark point');
+
+  setValue(['drafted_at'], payload.drafted_at, 'drafted at');
+  setValue(['started_at'], payload.started_at, 'started at');
+  setValue(['ended_at'], payload.ended_at, 'ended at');
+  setValue(['price'], payload.price, 'price');
+
+  const notice = document.createElement('div');
+  notice.textContent = `Cabnet filled EDXEIX form fields. Filled: ${summary.filled.length}. Missing: ${summary.missing.length}. Review manually before submitting.`;
+  notice.style.cssText = 'position:fixed;z-index:999999;left:16px;right:16px;bottom:16px;background:#064e3b;color:white;padding:12px;border-radius:8px;font:14px Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25)';
+  document.body.appendChild(notice);
+  setTimeout(() => notice.remove(), 12000);
+
+  return summary;
+}
+
+async function fillCurrentForm() {
+  setStatus('Filling active EDXEIX form tab...');
+
+  const tab = await requireActiveEdxeixTab();
+  const stored = await browser.storage.local.get('edxeixLockedPayload');
+  const locked = stored.edxeixLockedPayload;
+
+  if (!locked || !locked.payload) {
+    throw new Error('No locked payload loaded. Click “Fetch locked payload” first.');
+  }
+
+  const code = `(${fillEdxeixPayloadIntoPage.toString()})(${JSON.stringify(locked.payload)});`;
+  const result = await browser.tabs.executeScript(tab.id, { code });
+  const summary = result && result[0] ? result[0] : {};
+
+  safeJsonPreview({
+    ok: true,
+    booking_id: locked.booking_id,
+    order_reference: locked.order_reference,
+    fill_summary: summary
+  });
+
+  setStatus('Form filled. Review every field in EDXEIX, then submit manually.');
+}
+
+async function run(handler) {
+  try {
+    await handler();
+  } catch (err) {
+    setStatus(err && err.message ? err.message : String(err), 'bad');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('saveSession').addEventListener('click', () => run(saveSessionFromCurrentTab));
+  $('fetchPayload').addEventListener('click', () => run(fetchLockedPayload));
+  $('fillForm').addEventListener('click', () => run(fillCurrentForm));
+
+  browser.storage.local.get('edxeixLockedPayload').then((stored) => {
+    if (stored && stored.edxeixLockedPayload) {
+      safeJsonPreview({
+        cached_booking_id: stored.edxeixLockedPayload.booking_id,
+        cached_order_reference: stored.edxeixLockedPayload.order_reference,
+        cached_payload_hash: stored.edxeixLockedPayload.payload_hash
       });
-      json = await response.json();
-    } catch (err) {
-      saveBtn.disabled = false;
-      setStatus(`Save failed: ${err.message || err}`, 'bad');
-      return;
     }
-
-    if (!response.ok || !json || !json.ok || !json.saved) {
-      saveBtn.disabled = false;
-      const errors = json && json.errors ? json.errors.join(', ') : (json && json.error ? json.error : `HTTP ${response.status}`);
-      setStatus(`Server refused save: ${errors}`, 'bad');
-      return;
-    }
-
-    setStatus('Saved. Live flags remain disabled. Click a verification button below.', 'good');
-  }
-
-  async function openTab(url) {
-    await api.tabs.create({ url });
-  }
-
-  async function init() {
-    setText('versionState', VERSION);
-    const tab = await getActiveTab();
-    setText('tabState', tab && validTabUrl(tab.url || '') ? (isCreateFormUrl(tab.url || '') ? 'EDXEIX create tab detected' : 'EDXEIX lease tab detected') : 'open EDXEIX form');
-    setText('actionState', 'fixed');
-  }
-
-  captureBtn.addEventListener('click', () => { doCapture().catch((err) => setStatus(`Capture failed: ${err.message || err}`, 'bad')); });
-  saveBtn.addEventListener('click', () => { doSave().catch((err) => setStatus(`Save failed: ${err.message || err}`, 'bad')); });
-  openSessionBtn.addEventListener('click', () => { openTab(GOV_SESSION_URL).catch((err) => setStatus(`Could not open session page: ${err.message || err}`, 'bad')); });
-  openLiveGateBtn.addEventListener('click', () => { openTab(GOV_LIVE_GATE_URL).catch((err) => setStatus(`Could not open live gate: ${err.message || err}`, 'bad')); });
-
-  init().catch(() => {});
-})();
+  }).catch(() => {});
+});

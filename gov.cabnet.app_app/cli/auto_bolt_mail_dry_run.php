@@ -1,83 +1,36 @@
 <?php
-/**
- * gov.cabnet.app — Bolt mail auto preflight/dry-run evidence worker v4.3
- *
- * Auto-creates local normalized_bookings rows for valid future_candidate mail rows,
- * records dry-run evidence snapshots, and may automatically issue AADE/myDATA
- * receipts when the AADE auto-send config is explicitly enabled. It never
- * creates submission_jobs and never POSTs to EDXEIX.
- */
-
 declare(strict_types=1);
 
-use Bridge\Mail\BoltMailAutoDryRunService;
+/*
+ * gov.cabnet.app — AADE disabled no-op wrapper v6.4.6
+ *
+ * Safety:
+ * - Does NOT call AADE.
+ * - Does NOT email receipts.
+ * - Does NOT call EDXEIX.
+ * - Does NOT create EDXEIX jobs or attempts.
+ *
+ * Production rule:
+ * AADE may only issue after Bolt API confirms order_pickup_timestamp.
+ */
 
-if (PHP_SAPI !== 'cli') {
-    http_response_code(403);
-    echo "CLI only\n";
-    exit(1);
-}
+header('Content-Type: application/json; charset=utf-8');
 
-$container = require __DIR__ . '/../src/bootstrap.php';
-$config = $container['config'];
-$db = $container['db'];
-
-$options = getopt('', ['limit::', 'preview-only', 'json', 'help']);
-
-if (isset($options['help'])) {
-    echo "Bolt Mail Auto Dry-run Worker\n";
-    echo "Usage: php auto_bolt_mail_dry_run.php [--limit=25] [--preview-only] [--json]\n";
-    echo "Safety: creates local normalized bookings/dry-run evidence; can issue AADE receipts only when configured; no submission_jobs; no EDXEIX POST.\n";
-    exit(0);
-}
-
-$limit = isset($options['limit']) ? max(1, min(200, (int)$options['limit'])) : 25;
-$previewOnly = array_key_exists('preview-only', $options);
-$json = array_key_exists('json', $options);
-
-$result = [
-    'ok' => false,
-    'started_at' => date('c'),
-    'finished_at' => null,
-    'limit' => $limit,
-    'preview_only' => $previewOnly,
-    'summary' => null,
-    'items' => [],
-    'error' => null,
-];
-
-try {
-    $service = new BoltMailAutoDryRunService($db, $config);
-    $run = $service->run($limit, $previewOnly, 'auto-cron');
-    $result = array_replace($result, $run);
-} catch (Throwable $e) {
-    $result['error'] = $e->getMessage();
-}
-
-$result['finished_at'] = date('c');
-
-if ($json) {
-    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . PHP_EOL;
-} else {
-    echo '[' . $result['finished_at'] . '] Bolt Mail Auto Dry-run Worker' . PHP_EOL;
-    if ($result['ok']) {
-        $s = $result['summary'];
-        echo 'OK candidates=' . $s['candidate_rows']
-            . ' created_bookings=' . $s['created_bookings']
-            . ' linked_existing=' . $s['linked_existing_bookings']
-            . ' evidence_recorded=' . $s['evidence_recorded']
-            . ' evidence_existing=' . $s['evidence_existing']
-            . ' aade_attempted=' . ($s['aade_receipt_attempted'] ?? 0)
-            . ' aade_issued=' . ($s['aade_receipt_issued'] ?? 0)
-            . ' aade_emailed=' . ($s['aade_receipt_emailed'] ?? 0)
-            . ' aade_skipped=' . ($s['aade_receipt_skipped'] ?? 0)
-            . ' aade_failed=' . ($s['aade_receipt_failed'] ?? 0)
-            . ' blocked=' . $s['blocked']
-            . ' errors=' . $s['errors'] . PHP_EOL;
-        echo 'Safety: local preflight bookings + dry-run evidence + configured AADE receipts only; no submission_jobs; no EDXEIX POST.' . PHP_EOL;
-    } else {
-        echo 'ERROR: ' . $result['error'] . PHP_EOL;
-    }
-}
-
-exit($result['ok'] ? 0 : 1);
+echo json_encode([
+    'ok' => true,
+    'disabled' => true,
+    'version' => 'v6.4.6',
+    'emergency_lock' => 'AADE_RECEIPT_EMERGENCY_DISABLED',
+    'script' => 'auto_bolt_mail_dry_run.php',
+    'message' => 'AADE receipt auto-issue is disabled for this worker. No AADE call performed.',
+    'strict_rule' => 'AADE may only issue after Bolt API confirms order_pickup_timestamp.',
+    'safety' => [
+        'does_not_call_aade' => true,
+        'does_not_email_receipts' => true,
+        'does_not_call_edxeix' => true,
+        'does_not_create_submission_jobs' => true,
+        'does_not_create_submission_attempts' => true,
+        'does_not_print_secrets' => true,
+    ],
+    'generated_at' => gmdate('c'),
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;

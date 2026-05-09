@@ -27,6 +27,31 @@ $showXml = array_key_exists('show-xml', $opts);
 $recordPrepared = array_key_exists('record-prepared', $opts);
 $send = array_key_exists('send', $opts);
 $confirm = is_string($opts['confirm'] ?? null) ? (string)$opts['confirm'] : '';
+
+/*
+ * AADE_MANUAL_SEND_DISABLED_PICKUP_SWIPE_ONLY_V6_5_0
+ *
+ * Production rule:
+ * Manual AADE --send is disabled. AADE receipt/invoice issue may only happen
+ * through cli/bolt_pickup_receipt_worker.php after Bolt API confirms
+ * order_pickup_timestamp.
+ */
+if ($send) {
+    echo json_encode([
+        'ok' => false,
+        'submitted' => false,
+        'sent' => false,
+        'does_not_call_aade' => true,
+        'does_not_email_receipts' => true,
+        'script' => 'cli/aade_mydata_receipt_payload.php',
+        'version' => 'v6.5.0',
+        'error' => 'manual_aade_send_disabled_pickup_swipe_only',
+        'message' => 'Manual AADE --send is disabled. AADE may only issue from the pickup-swipe worker after Bolt API order_pickup_timestamp is confirmed.',
+        'strict_rule' => 'AADE may only issue after Bolt API confirms order_pickup_timestamp.',
+        'generated_at' => date(DATE_ATOM),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    exit(2);
+}
 $by = is_string($opts['by'] ?? null) ? (string)$opts['by'] : 'cli';
 
 $out = [

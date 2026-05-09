@@ -2,49 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CABnet EDXEIX Capture</title>
-  <link rel="stylesheet" href="popup.css">
+  <title>Cabnet EDXEIX</title>
+  <style>
+    body { font-family: Arial, sans-serif; width: 380px; margin: 0; padding: 14px; background: #f7f8fb; color: #111827; }
+    h1 { font-size: 16px; margin: 0 0 8px; }
+    p { font-size: 12px; line-height: 1.45; margin: 6px 0; color: #374151; }
+    .warn { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; padding: 8px; border-radius: 8px; margin: 8px 0; }
+    .okbox { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 8px; border-radius: 8px; margin: 8px 0; }
+    label { display: block; font-size: 12px; font-weight: 700; margin-top: 10px; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; margin-top: 4px; }
+    button { width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; margin-top: 8px; font-weight: 700; cursor: pointer; }
+    button.primary { background: #111827; color: #fff; }
+    button.secondary { background: #2563eb; color: #fff; }
+    button.light { background: #e5e7eb; color: #111827; }
+    button.danger { background: #b91c1c; color: #fff; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #111827; color: #d1fae5; border-radius: 8px; padding: 8px; max-height: 180px; overflow: auto; font-size: 11px; }
+    .small { font-size: 11px; color: #6b7280; }
+  </style>
 </head>
 <body>
-  <main class="wrap">
-    <h1>CABnet EDXEIX Capture</h1>
-    <p class="lead">Open the EDXEIX <strong>Ανάρτηση σύμβασης</strong> create form, then capture and save the current session prerequisites.</p>
+  <h1>Cabnet EDXEIX Bridge</h1>
 
-    <section id="status" class="status neutral">Ready.</section>
+  <div class="warn">
+    Browser-fill mode only. This extension does <strong>not</strong> submit the form. Review all fields manually before pressing submit in EDXEIX.
+  </div>
 
-    <section class="box">
-      <h2>Detected values</h2>
-      <div class="row"><span>EDXEIX create tab</span><strong id="tabState">not checked</strong></div>
-      <div class="row"><span>Submit URL</span><strong id="actionState">fixed</strong></div>
-      <div class="row"><span>CSRF token</span><strong id="csrfState">not captured</strong></div>
-      <div class="row"><span>Cookies</span><strong id="cookieState">not captured</strong></div>
-      <div class="row"><span>Cookie header length</span><strong id="cookieLength">0</strong></div>
-      <div class="row"><span>Extension version</span><strong id="versionState">0.1.2</strong></div>
-    </section>
+  <button id="saveSession" class="light">1) Save current EDXEIX browser session</button>
 
-    <section class="box">
-      <button id="captureBtn" type="button">1. Capture from EDXEIX tab</button>
-      <button id="saveBtn" class="danger" type="button" disabled>2. Save to gov.cabnet.app</button>
-      <p class="hint">No confirmation phrase is required. The server still keeps live submission disabled.</p>
-    </section>
+  <label for="bookingId">Locked booking ID, optional</label>
+  <input id="bookingId" placeholder="Leave blank to use server one-shot lock">
 
-    <section class="box verify">
-      <h2>Verify after saving</h2>
-      <button id="openSessionBtn" class="secondary" type="button">Open EDXEIX Session page</button>
-      <button id="openLiveGateBtn" class="secondary" type="button">Open Live Submit Gate</button>
-      <p class="hint">These buttons open normal gov.cabnet.app tabs. They do not send data or enable live submission.</p>
-    </section>
+  <button id="fetchPayload" class="secondary">2) Fetch locked payload from gov.cabnet.app</button>
+  <button id="fillForm" class="primary">3) Fill current EDXEIX form tab</button>
 
-    <section class="box small">
-      <h2>Safety</h2>
-      <ul>
-        <li>No EDXEIX submission is performed.</li>
-        <li>Cookie/CSRF values are never displayed in this popup.</li>
-        <li>Server keeps live flags disabled.</li>
-      </ul>
-    </section>
-  </main>
+  <p class="small">
+    Required: active tab must be the EDXEIX lease agreement create form.
+  </p>
+
+  <div id="status" class="okbox">Ready.</div>
+  <pre id="payloadPreview">{}</pre>
+
   <script src="popup.js"></script>
 </body>
 </html>

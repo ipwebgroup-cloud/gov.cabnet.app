@@ -40,6 +40,74 @@ final class AadeReceiptAutoIssuer
      */
     public function issueAndEmailForBooking(int $bookingId, string $createdBy = 'auto-cron'): array
     {
+        /*
+         * AADE_CENTRAL_EMERGENCY_LOCK_GUARD_V6_5_1
+         *
+         * Defense-in-depth:
+         * If the emergency lock exists, the central issuer refuses to issue,
+         * even if a caller uses an allowed pickup-swipe created_by value.
+         */
+        $emergencyLock = '/home/cabnet/gov.cabnet.app_app/storage/runtime/aade_receipts_DISABLED.lock';
+        if (is_file($emergencyLock)) {
+            return [
+                'enabled' => false,
+                'attempted' => false,
+                'issued' => false,
+                'emailed' => false,
+                'status' => 'blocked',
+                'booking_id' => $bookingId,
+                'attempt_id' => null,
+                'receipt_email_status' => null,
+                'blockers' => ['aade_receipts_emergency_lock_active'],
+                'error' => null,
+                'gate' => [
+                    'enabled' => false,
+                    'booking_id' => $bookingId,
+                    'emergency_lock' => basename($emergencyLock),
+                    'receipt_timing_rule' => 'strict_bolt_api_order_pickup_timestamp_only',
+                    'blockers' => ['aade_receipts_emergency_lock_active'],
+                ],
+            ];
+        }
+
+        /*
+         * AADE_PICKUP_SWIPE_ONLY_TRIGGER_GUARD_V6_4_4
+         *
+         * Production rule:
+         * AADE receipt/invoice auto-issue is allowed only when the Bolt API
+         * pickup-swipe worker has confirmed order_pickup_timestamp.
+         *
+         * Bolt pre-ride email workers may import, link, and prepare data only.
+         * They must never issue or email AADE receipts.
+         */
+        $createdByTrim = trim($createdBy);
+        $pickupSwipeTrigger = (
+            str_starts_with($createdByTrim, 'auto-bolt-pickup-swipe') ||
+            str_starts_with($createdByTrim, 'bolt-pickup-receipt-worker')
+        );
+
+        if (!$pickupSwipeTrigger) {
+            return [
+                'enabled' => false,
+                'attempted' => false,
+                'issued' => false,
+                'emailed' => false,
+                'status' => 'blocked',
+                'booking_id' => $bookingId,
+                'attempt_id' => null,
+                'receipt_email_status' => null,
+                'blockers' => ['trigger_not_bolt_api_pickup_swipe'],
+                'error' => null,
+                'gate' => [
+                    'enabled' => false,
+                    'booking_id' => $bookingId,
+                    'created_by' => $createdByTrim,
+                    'receipt_timing_rule' => 'strict_bolt_api_order_pickup_timestamp_only',
+                    'blockers' => ['trigger_not_bolt_api_pickup_swipe'],
+                ],
+            ];
+        }
+
         $out = [
             'enabled' => $this->isAutoEnabled(),
             'attempted' => false,
@@ -241,9 +309,8 @@ final class AadeReceiptAutoIssuer
         if (!empty($booking['is_test_booking'])) {
             $blockers[] = 'test_booking_blocked';
         }
-        if (!empty($booking['never_submit_live'])) {
-            $blockers[] = 'never_submit_live_blocked';
-        }
+        // v6.3.8: never_submit_live is an EDXEIX-only safety flag.
+        // It must not block AADE/myDATA receipt issuing or driver PDF email delivery.
         if ((float)($booking['price'] ?? 0) <= 0) {
             $blockers[] = 'price_not_positive';
         }
@@ -314,28 +381,131 @@ final class AadeReceiptAutoIssuer
     /** @return array<string,mixed> */
     private function duplicateGate(int $bookingId, string $xmlHash): array
     {
+        /*
+         * AADE_LOGICAL_TRIP_DUPLICATE_GUARD_V6_4_2
+         *
+         * Production safety rule:
+         * Before any AADE call or receipt email, block if another issued AADE
+         * receipt already exists for the same logical trip:
+         * same customer + same pickup + same dropoff/destination + pickup time
+         * within 30 minutes.
+         *
+         * This intentionally ignores driver, vehicle, and price because Bolt can
+         * reassign a pre-ride to a different driver/vehicle and/or alter the
+         * estimated range while representing the same passenger trip.
+         */
         $blockers = [];
-        $issuedForBooking = 0;
-        $issuedForHash = 0;
+        $details = [
+            'booking_id' => $bookingId,
+            'payload_hash' => $xmlHash,
+            'logical_trip_window_minutes' => 30,
+            'logical_trip_duplicate' => null,
+        ];
 
-        $row = $this->db->fetchOne("SELECT COUNT(*) AS c FROM receipt_issuance_attempts WHERE normalized_booking_id=? AND provider='aade_mydata' AND provider_status='issued'", [$bookingId], 'i');
-        $issuedForBooking = (int)($row['c'] ?? 0);
-
-        $row = $this->db->fetchOne("SELECT COUNT(*) AS c FROM receipt_issuance_attempts WHERE request_payload_hash=? AND provider='aade_mydata' AND provider_status='issued'", [$xmlHash], 's');
-        $issuedForHash = (int)($row['c'] ?? 0);
-
-        if ($issuedForBooking > 0) {
-            $blockers[] = 'already_issued_for_booking';
+        try {
+            $row = $this->db->fetchOne(
+                "SELECT COUNT(*) AS c
+                 FROM receipt_issuance_attempts
+                 WHERE normalized_booking_id=?
+                   AND provider='aade_mydata'
+                   AND provider_status='issued'",
+                [$bookingId],
+                'i'
+            );
+            $details['issued_for_booking_count'] = (int)($row['c'] ?? 0);
+            if ((int)($row['c'] ?? 0) > 0) {
+                $blockers[] = 'already_issued_for_booking';
+            }
+        } catch (\Throwable $e) {
+            $blockers[] = 'duplicate_booking_check_unavailable';
+            $details['issued_for_booking_error'] = $e->getMessage();
         }
-        if ($issuedForHash > 0) {
-            $blockers[] = 'already_issued_for_payload_hash';
+
+        try {
+            if ($xmlHash !== '') {
+                $row = $this->db->fetchOne(
+                    "SELECT COUNT(*) AS c
+                     FROM receipt_issuance_attempts
+                     WHERE request_payload_hash=?
+                       AND provider='aade_mydata'
+                       AND provider_status='issued'",
+                    [$xmlHash],
+                    's'
+                );
+                $details['issued_for_payload_hash_count'] = (int)($row['c'] ?? 0);
+                if ((int)($row['c'] ?? 0) > 0) {
+                    $blockers[] = 'already_issued_for_payload_hash';
+                }
+            }
+        } catch (\Throwable $e) {
+            $blockers[] = 'duplicate_payload_hash_check_unavailable';
+            $details['issued_for_payload_hash_error'] = $e->getMessage();
+        }
+
+        try {
+            $duplicate = $this->db->fetchOne(
+                "SELECT
+                    r.id AS receipt_attempt_id,
+                    r.normalized_booking_id AS duplicate_booking_id,
+                    r.intake_id AS duplicate_intake_id,
+                    r.mark AS duplicate_mark,
+                    r.total_amount AS duplicate_total_amount,
+                    r.created_at AS duplicate_receipt_created_at,
+                    b.customer_name AS duplicate_customer_name,
+                    b.driver_name AS duplicate_driver_name,
+                    b.vehicle_plate AS duplicate_vehicle_plate,
+                    b.started_at AS duplicate_started_at,
+                    ABS(TIMESTAMPDIFF(SECOND, b.started_at, t.started_at)) AS seconds_apart
+                 FROM normalized_bookings t
+                 INNER JOIN normalized_bookings b
+                    ON b.id <> t.id
+                 INNER JOIN receipt_issuance_attempts r
+                    ON r.normalized_booking_id = b.id
+                   AND r.provider = 'aade_mydata'
+                   AND r.provider_status = 'issued'
+                 WHERE t.id = ?
+                   AND r.normalized_booking_id <> ?
+                   AND t.started_at IS NOT NULL
+                   AND b.started_at IS NOT NULL
+                   AND TRIM(COALESCE(t.customer_name,'')) <> ''
+                   AND TRIM(COALESCE(NULLIF(t.pickup_address,''), NULLIF(t.boarding_point,''), '')) <> ''
+                   AND TRIM(COALESCE(NULLIF(t.destination_address,''), NULLIF(t.disembark_point,''), '')) <> ''
+                   AND LOWER(TRIM(COALESCE(b.customer_name,''))) = LOWER(TRIM(COALESCE(t.customer_name,'')))
+                   AND LOWER(TRIM(COALESCE(NULLIF(b.pickup_address,''), NULLIF(b.boarding_point,''), ''))) =
+                       LOWER(TRIM(COALESCE(NULLIF(t.pickup_address,''), NULLIF(t.boarding_point,''), '')))
+                   AND LOWER(TRIM(COALESCE(NULLIF(b.destination_address,''), NULLIF(b.disembark_point,''), ''))) =
+                       LOWER(TRIM(COALESCE(NULLIF(t.destination_address,''), NULLIF(t.disembark_point,''), '')))
+                   AND ABS(TIMESTAMPDIFF(MINUTE, b.started_at, t.started_at)) <= 30
+                 ORDER BY ABS(TIMESTAMPDIFF(SECOND, b.started_at, t.started_at)) ASC, r.id DESC
+                 LIMIT 1",
+                [$bookingId, $bookingId],
+                'ii'
+            );
+
+            if (is_array($duplicate) && !empty($duplicate)) {
+                $blockers[] = 'logical_trip_duplicate_receipt_window';
+                $details['logical_trip_duplicate'] = [
+                    'rule' => 'same_customer_route_pickup_window_after_issued_receipt',
+                    'window_minutes' => 30,
+                    'duplicate_booking_id' => (int)($duplicate['duplicate_booking_id'] ?? 0),
+                    'duplicate_intake_id' => isset($duplicate['duplicate_intake_id']) ? (int)$duplicate['duplicate_intake_id'] : null,
+                    'receipt_attempt_id' => (int)($duplicate['receipt_attempt_id'] ?? 0),
+                    'duplicate_mark' => (string)($duplicate['duplicate_mark'] ?? ''),
+                    'duplicate_total_amount' => (string)($duplicate['duplicate_total_amount'] ?? ''),
+                    'duplicate_started_at' => (string)($duplicate['duplicate_started_at'] ?? ''),
+                    'duplicate_driver_name' => (string)($duplicate['duplicate_driver_name'] ?? ''),
+                    'duplicate_vehicle_plate' => (string)($duplicate['duplicate_vehicle_plate'] ?? ''),
+                    'seconds_apart' => (int)($duplicate['seconds_apart'] ?? 0),
+                ];
+            }
+        } catch (\Throwable $e) {
+            $blockers[] = 'logical_trip_duplicate_check_unavailable';
+            $details['logical_trip_duplicate_error'] = $e->getMessage();
         }
 
         return [
-            'issued_for_booking' => $issuedForBooking,
-            'issued_for_xml_hash' => $issuedForHash,
-            'blocked' => $blockers !== [],
-            'blockers' => $blockers,
+            'blockers' => array_values(array_unique($blockers)),
+            'details' => $details,
         ];
     }
 

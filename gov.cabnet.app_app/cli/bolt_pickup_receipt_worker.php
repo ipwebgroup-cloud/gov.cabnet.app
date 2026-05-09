@@ -19,6 +19,75 @@
 
 declare(strict_types=1);
 
+/*
+ * AADE_PICKUP_WORKER_PROCESS_LOCK_V6_5_2
+ *
+ * Prevent overlapping cron/manual runs from issuing the same pickup-swipe receipt twice.
+ */
+$__pickupRuntimeDir = '/home/cabnet/gov.cabnet.app_app/storage/runtime';
+if (!is_dir($__pickupRuntimeDir)) {
+    @mkdir($__pickupRuntimeDir, 0775, true);
+}
+$__pickupLockHandle = @fopen($__pickupRuntimeDir . '/bolt_pickup_receipt_worker.process.lock', 'c');
+if (!$__pickupLockHandle || !flock($__pickupLockHandle, LOCK_EX | LOCK_NB)) {
+    $payload = [
+        'ok' => true,
+        'locked' => true,
+        'script' => 'bolt_pickup_receipt_worker.php',
+        'message' => 'Another pickup-swipe receipt worker is already running. No AADE call performed by this process.',
+        'safety' => [
+            'does_not_call_aade_when_locked' => true,
+            'does_not_email_receipts_when_locked' => true,
+        ],
+        'generated_at' => gmdate('c'),
+    ];
+    if (in_array('--json', $argv ?? [], true)) {
+        echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    } else {
+        echo $payload['message'] . PHP_EOL;
+    }
+    exit(0);
+}
+register_shutdown_function(static function () use ($__pickupLockHandle): void {
+    if (is_resource($__pickupLockHandle)) {
+        @flock($__pickupLockHandle, LOCK_UN);
+        @fclose($__pickupLockHandle);
+    }
+});
+
+
+
+/*
+ * AADE_RECEIPT_EMERGENCY_LOCK_GUARD_V6_4_6
+ *
+ * This guard keeps the pickup-swipe worker parse-valid but disabled until
+ * Andreas explicitly removes the emergency lock after verification.
+ */
+$govAadeEmergencyLock = '/home/cabnet/gov.cabnet.app_app/storage/runtime/aade_receipts_DISABLED.lock';
+if (is_file($govAadeEmergencyLock)) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'disabled' => true,
+        'version' => 'v6.4.6',
+        'emergency_lock' => 'AADE_RECEIPT_EMERGENCY_DISABLED',
+        'script' => 'bolt_pickup_receipt_worker.php',
+        'message' => 'Pickup-swipe AADE worker is restored but disabled by emergency lock. No AADE call performed.',
+        'strict_rule' => 'AADE may only issue after Bolt API confirms order_pickup_timestamp.',
+        'safety' => [
+            'does_not_call_aade' => true,
+            'does_not_email_receipts' => true,
+            'does_not_call_edxeix' => true,
+            'does_not_create_submission_jobs' => true,
+            'does_not_create_submission_attempts' => true,
+            'does_not_print_secrets' => true,
+        ],
+        'generated_at' => gmdate('c'),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    exit(0);
+}
+
+
 require_once __DIR__ . '/../lib/bolt_sync_lib.php';
 
 $bootstrap = require __DIR__ . '/../src/bootstrap.php';
