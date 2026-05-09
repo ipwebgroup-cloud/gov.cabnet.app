@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX mail preflight bridge v6.7.2
+ * gov.cabnet.app — EDXEIX mail preflight bridge v6.8.1
  *
  * Purpose:
  * - Find future pre-ride Bolt email intake rows that are not yet linked to a
@@ -64,7 +64,7 @@ $options = getopt('', [
 ]);
 
 if (isset($options['help'])) {
-    echo "EDXEIX Mail Preflight Bridge v6.7.2\n";
+    echo "EDXEIX Mail Preflight Bridge v6.8.1\n";
     echo "Usage:\n";
     echo "  php edxeix_mail_preflight_bridge.php --json\n";
     echo "  php edxeix_mail_preflight_bridge.php --intake-id=123 --json\n";
@@ -101,7 +101,7 @@ $futureGuardMinutes = max(0, min(1440, $futureGuardMinutes));
 $out = [
     'ok' => false,
     'script' => 'cli/edxeix_mail_preflight_bridge.php',
-    'version' => 'v6.7.2',
+    'version' => 'v6.8.1',
     'generated_at' => date('c'),
     'source_policy' => [
         'edxeix_submission_source' => 'pre_ride_bolt_email_only',
@@ -122,6 +122,7 @@ $out = [
         'does_not_create_submission_jobs' => true,
         'does_not_create_submission_attempts' => true,
         'does_not_print_session_cookies_or_tokens' => true,
+        'clears_old_no_edxeix_block_for_exact_future_mail_booking' => true,
     ],
     'queue_counts' => [],
     'summary' => [
@@ -157,7 +158,7 @@ if ($optionErrors !== []) {
     if ($json) {
         echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     } else {
-        echo 'EDXEIX Mail Preflight Bridge v6.7.2' . PHP_EOL;
+        echo 'EDXEIX Mail Preflight Bridge v6.8.1' . PHP_EOL;
         echo 'ERROR: ' . $out['error'] . PHP_EOL;
     }
     exit(1);
@@ -240,6 +241,11 @@ try {
             } else {
                 $out['summary']['linked_existing_bookings']++;
             }
+
+            if ($item['booking_id'] !== null) {
+                $clearResult = clearOldMailNoEdxeixBlockForExactFutureBooking($db, $item['booking_id']);
+                $item['edxeix_live_eligibility_update'] = $clearResult;
+            }
         } else {
             $out['summary']['errors']++;
         }
@@ -275,7 +281,7 @@ try {
 if ($json) {
     echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } else {
-    echo 'EDXEIX Mail Preflight Bridge v6.7.2' . PHP_EOL;
+    echo 'EDXEIX Mail Preflight Bridge v6.8.1' . PHP_EOL;
     echo 'OK: ' . (!empty($out['ok']) ? 'yes' : 'no') . PHP_EOL;
     echo 'Mode: ' . ($create ? 'create' : 'preview') . PHP_EOL;
     echo 'Candidate rows: ' . (int)($out['summary']['candidate_rows'] ?? 0) . PHP_EOL;
@@ -322,6 +328,50 @@ function findSingleIntakeRow($db, int $intakeId): array
 
     $row = $db->fetchOne('SELECT * FROM bolt_mail_intake WHERE id = ? LIMIT 1', [$intakeId], 'i');
     return $row ? [$row] : [];
+}
+
+
+function clearOldMailNoEdxeixBlockForExactFutureBooking($db, int $bookingId): array
+{
+    if ($bookingId <= 0 || !tableExists($db, 'normalized_bookings')) {
+        return [
+            'ok' => false,
+            'updated_rows' => 0,
+            'message' => 'normalized booking not available',
+        ];
+    }
+
+    $sql = "UPDATE normalized_bookings
+            SET never_submit_live = 0,
+                live_submit_block_reason = NULL,
+                notes = CONCAT(
+                    COALESCE(notes, ''),
+                    '\nEDXEIX PREFLIGHT: cleared old no_edxeix/aade_receipt_only block for exact future pre-ride mail booking at ',
+                    NOW(),
+                    '. Source policy: EDXEIX uses pre-ride Bolt email only; AADE remains pickup-worker only.'
+                ),
+                updated_at = NOW()
+            WHERE id = ?
+              AND source_system = 'bolt_mail'
+              AND order_status = 'confirmed'
+              AND started_at > NOW()
+              AND (
+                    never_submit_live = 1
+                    OR LOWER(COALESCE(live_submit_block_reason,'')) LIKE '%no_edxeix%'
+                    OR LOWER(COALESCE(live_submit_block_reason,'')) LIKE '%aade_receipt_only%'
+                    OR LOWER(COALESCE(live_submit_block_reason,'')) LIKE '%receipt_only%'
+              )
+            LIMIT 1";
+
+    $updated = $db->execute($sql, [$bookingId], 'i');
+
+    return [
+        'ok' => true,
+        'updated_rows' => (int)$updated,
+        'message' => $updated > 0
+            ? 'Old no_edxeix/aade_receipt_only block cleared for this exact future mail booking.'
+            : 'No legacy live block needed clearing.',
+    ];
 }
 
 function tableExists($db, string $table): bool
