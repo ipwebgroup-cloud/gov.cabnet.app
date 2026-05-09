@@ -1,37 +1,43 @@
-# EDXEIX Mail Preflight Bridge v6.7.0
+# EDXEIX Mail Preflight Bridge v6.7.1
 
 ## Purpose
 
-`edxeix_mail_preflight_bridge.php` creates the missing safe operational step between Bolt pre-ride email intake and EDXEIX readiness review.
+`edxeix_mail_preflight_bridge.php` is a safe CLI tool for the EDXEIX source path.
 
-It is used for:
+It uses **pre-ride Bolt email intake rows only**.
 
-1. Finding future, unlinked `bolt_mail_intake` rows.
-2. Previewing whether each row can safely become a local normalized booking.
-3. Creating that local normalized booking only when `--create` is explicitly supplied.
+It does not use Bolt API rides as the EDXEIX data source.
 
-## Source Policy
+## Source Split
 
-- EDXEIX submission source: pre-ride Bolt email only.
-- Bolt API is not an EDXEIX submission source.
+- EDXEIX source: pre-ride Bolt email only.
 - AADE invoice source: Bolt API pickup timestamp worker only.
 - Pre-ride email must never issue AADE invoices.
+- Bolt API finished/past rides must never be submitted to EDXEIX.
 
-## Safety
+## v6.7.1 Safety Hardening
 
-The script does not:
+v6.7.1 rejects malformed or placeholder CLI arguments.
 
-- call EDXEIX;
-- issue AADE receipts;
-- create `submission_jobs`;
-- create `submission_attempts`;
-- print cookies, CSRF tokens, API keys, or private config values.
+In particular:
 
-Default mode is preview-only.
+- `--intake-id=ID` is rejected.
+- `--create--json` is rejected as a malformed option.
+- `--create` requires one explicit numeric `--intake-id`.
+- Bulk create mode is disabled.
+- The script writes at most one normalized preflight booking per command.
 
-## Commands
+## Safety Guarantees
 
-Preview current future unlinked mail candidates:
+The script:
+
+- does not call EDXEIX;
+- does not issue AADE receipts;
+- does not create `submission_jobs`;
+- does not create `submission_attempts`;
+- does not print session cookies, CSRF tokens, API keys, or private config values.
+
+## Preview Commands
 
 ```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --limit=20 --json
@@ -43,30 +49,31 @@ Preview one intake row:
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --intake-id=123 --json
 ```
 
-Create one local normalized EDXEIX preflight booking after preview review:
+## Create Command
+
+Only after previewing and reviewing one future pre-ride email row:
 
 ```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --intake-id=123 --create --json
 ```
 
-Create all currently eligible future unlinked rows, limited to 20:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --limit=20 --create --json
-```
-
-After creation, run:
+Then run:
 
 ```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
 ```
 
-Then, for one ready booking only, run analyze-only:
+## Expected Current Result
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/live_submit_one_booking.php --booking-id=ID --analyze-only
+When no current future pre-ride email exists:
+
+```text
+candidate_rows: 0
+preview_ready: 0
+created_bookings: 0
+queues_unchanged: true
 ```
 
-## Live Submission
+## Commit Note
 
-This script does not enable live submission. Live EDXEIX submission still requires Andreas to explicitly approve one exact eligible future booking and the existing guarded one-shot live gate.
+This is a safety hardening patch only. It does not activate live EDXEIX submission.

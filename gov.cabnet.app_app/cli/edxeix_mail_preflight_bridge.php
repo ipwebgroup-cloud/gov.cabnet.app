@@ -1,13 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX mail preflight bridge v6.7.0
+ * gov.cabnet.app — EDXEIX mail preflight bridge v6.7.1
  *
  * Purpose:
  * - Find future pre-ride Bolt email intake rows that are not yet linked to a
  *   normalized booking.
  * - Preview whether each row can safely create a local normalized EDXEIX
  *   preflight booking.
- * - Create the normalized booking only when --create is explicitly supplied.
+ * - Create one normalized booking only when --create and a numeric --intake-id are explicitly supplied.
  *
  * Safety:
  * - Does not call EDXEIX.
@@ -35,6 +35,26 @@ $container = require __DIR__ . '/../src/bootstrap.php';
 $config = $container['config'];
 $db = $container['db'];
 
+
+$argvList = $_SERVER['argv'] ?? [];
+$rawJsonRequested = in_array('--json', $argvList, true);
+$allowedLongOptions = ['limit', 'intake-id', 'create', 'json', 'help'];
+$optionErrors = [];
+foreach (array_slice($argvList, 1) as $arg) {
+    if (str_starts_with($arg, '--')) {
+        $name = substr($arg, 2);
+        $eqPos = strpos($name, '=');
+        if ($eqPos !== false) {
+            $name = substr($name, 0, $eqPos);
+        }
+        if (!in_array($name, $allowedLongOptions, true)) {
+            $optionErrors[] = 'unknown_or_malformed_option:' . $arg;
+        }
+    } elseif ($arg !== '') {
+        $optionErrors[] = 'unexpected_positional_argument:' . $arg;
+    }
+}
+
 $options = getopt('', [
     'limit::',
     'intake-id::',
@@ -44,21 +64,32 @@ $options = getopt('', [
 ]);
 
 if (isset($options['help'])) {
-    echo "EDXEIX Mail Preflight Bridge v6.7.0\n";
+    echo "EDXEIX Mail Preflight Bridge v6.7.1\n";
     echo "Usage:\n";
     echo "  php edxeix_mail_preflight_bridge.php --json\n";
     echo "  php edxeix_mail_preflight_bridge.php --intake-id=123 --json\n";
     echo "  php edxeix_mail_preflight_bridge.php --intake-id=123 --create --json\n";
-    echo "  php edxeix_mail_preflight_bridge.php --limit=20 --create --json\n";
-    echo "Default mode is preview only. --create is required to write a normalized preflight booking.\n";
+    echo "Default mode is preview only. --create requires a numeric --intake-id and writes at most one normalized preflight booking.\n";
     echo "Safety: no EDXEIX calls, no AADE calls, no submission jobs/attempts.\n";
     exit(0);
 }
 
+$json = array_key_exists('json', $options) || $rawJsonRequested;
+
+if (isset($options['limit']) && !preg_match('/^[0-9]+$/', (string)$options['limit'])) {
+    $optionErrors[] = 'invalid_limit_must_be_numeric';
+}
+if (isset($options['intake-id']) && !preg_match('/^[1-9][0-9]*$/', (string)$options['intake-id'])) {
+    $optionErrors[] = 'invalid_intake_id_must_be_positive_integer';
+}
+
 $limit = max(1, min(100, (int)($options['limit'] ?? 20)));
-$intakeId = isset($options['intake-id']) ? (int)$options['intake-id'] : 0;
+$intakeId = isset($options['intake-id']) && preg_match('/^[1-9][0-9]*$/', (string)$options['intake-id']) ? (int)$options['intake-id'] : 0;
 $create = array_key_exists('create', $options);
-$json = array_key_exists('json', $options);
+
+if ($create && $intakeId <= 0) {
+    $optionErrors[] = 'create_requires_explicit_numeric_intake_id';
+}
 
 if (!empty($config->get('app.timezone', ''))) {
     date_default_timezone_set((string)$config->get('app.timezone', 'Europe/Athens'));
@@ -70,7 +101,7 @@ $futureGuardMinutes = max(0, min(1440, $futureGuardMinutes));
 $out = [
     'ok' => false,
     'script' => 'cli/edxeix_mail_preflight_bridge.php',
-    'version' => 'v6.7.0',
+    'version' => 'v6.7.1',
     'generated_at' => date('c'),
     'source_policy' => [
         'edxeix_submission_source' => 'pre_ride_bolt_email_only',
@@ -105,6 +136,32 @@ $out = [
     'next_safe_steps' => [],
     'error' => null,
 ];
+
+if ($optionErrors !== []) {
+    $out['ok'] = false;
+    $out['error'] = implode(', ', array_values(array_unique($optionErrors)));
+    $out['summary']['errors'] = count(array_unique($optionErrors));
+    $out['queue_counts'] = [
+        'submission_jobs_before' => null,
+        'submission_jobs_after' => null,
+        'submission_attempts_before' => null,
+        'submission_attempts_after' => null,
+        'queues_unchanged' => true,
+    ];
+    $out['next_safe_steps'] = [
+        'Use --create only with one explicit numeric --intake-id, for example: --intake-id=123 --create --json.',
+        'Do not use placeholders such as --intake-id=ID.',
+        'Run preview mode first, then create exactly one reviewed intake row.',
+    ];
+
+    if ($json) {
+        echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    } else {
+        echo 'EDXEIX Mail Preflight Bridge v6.7.1' . PHP_EOL;
+        echo 'ERROR: ' . $out['error'] . PHP_EOL;
+    }
+    exit(1);
+}
 
 try {
     $beforeJobs = countRows($db, 'submission_jobs');
@@ -192,10 +249,11 @@ try {
     ];
 
     $out['next_safe_steps'] = [
-        'If preview_ready is greater than zero, review the items before using --create.',
+        'If preview_ready is greater than zero, review the item before using --create with one explicit numeric --intake-id.',
         'After creating a normalized mail-derived booking, run edxeix_readiness_report.php --only-ready --json.',
         'For a ready mail-derived booking, run live_submit_one_booking.php --booking-id=ID --analyze-only before any live action.',
         'Do not enable live EDXEIX submission or one-shot locks unless Andreas explicitly approves one exact future booking.',
+        'Never run --create without a reviewed numeric intake id.',
     ];
 
     $out['ok'] = $out['summary']['errors'] === 0 && !empty($out['queue_counts']['queues_unchanged']);
@@ -206,7 +264,7 @@ try {
 if ($json) {
     echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } else {
-    echo 'EDXEIX Mail Preflight Bridge v6.7.0' . PHP_EOL;
+    echo 'EDXEIX Mail Preflight Bridge v6.7.1' . PHP_EOL;
     echo 'OK: ' . (!empty($out['ok']) ? 'yes' : 'no') . PHP_EOL;
     echo 'Mode: ' . ($create ? 'create' : 'preview') . PHP_EOL;
     echo 'Candidate rows: ' . (int)($out['summary']['candidate_rows'] ?? 0) . PHP_EOL;
