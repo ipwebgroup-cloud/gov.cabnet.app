@@ -1,4 +1,4 @@
-# EDXEIX Mail Preflight Bridge v6.7.1
+# EDXEIX Mail Preflight Bridge v6.7.2
 
 ## Purpose
 
@@ -15,9 +15,9 @@ It does not use Bolt API rides as the EDXEIX data source.
 - Pre-ride email must never issue AADE invoices.
 - Bolt API finished/past rides must never be submitted to EDXEIX.
 
-## v6.7.1 Safety Hardening
+## v6.7.2 Safety Hardening
 
-v6.7.1 rejects malformed or placeholder CLI arguments.
+v6.7.2 rejects malformed or placeholder CLI arguments.
 
 In particular:
 
@@ -77,3 +77,8 @@ queues_unchanged: true
 ## Commit Note
 
 This is a safety hardening patch only. It does not activate live EDXEIX submission.
+
+
+## v6.7.2 hardening
+
+When `--intake-id` is supplied, the script now treats a missing intake row as an error (`requested_intake_id_not_found`). This prevents placeholder or mistyped numeric ids from returning `ok: true` with zero work performed.

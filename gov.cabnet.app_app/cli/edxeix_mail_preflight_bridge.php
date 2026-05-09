@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX mail preflight bridge v6.7.1
+ * gov.cabnet.app — EDXEIX mail preflight bridge v6.7.2
  *
  * Purpose:
  * - Find future pre-ride Bolt email intake rows that are not yet linked to a
@@ -64,7 +64,7 @@ $options = getopt('', [
 ]);
 
 if (isset($options['help'])) {
-    echo "EDXEIX Mail Preflight Bridge v6.7.1\n";
+    echo "EDXEIX Mail Preflight Bridge v6.7.2\n";
     echo "Usage:\n";
     echo "  php edxeix_mail_preflight_bridge.php --json\n";
     echo "  php edxeix_mail_preflight_bridge.php --intake-id=123 --json\n";
@@ -101,7 +101,7 @@ $futureGuardMinutes = max(0, min(1440, $futureGuardMinutes));
 $out = [
     'ok' => false,
     'script' => 'cli/edxeix_mail_preflight_bridge.php',
-    'version' => 'v6.7.1',
+    'version' => 'v6.7.2',
     'generated_at' => date('c'),
     'source_policy' => [
         'edxeix_submission_source' => 'pre_ride_bolt_email_only',
@@ -157,7 +157,7 @@ if ($optionErrors !== []) {
     if ($json) {
         echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     } else {
-        echo 'EDXEIX Mail Preflight Bridge v6.7.1' . PHP_EOL;
+        echo 'EDXEIX Mail Preflight Bridge v6.7.2' . PHP_EOL;
         echo 'ERROR: ' . $out['error'] . PHP_EOL;
     }
     exit(1);
@@ -171,6 +171,16 @@ try {
     $rows = $intakeId > 0 ? findSingleIntakeRow($db, $intakeId) : listOpenFutureMailRows($db, $limit, $futureGuardMinutes);
 
     $out['summary']['candidate_rows'] = count($rows);
+
+    if ($intakeId > 0 && count($rows) === 0) {
+        $out['summary']['errors']++;
+        $out['error'] = 'requested_intake_id_not_found';
+        $out['items'][] = [
+            'intake_id' => $intakeId,
+            'status' => 'error',
+            'message' => 'Requested intake row was not found. No booking was created or linked.',
+        ];
+    }
 
     foreach ($rows as $row) {
         $rowId = (int)($row['id'] ?? 0);
@@ -254,6 +264,7 @@ try {
         'For a ready mail-derived booking, run live_submit_one_booking.php --booking-id=ID --analyze-only before any live action.',
         'Do not enable live EDXEIX submission or one-shot locks unless Andreas explicitly approves one exact future booking.',
         'Never run --create without a reviewed numeric intake id.',
+        'If requested_intake_id_not_found appears, run preview mode and choose an intake id from the returned items.',
     ];
 
     $out['ok'] = $out['summary']['errors'] === 0 && !empty($out['queue_counts']['queues_unchanged']);
@@ -264,7 +275,7 @@ try {
 if ($json) {
     echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } else {
-    echo 'EDXEIX Mail Preflight Bridge v6.7.1' . PHP_EOL;
+    echo 'EDXEIX Mail Preflight Bridge v6.7.2' . PHP_EOL;
     echo 'OK: ' . (!empty($out['ok']) ? 'yes' : 'no') . PHP_EOL;
     echo 'Mode: ' . ($create ? 'create' : 'preview') . PHP_EOL;
     echo 'Candidate rows: ' . (int)($out['summary']['candidate_rows'] ?? 0) . PHP_EOL;
