@@ -1,0 +1,171 @@
+/* gov.cabnet.app — Pre-Ride Email Tool minimal staff UI
+ * v6.6.16-minimal-ui
+ * UI-only layer. Does not change parser, DB lookup, EDXEIX helper, AADE, or queues.
+ */
+:root {
+  --gc-staff-bg: #f3f6fb;
+  --gc-staff-panel: #ffffff;
+  --gc-staff-ink: #061633;
+  --gc-staff-muted: #4b5f80;
+  --gc-staff-line: #d5e0ef;
+  --gc-staff-green: #059669;
+  --gc-staff-blue: #2563eb;
+  --gc-staff-orange: #d97706;
+  --gc-staff-red: #dc2626;
+}
+
+.gc-staff-shell {
+  width: min(1380px, calc(100% - 32px));
+  margin: 18px auto 16px;
+  background: var(--gc-staff-panel);
+  border: 1px solid var(--gc-staff-line);
+  border-left: 8px solid var(--gc-staff-green);
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(10, 31, 68, .08);
+  padding: 18px;
+  color: var(--gc-staff-ink);
+}
+
+.gc-staff-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.gc-staff-title {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 38px);
+  line-height: 1.05;
+  letter-spacing: -.02em;
+}
+
+.gc-staff-subtitle {
+  margin: 8px 0 0;
+  color: var(--gc-staff-muted);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.gc-staff-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gc-staff-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
+}
+
+.gc-staff-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gc-staff-step {
+  border: 1px solid var(--gc-staff-line);
+  border-radius: 14px;
+  padding: 14px;
+  background: #f8fbff;
+  min-height: 164px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.gc-staff-step strong {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 7px;
+}
+
+.gc-staff-step p {
+  margin: 0 0 12px;
+  color: var(--gc-staff-muted);
+  line-height: 1.35;
+  font-size: 14px;
+}
+
+.gc-staff-btn {
+  border: 0;
+  border-radius: 12px;
+  min-height: 52px;
+  padding: 13px 15px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #fff;
+  background: var(--gc-staff-blue);
+  cursor: pointer;
+  box-shadow: 0 5px 14px rgba(37, 99, 235, .22);
+}
+
+.gc-staff-btn:hover { filter: brightness(.96); }
+.gc-staff-btn:active { transform: translateY(1px); }
+.gc-staff-btn.load { background: var(--gc-staff-green); box-shadow: 0 5px 14px rgba(5, 150, 105, .22); }
+.gc-staff-btn.open { background: var(--gc-staff-orange); box-shadow: 0 5px 14px rgba(217, 119, 6, .22); }
+.gc-staff-btn.reset { background: #334155; box-shadow: none; }
+.gc-staff-btn.secondary { background: #64748b; box-shadow: none; min-height: 42px; font-size: 14px; }
+
+.gc-staff-status {
+  margin-top: 14px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--gc-staff-line);
+  background: #f8fafc;
+  color: var(--gc-staff-muted);
+  font-weight: 700;
+}
+
+.gc-staff-status.ready {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #065f46;
+}
+
+.gc-staff-status.warn {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.gc-staff-status.bad {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.gc-staff-manual {
+  margin-top: 12px;
+  display: none;
+  border-top: 1px dashed var(--gc-staff-line);
+  padding-top: 12px;
+}
+
+.gc-staff-manual.open { display: block; }
+.gc-staff-manual p { margin: 0 0 10px; color: var(--gc-staff-muted); }
+
+.gc-minimal-ui [data-gc-hide-original="1"] { display: none !important; }
+.gc-minimal-ui .gc-hide-button { display: none !important; }
+
+.gc-minimal-ui .gc-staff-shell + * {
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .gc-staff-grid { grid-template-columns: 1fr; }
+  .gc-staff-shell { width: calc(100% - 20px); padding: 14px; }
+  .gc-staff-badges { justify-content: flex-start; }
+}

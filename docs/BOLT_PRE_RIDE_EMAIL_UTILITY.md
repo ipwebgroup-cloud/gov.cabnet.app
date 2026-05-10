@@ -1,126 +1,87 @@
-# Bolt Pre-Ride Email Manual Utility
-
-Version: v6.6.3
+# Bolt Pre-Ride Email Utility v6.6.9
 
 ## Purpose
 
-This utility gives operations a fast manual fallback while the full Bolt → normalized booking → EDXEIX workflow remains guarded.
+This utility helps office staff create an EDXEIX rental-agreement form from the Bolt pre-ride email with fewer manual steps.
 
-The operator can paste the Bolt pre-ride email body into:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-The page extracts the main transfer fields and fills an editable operator form for manual verification, dispatch copy/paste, spreadsheet copy/paste, and assisted manual EDXEIX entry.
-
-## v6.6.3 addition
-
-The page now generates an **EDXEIX autofill helper script** after a successful parse.
-
-Because `gov.cabnet.app` and `edxeix.yme.gov.gr` are different domains, the gov page cannot directly control the EDXEIX page. The operator must copy the generated script and run it inside the EDXEIX browser tab.
-
-The helper attempts to:
-
-- Select the lessor if a matching option is visible.
-- Select natural-person tenant type.
-- Fill passenger/customer name.
-- Select driver if a matching option is visible.
-- Select vehicle if a matching option is visible.
-- Fill pickup/start point if a matching field is visible.
-- Fill drop-off/destination if a matching field is visible.
-- Fill pickup date/time if matching fields are visible.
-- Fill price/amount if a matching field is visible.
-- Fill notes/comments if a matching field is visible.
-
-It does **not** press save/submit.
-
-## Safety posture
-
-The utility is intentionally simple and safe:
-
-- No database access.
-- No database writes.
-- No network calls from gov.cabnet.app.
-- No Bolt API calls.
-- No EDXEIX API calls.
-- No AADE calls.
-- No queue jobs.
-- No submission attempts.
-- No email body storage.
-- POST body only; extracted values are shown back to the operator for manual review.
-- EDXEIX helper is browser-side only and does not submit the form.
-
-## Files
-
-```text
-gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-gov.cabnet.app_app/cli/parse_pre_ride_email.php
-```
-
-## Web usage
-
-1. Open:
+The page is:
 
 ```text
 https://gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
-2. Paste the full Bolt pre-ride email body.
-3. Press **Parse email**.
-4. Check the parser confidence and missing fields.
-5. Review and edit the populated operator form.
-6. For EDXEIX assisted entry, click **Copy EDXEIX autofill script**.
-7. Open the EDXEIX rental contract form.
-8. Press **F12**, choose **Console**, paste the script, and press **Enter**.
-9. Verify every EDXEIX field manually.
-10. Save/submit inside EDXEIX only after human verification.
+## v6.6.9 workflow
 
-## CLI usage
+1. Click **Load latest server email + DB IDs** if the Bolt pre-ride email exists in the server Maildir.
+2. Otherwise paste the email manually and click **Parse email + DB IDs**.
+3. Verify the extracted transfer data.
+4. Confirm that **Company / lessor ID**, **Driver ID**, and **Vehicle ID** are filled from the database.
+5. Click **Save + open EDXEIX**.
+6. On EDXEIX, click **Fill using exact IDs**.
+7. Verify every field.
+8. Click **POST / Save reviewed form** only after review.
 
-From the server:
+## Safety boundaries
 
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php
-```
+The tool performs read-only assistance only:
 
-Parse from a text file:
+- It does not write to the database.
+- It does not create `submission_jobs`.
+- It does not create `submission_attempts`.
+- It does not call EDXEIX from the server.
+- It does not call AADE.
+- It does not expose EDXEIX cookies, CSRF tokens, passwords, or sessions.
+- It does not auto-submit without operator confirmation.
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php --file=/tmp/bolt-email.txt --json
-```
+The only DB usage is read-only lookup from mapping tables.
 
-Parse from STDIN:
+## DB lookup sources
 
-```bash
-cat /tmp/bolt-email.txt | /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php --json
-```
+The lookup checks:
 
-## Expected extracted fields
+- `mapping_drivers.edxeix_driver_id`
+- `mapping_vehicles.edxeix_vehicle_id`
+- optional `mapping_drivers.edxeix_lessor_id`
+- optional `mapping_vehicles.edxeix_lessor_id`
+- `mapping_starting_points.edxeix_starting_point_id`
 
-The parser looks for labels such as:
+If `edxeix_lessor_id` columns are missing, the helper falls back to known operator aliases such as LUXLIMO → 3814.
+
+## Latest server email loader
+
+The loader checks common cPanel Maildir locations, especially:
 
 ```text
-Operator:
-Customer:
-Customer mobile:
-Driver:
-Vehicle:
-Pickup:
-Drop-off:
-Start time:
-Estimated pick-up time:
-Estimated end time:
-Estimated price:
+/home/cabnet/mail/gov.cabnet.app/bolt-bridge/new
+/home/cabnet/mail/gov.cabnet.app/bolt-bridge/cur
 ```
 
-It accepts minor variations such as `Dropoff`, `Drop off`, `Customer phone`, and `Estimated pickup time`.
+It can also use the environment variable:
 
-## Important limitation
+```text
+GOV_CABNET_PRERIDE_MAILDIR
+```
 
-This utility does not prove that a trip is eligible for live EDXEIX submission. It is a manual data extraction and browser-side form-fill assistant only.
+Multiple directories may be separated using the server path separator.
 
-Live EDXEIX submission remains blocked unless Andreas explicitly approves a later live-submit change and all production guards pass.
+The loader only reads matching candidate files. It does not mark mail as read, move mail, delete mail, or store mail.
+
+## CLI verification
+
+Parse pasted email from STDIN:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_lookup.php < /path/to/email.txt
+```
+
+Load latest matching server Maildir email:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_lookup.php --latest-maildir
+```
+
+
+## v6.6.9 hotfix
+
+- Price ranges such as `40.00 - 44.00 eur` now resolve to the upper bound (`44.00`) for EDXEIX manual/autofill payloads, avoiding understated contract values.
+- No DB writes, no AADE calls, no EDXEIX server-side calls, no queue jobs, and no submission attempts.
