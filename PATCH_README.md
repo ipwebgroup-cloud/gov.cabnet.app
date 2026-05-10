@@ -1,82 +1,119 @@
-# gov.cabnet.app v6.8.1 — EDXEIX browser-assisted live production path
+# gov.cabnet.app v6.6.2 Patch — Manual Bolt Pre-Ride Email Utility
 
 ## What changed
 
-- Adds browser-fill arming through `edxeix_live_mail_config_control.php --arm-browser-fill`.
-- Updates the Firefox payload endpoint to allow only exact locked future pre-ride `bolt_mail` bookings.
-- Updates the mail preflight bridge so newly created mail-derived bookings are automatically made EDXEIX-eligible when they are exact future pre-ride candidates.
-- Hardens server-submit so a 302 redirect is not treated as confirmed EDXEIX creation.
+Adds a simple manual utility so operations can paste a Bolt pre-ride email and immediately get an editable operator form with extracted transfer fields.
+
+This keeps the business functioning while the guarded normalized automation continues later.
+
+## Safety
+
+This patch is read-only/manual assistance only:
+
+- No DB access.
+- No DB writes.
+- No network calls.
+- No Bolt API calls.
+- No EDXEIX calls.
+- No AADE calls.
+- No queue jobs.
+- No submission attempts.
+- No email body storage.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/edxeix-extension-payload.php
-gov.cabnet.app_app/cli/edxeix_live_mail_config_control.php
-gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php
-gov.cabnet.app_app/cli/live_submit_one_mail_booking.php
-docs/EDXEIX_LIVE_BROWSER_ASSISTED.md
+gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+gov.cabnet.app_app/cli/parse_pre_ride_email.php
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+docs/BOLT_PRE_RIDE_EMAIL_UTILITY.md
+HANDOFF.md
+CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
 ## Upload paths
 
+Upload these files to:
+
 ```text
-/home/cabnet/public_html/gov.cabnet.app/edxeix-extension-payload.php
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_live_mail_config_control.php
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php
-/home/cabnet/gov.cabnet.app_app/cli/live_submit_one_mail_booking.php
+gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+→ /home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+
+gov.cabnet.app_app/cli/parse_pre_ride_email.php
+→ /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php
+
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+
+docs/BOLT_PRE_RIDE_EMAIL_UTILITY.md
+→ local GitHub repo docs/BOLT_PRE_RIDE_EMAIL_UTILITY.md
+
+HANDOFF.md
+→ local GitHub repo HANDOFF.md
+
+CONTINUE_PROMPT.md
+→ local GitHub repo CONTINUE_PROMPT.md
 ```
 
 ## SQL
 
-No schema changes.
+No SQL required.
 
-## Verify
-
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/edxeix-extension-payload.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_live_mail_config_control.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/live_submit_one_mail_booking.php
-
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_live_mail_config_control.php --status --json
-```
-
-## Production use
+## Verification commands
 
 ```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/import_bolt_mail.php --json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --limit=20 --json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_mail_preflight_bridge.php --intake-id=REAL_ID --create --json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php --only-ready --future-hours=168 --limit=100 --json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/edxeix_live_mail_config_control.php --arm-browser-fill --booking-id=BOOKING_ID --by=Andreas --json
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
-Then use Firefox extension:
+Optional CLI test:
 
-1. Fetch locked payload.
-2. Fill current EDXEIX form tab.
-3. Review.
-4. Submit manually in EDXEIX.
-5. Confirm in the EDXEIX list.
+```bash
+cat >/tmp/bolt-email-test.txt <<'EOF'
+Operator: Fleet Mykonos LUXLIMO IKE
+Customer: Example Customer
+Customer mobile: +306900000000
+Driver: Example Driver
+Vehicle: ABC1234
+Pickup: Mikonos 846 00, Greece
+Drop-off: Mykonos Airport, Greece
+Start time: 2026-05-10 18:10:00 EEST
+Estimated pick-up time: 2026-05-10 18:15:00 EEST
+Estimated end time: 2026-05-10 18:40:00 EEST
+Estimated price: €60.00
+EOF
 
-## Commit title
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php --file=/tmp/bolt-email-test.txt --json
+```
 
-Go live with browser-assisted EDXEIX pre-ride mail flow
+## Verification URL
 
-## Commit description
+```text
+https://gov.cabnet.app/ops/pre-ride-email-tool.php
+```
 
-Adds the browser-assisted live EDXEIX production flow based strictly on pre-ride Bolt email.
+Expected result:
 
-Changes:
-- Arms browser-fill for one exact future mail-derived booking.
-- Allows the Firefox payload endpoint to return only the locked pre-ride mail booking payload.
-- Auto-clears old no_edxeix/aade_receipt_only flags only when creating an exact future mail-derived preflight booking.
-- Prevents server HTTP 302 responses from being counted as confirmed live EDXEIX creation.
+- Page opens with noindex/no-cache headers.
+- Pasted pre-ride email parses into an editable form.
+- Missing fields/warnings are shown clearly.
+- Copy buttons work for fields, dispatch summary, and CSV row.
+- No database rows, jobs, attempts, AADE receipts, or EDXEIX calls are created.
 
-Safety:
-- No AADE action.
-- No queue rows.
-- No secrets exposed.
-- No blind multi-booking submit.
-- EDXEIX source remains pre-ride Bolt email only.
+## Git commit title
+
+```text
+Add manual Bolt pre-ride email parser utility
+```
+
+## Git commit description
+
+```text
+Adds a safe manual operations utility for parsing Bolt pre-ride email bodies into an editable operator form.
+
+Includes a private reusable parser class, a public ops page, a CLI parser helper, documentation, and updated handoff/continue prompts.
+
+The utility is intentionally manual and read-only: no DB access, no network calls, no EDXEIX calls, no AADE calls, no queue jobs, and no email body storage.
+```

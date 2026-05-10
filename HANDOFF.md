@@ -2,7 +2,7 @@
 
 ## Current Version
 
-v6.6.1 — EDXEIX readiness source policy corrected to pre-ride Bolt email only.
+v6.6.2 — Manual Bolt pre-ride email utility added for immediate operations fallback.
 
 ## Project Identity
 
@@ -35,13 +35,61 @@ All future file deliverables must be zip packages. Andreas downloads the zip, ex
 - Manual AADE send is blocked.
 - Mail/auto dry-run AADE issue paths are no-op/blocked.
 
+## v6.6.2 Manual Pre-Ride Email Utility
+
+Purpose: keep business operations moving while full normalized automation is guarded.
+
+Web utility:
+
+```text
+https://gov.cabnet.app/ops/pre-ride-email-tool.php
+```
+
+Files:
+
+```text
+/home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+/home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php
+/home/cabnet/docs/BOLT_PRE_RIDE_EMAIL_UTILITY.md   # repo docs path: docs/BOLT_PRE_RIDE_EMAIL_UTILITY.md
+```
+
+Safety:
+
+- No database access.
+- No database writes.
+- No network calls.
+- No Bolt API calls.
+- No EDXEIX calls.
+- No AADE calls.
+- No queue jobs.
+- No submission attempts.
+- No email body storage.
+
+Usage:
+
+1. Paste the full Bolt pre-ride email body into `/ops/pre-ride-email-tool.php`.
+2. Press **Parse email**.
+3. Review missing fields/warnings/confidence.
+4. Edit any field that looks wrong.
+5. Copy individual fields, the dispatch summary, or the CSV row for manual operations.
+
+CLI verification:
+
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php --file=/tmp/bolt-email.txt --json
+```
+
 ## Correct Source Split
 
 ### EDXEIX
 
 ```text
 Pre-ride Bolt email
-→ bolt_mail_intake
+→ manual parser / eventual bolt_mail_intake
 → mail-derived normalized local preflight booking
 → EDXEIX readiness / browser-fill / eventual one-shot live submit
 ```
@@ -121,9 +169,10 @@ queues_unchanged: true
 
 ## Next Safe Tasks
 
-1. Verify v6.6.1 on production.
-2. Commit the v6.6.1 zip through GitHub Desktop after production confirmation.
-3. Wait for a real future pre-ride Bolt email candidate.
-4. Use readiness report to confirm `preflight_ready=true` for a mail-derived normalized booking.
-5. Only then run `live_submit_one_booking.php --analyze-only` for that exact booking.
-6. Do not enable live EDXEIX submission unless Andreas explicitly asks.
+1. Upload and verify v6.6.2 manual pre-ride email utility on production.
+2. Use it operationally as a manual helper while the business needs immediate function.
+3. Continue the main normalized mail intake only after operations are stable.
+4. Wait for a real future pre-ride Bolt email candidate.
+5. Use readiness report to confirm `preflight_ready=true` for a mail-derived normalized booking.
+6. Only then run `live_submit_one_booking.php --analyze-only` for that exact booking.
+7. Do not enable live EDXEIX submission unless Andreas explicitly asks.
