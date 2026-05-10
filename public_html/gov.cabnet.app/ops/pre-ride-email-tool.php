@@ -41,6 +41,257 @@ function pe_field(array $fields, string $name): string
     return pe_h($fields[$name] ?? '');
 }
 
+
+function pe_el_date_from_iso(string $iso): string
+{
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $iso, $m)) {
+        return $iso;
+    }
+    return $m[3] . '/' . $m[2] . '/' . $m[1];
+}
+
+function pe_edxeix_autofill_script(array $fields): string
+{
+    $pickupDate = trim((string)($fields['pickup_date'] ?? ''));
+    $payload = [
+        'lessor' => trim((string)($fields['operator'] ?? '')),
+        'passengerName' => trim((string)($fields['customer_name'] ?? '')),
+        'passengerPhone' => trim((string)($fields['customer_phone'] ?? '')),
+        'driver' => trim((string)($fields['driver_name'] ?? '')),
+        'vehicle' => trim((string)($fields['vehicle_plate'] ?? '')),
+        'pickupAddress' => trim((string)($fields['pickup_address'] ?? '')),
+        'dropoffAddress' => trim((string)($fields['dropoff_address'] ?? '')),
+        'pickupDateIso' => $pickupDate,
+        'pickupDateEl' => pe_el_date_from_iso($pickupDate),
+        'pickupTime' => trim((string)($fields['pickup_time'] ?? '')),
+        'pickupDateTime' => trim((string)($fields['pickup_datetime_local'] ?? '')),
+        'endDateTime' => trim((string)($fields['end_datetime_local'] ?? '')),
+        'priceText' => trim((string)($fields['estimated_price_text'] ?? '')),
+        'priceAmount' => trim((string)($fields['estimated_price_amount'] ?? '')),
+        'orderReference' => trim((string)($fields['order_reference'] ?? '')),
+    ];
+
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+
+    $script = <<<'JS'
+'use strict';
+
+const DATA = __PAYLOAD__;
+const results = [];
+
+function norm(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function visibleText(el) {
+    return norm(el ? (el.innerText || el.textContent || el.value || '') : '');
+}
+
+function mark(el) {
+    if (!el) { return; }
+    el.style.outline = '3px solid #059669';
+    el.style.outlineOffset = '2px';
+}
+
+function fire(el) {
+    if (!el) { return; }
+    for (const type of ['input', 'change', 'blur']) {
+        el.dispatchEvent(new Event(type, { bubbles: true }));
+    }
+}
+
+function labelMatches(el, re) {
+    return re.test(visibleText(el));
+}
+
+function controlFromLabel(label, selector) {
+    const htmlFor = label.getAttribute && label.getAttribute('for');
+    if (htmlFor) {
+        const byFor = document.getElementById(htmlFor);
+        if (byFor && byFor.matches(selector)) { return byFor; }
+    }
+    const inside = label.querySelector && label.querySelector(selector);
+    if (inside) { return inside; }
+    let node = label;
+    for (let depth = 0; depth < 5 && node; depth += 1, node = node.parentElement) {
+        const found = node.querySelector && node.querySelector(selector);
+        if (found) { return found; }
+        const next = node.nextElementSibling;
+        if (next) {
+            if (next.matches && next.matches(selector)) { return next; }
+            const inNext = next.querySelector && next.querySelector(selector);
+            if (inNext) { return inNext; }
+        }
+    }
+    return null;
+}
+
+function findControlNearText(labelRegex, selector) {
+    const labelTags = Array.from(document.querySelectorAll('label, .form-label, .control-label, strong, b, span, div, p, td, th'));
+    for (const label of labelTags) {
+        if (!labelMatches(label, labelRegex)) { continue; }
+        const control = controlFromLabel(label, selector);
+        if (control) { return control; }
+    }
+    return null;
+}
+
+function setValueNear(labelRegex, value, labelName, selector = 'input:not([type=hidden]), textarea') {
+    if (!value) {
+        results.push(labelName + ': skipped, empty source value');
+        return false;
+    }
+    const el = findControlNearText(labelRegex, selector);
+    if (!el) {
+        results.push(labelName + ': not found');
+        return false;
+    }
+    const type = String(el.type || '').toLowerCase();
+    if (type === 'date') {
+        el.value = DATA.pickupDateIso || value;
+    } else if (type === 'time') {
+        el.value = String(DATA.pickupTime || value).slice(0, 5);
+    } else {
+        el.value = value;
+    }
+    fire(el);
+    mark(el);
+    results.push(labelName + ': filled');
+    return true;
+}
+
+function setDateNear(labelRegex, isoValue, elValue, labelName) {
+    if (!isoValue && !elValue) {
+        results.push(labelName + ': skipped, empty source value');
+        return false;
+    }
+    const el = findControlNearText(labelRegex, 'input:not([type=hidden])');
+    if (!el) {
+        results.push(labelName + ': not found');
+        return false;
+    }
+    const type = String(el.type || '').toLowerCase();
+    el.value = type === 'date' ? isoValue : (elValue || isoValue);
+    fire(el);
+    mark(el);
+    results.push(labelName + ': filled');
+    return true;
+}
+
+function setTimeNear(labelRegex, value, labelName) {
+    if (!value) {
+        results.push(labelName + ': skipped, empty source value');
+        return false;
+    }
+    const el = findControlNearText(labelRegex, 'input:not([type=hidden])');
+    if (!el) {
+        results.push(labelName + ': not found');
+        return false;
+    }
+    const type = String(el.type || '').toLowerCase();
+    el.value = type === 'time' ? String(value).slice(0, 5) : value;
+    fire(el);
+    mark(el);
+    results.push(labelName + ': filled');
+    return true;
+}
+
+function bestOption(select, target) {
+    const t = norm(target);
+    if (!select || !t) { return null; }
+    const options = Array.from(select.options || []);
+    let best = null;
+    let score = 0;
+    for (const opt of options) {
+        const o = norm(opt.textContent || opt.label || opt.value || '');
+        if (!o || /^παρακαλουμε|please select/.test(o)) { continue; }
+        let s = 0;
+        if (o === t) { s = 100; }
+        else if (o.includes(t) || t.includes(o)) { s = 80; }
+        else {
+            const parts = t.split(/[\s,;|/-]+/).filter(Boolean);
+            for (const part of parts) {
+                if (part.length >= 3 && o.includes(part)) { s += 10; }
+            }
+        }
+        if (s > score) { score = s; best = opt; }
+    }
+    return score >= 10 ? best : null;
+}
+
+function selectNear(labelRegex, target, labelName) {
+    const select = findControlNearText(labelRegex, 'select');
+    if (!select) {
+        results.push(labelName + ': select not found');
+        return false;
+    }
+    const opt = bestOption(select, target);
+    if (!opt) {
+        results.push(labelName + ': option not found for "' + target + '"');
+        mark(select);
+        return false;
+    }
+    select.value = opt.value;
+    fire(select);
+    mark(select);
+    results.push(labelName + ': selected "' + (opt.textContent || opt.value).trim() + '"');
+    return true;
+}
+
+function selectNaturalPerson() {
+    const labels = Array.from(document.querySelectorAll('label, span, div'));
+    for (const label of labels) {
+        if (!/φυσικο προσωπο|natural person/.test(visibleText(label))) { continue; }
+        const radio = controlFromLabel(label, 'input[type=radio]') || label.querySelector('input[type=radio]');
+        if (radio) {
+            radio.checked = true;
+            fire(radio);
+            mark(radio);
+            results.push('Tenant type: natural person selected');
+            return true;
+        }
+    }
+    results.push('Tenant type: natural person radio not found');
+    return false;
+}
+
+function fillTextFields() {
+    setValueNear(/ονοματεπωνυμο|μισθωτη|επιβατη|επικεφαλης/, DATA.passengerName, 'Passenger / tenant name');
+    setValueNear(/τηλεφωνο|κινητο|mobile|phone/, DATA.passengerPhone, 'Passenger phone');
+    setValueNear(/σημειο εναρξης|τοπος εναρξης|αφετηρια|pickup|παραλαβ/, DATA.pickupAddress, 'Pickup / starting point');
+    setValueNear(/σημειο ληξης|τοπος ληξης|προορισμ|drop.?off|αποβιβασ/, DATA.dropoffAddress, 'Drop-off / destination');
+    setDateNear(/ημερομηνια.*(εναρξης|παραλαβ)|ημερομηνια/, DATA.pickupDateIso, DATA.pickupDateEl, 'Pickup date');
+    setTimeNear(/ωρα.*(εναρξης|παραλαβ)|ωρα/, DATA.pickupTime, 'Pickup time');
+    setValueNear(/μισθωμα|τιμημα|αξια|ποσο|τιμη|price|amount/, (DATA.priceAmount || '').replace('.', ','), 'Price / amount');
+    setValueNear(/παρατηρησεις|σχολια|comments|notes/, 'Bolt pre-ride email. Order reference: ' + (DATA.orderReference || ''), 'Notes');
+}
+
+function main() {
+    console.clear();
+    console.log('gov.cabnet.app EDXEIX autofill helper starting…');
+    selectNear(/εκμισθωτης|lessor/, DATA.lessor, 'Lessor');
+    selectNaturalPerson();
+    selectNear(/οδηγος|driver/, DATA.driver, 'Driver');
+    selectNear(/οχημα|vehicle/, DATA.vehicle, 'Vehicle');
+    fillTextFields();
+    setTimeout(function () {
+        fillTextFields();
+        console.log(results.join('\n'));
+        alert('EDXEIX autofill helper finished. Verify every field before saving/submitting.\n\n' + results.join('\n'));
+    }, 650);
+}
+
+main();
+JS;
+
+    return "(function () {\n" . str_replace('__PAYLOAD__', $json, $script) . "\n})();\n";
+}
+
 $rawEmail = '';
 $result = null;
 $error = null;
@@ -57,6 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $fields = is_array($result) ? ($result['fields'] ?? []) : [];
 $generated = is_array($result) ? ($result['generated'] ?? []) : [];
+$edxeixAutofillScript = is_array($result) ? pe_edxeix_autofill_script($fields) : '';
 $missing = is_array($result) ? ($result['missing_required'] ?? []) : [];
 $warnings = is_array($result) ? ($result['warnings'] ?? []) : [];
 $confidence = is_array($result) ? (string)($result['confidence'] ?? 'not parsed') : 'not parsed';
@@ -72,7 +324,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
     <meta name="robots" content="noindex,nofollow">
     <title>Bolt Pre-Ride Email Tool | gov.cabnet.app</title>
     <style>
-        :root{--bg:#f3f6fb;--panel:#fff;--ink:#07152f;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff;--gold:#d4922d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:18px 0 10px}p{color:var(--muted);line-height:1.45}.safety{border-left:7px solid var(--green);background:#ecfdf3}.hero{border-left:7px solid var(--gold)}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1 / -1}label{font-weight:700;font-size:13px;color:#27385f}input,textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:var(--ink)}textarea{min-height:240px;resize:vertical}.raw textarea{min-height:420px}.output textarea{min-height:150px;background:#fbfdff}.btn{display:inline-block;border:0;padding:11px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;cursor:pointer}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.dark{background:var(--slate)}.btn.gold{background:var(--gold)}.btn.light{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:86px}.metric strong{display:block;font-size:27px;line-height:1.08;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.warnline{color:#b45309}.badline{color:#991b1b}.goodline{color:#166534}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.copy-row{display:flex;gap:8px;align-items:center}.copy-row input{flex:1}.copy-row button{flex:0 0 auto}.form-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;color:#9a3412}@media(max-width:980px){.two,.three,.field-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}.raw textarea{min-height:280px}}
+        :root{--bg:#f3f6fb;--panel:#fff;--ink:#07152f;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff;--gold:#d4922d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:18px 0 10px}p{color:var(--muted);line-height:1.45}.safety{border-left:7px solid var(--green);background:#ecfdf3}.hero{border-left:7px solid var(--gold)}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1 / -1}label{font-weight:700;font-size:13px;color:#27385f}input,textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:var(--ink)}textarea{min-height:240px;resize:vertical}.raw textarea{min-height:420px}.output textarea{min-height:150px;background:#fbfdff}.btn{display:inline-block;border:0;padding:11px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;cursor:pointer}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.dark{background:var(--slate)}.btn.gold{background:var(--gold)}.btn.light{background:#eaf1ff;color:#1e40af}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:86px}.metric strong{display:block;font-size:27px;line-height:1.08;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.warnline{color:#b45309}.badline{color:#991b1b}.goodline{color:#166534}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.copy-row{display:flex;gap:8px;align-items:center}.copy-row input{flex:1}.copy-row button{flex:0 0 auto}.form-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;color:#9a3412}.code-box{font-family:Consolas,Menlo,Monaco,monospace;font-size:13px;line-height:1.35;min-height:280px;background:#0b1220;color:#dbeafe}.stepbox{background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;color:#1e3a8a}.stepbox ol{margin:8px 0 0 22px;padding:0}.stepbox li{margin:5px 0}@media(max-width:980px){.two,.three,.field-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}.raw textarea{min-height:280px}}
     </style>
 </head>
 <body>
@@ -176,14 +428,35 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
         </div>
     </section>
 
+    <section class="card">
+        <h2>4. EDXEIX autofill helper</h2>
+        <p class="form-note"><strong>Use on the EDXEIX page only:</strong> this creates a browser-side script from the reviewed fields above. It does not submit the form. After it runs, verify every field before saving or submitting.</p>
+        <div class="stepbox">
+            <strong>Fast workflow:</strong>
+            <ol>
+                <li>Review/edit the operator form above.</li>
+                <li>Click <strong>Copy EDXEIX autofill script</strong>.</li>
+                <li>Go to the EDXEIX tab with the rental contract form open.</li>
+                <li>Press <strong>F12</strong>, open <strong>Console</strong>, paste the script, and press <strong>Enter</strong>.</li>
+                <li>The script will try to select lessor/driver/vehicle and fill the visible fields it can identify.</li>
+            </ol>
+        </div>
+        <textarea id="edxeix_autofill_script" class="code-box" spellcheck="false"><?= pe_h($edxeixAutofillScript) ?></textarea>
+        <div class="actions">
+            <button class="btn green" type="button" data-copy="edxeix_autofill_script">Copy EDXEIX autofill script</button>
+            <button class="btn light" type="button" onclick="copyManualForm()">Copy manual fallback form</button>
+        </div>
+        <p class="small">Because <code>gov.cabnet.app</code> and <code>edxeix.yme.gov.gr</code> are different domains, the gov page cannot directly control the EDXEIX page. The copied script must be run inside the EDXEIX tab by the logged-in operator.</p>
+    </section>
+
     <section class="two output">
         <section class="card">
-            <h2>4. Dispatch summary</h2>
+            <h2>5. Dispatch summary</h2>
             <textarea id="dispatch_summary"><?= pe_h($generated['dispatch_summary'] ?? '') ?></textarea>
             <div class="actions"><button class="btn light" type="button" data-copy="dispatch_summary">Copy dispatch summary</button></div>
         </section>
         <section class="card">
-            <h2>5. Spreadsheet row</h2>
+            <h2>6. Spreadsheet row</h2>
             <p class="small">Header and row are separated so you can paste the header once, then only paste rows afterwards.</p>
             <label>CSV header</label>
             <textarea id="csv_header" style="min-height:80px"><?= pe_h($generated['csv_header'] ?? '') ?></textarea>

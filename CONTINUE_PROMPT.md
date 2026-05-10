@@ -17,36 +17,13 @@ Workflow:
 - Andreas downloads the zip, extracts it locally into the GitHub Desktop repo, uploads manually to the server, tests production, then commits through GitHub Desktop.
 
 Current state:
-- Version: v6.6.2.
-- Manual Bolt pre-ride email utility added for immediate operations fallback.
-- Web utility: /ops/pre-ride-email-tool.php.
-- Parser: /home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php.
-- CLI helper: /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php.
-- Documentation: docs/BOLT_PRE_RIDE_EMAIL_UTILITY.md.
-- EDXEIX readiness source policy remains corrected.
-- EDXEIX submission data source is strictly the pre-ride Bolt email.
-- Bolt API pickup/finalized data is not the EDXEIX submission source.
-- AADE invoice issuing remains strictly Bolt API pickup timestamp worker only.
-- EDXEIX live submission remains disabled.
-- submission_jobs and submission_attempts must remain zero.
-
-v6.6.2 utility safety:
-- No DB access.
-- No DB writes.
-- No network calls.
-- No Bolt API calls.
-- No EDXEIX calls.
-- No AADE calls.
-- No queue jobs.
-- No submission attempts.
-- No email body storage.
-- It parses pasted pre-ride email text and fills an editable manual operator form.
-
-Correct source split:
-- EDXEIX:
-  Pre-ride Bolt email → manual parser / eventual bolt_mail_intake → mail-derived normalized local preflight booking → EDXEIX readiness/browser-fill/future one-shot live submit.
-- AADE:
-  Bolt API pickup timestamp → bolt_pickup_receipt_worker.php → AADE invoice issue.
+- Version: v6.6.3.
+- The urgent business fallback is now the manual Bolt pre-ride email parser with an EDXEIX browser-side autofill helper.
+- Web page: https://gov.cabnet.app/ops/pre-ride-email-tool.php
+- The utility parses a pasted real Bolt pre-ride email, fills an editable operator form, and generates a copyable EDXEIX autofill script.
+- The copied script must be pasted into the browser Console inside the logged-in EDXEIX rental contract page.
+- The helper tries to select/fill visible EDXEIX fields and shows an alert summary.
+- It does not save or submit the EDXEIX form.
 
 Critical safety:
 - Never expose credentials, tokens, cookies, AADE credentials, or private config.
@@ -55,6 +32,13 @@ Critical safety:
 - Pre-ride Bolt email must not issue AADE invoices.
 - Manual AADE send is blocked.
 - Mail/auto dry-run AADE issue paths are blocked/no-op.
+- The v6.6.3 helper is manual/browser-side only: no DB writes, no jobs, no attempts, no EDXEIX API call from gov.cabnet.app, no AADE call.
+
+Correct source split:
+- EDXEIX:
+  Pre-ride Bolt email → manual parser/autofill utility now → future bolt_mail_intake → mail-derived normalized local preflight booking → EDXEIX readiness/browser-fill/future one-shot live submit.
+- AADE:
+  Bolt API pickup timestamp → bolt_pickup_receipt_worker.php → AADE invoice issue.
 
 Important AADE incident:
 - Duplicate AADE receipts were observed for same logical trips:
@@ -69,15 +53,19 @@ Bolt API timing evidence:
 - Do not claim certainty that Bolt exposes order_pickup_timestamp before ride finish.
 - Preferred wording: “AADE invoice is issued only through the Bolt API pickup timestamp path, subject to when Bolt exposes that timestamp.”
 
-Verification for v6.6.2:
-- php -l /home/cabnet/gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
-- php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-- php -l /home/cabnet/gov.cabnet.app_app/cli/parse_pre_ride_email.php
-- Open https://gov.cabnet.app/ops/pre-ride-email-tool.php
-- Paste a Bolt pre-ride email and confirm the form populates expected fields.
+EDXEIX readiness report remains:
+- /home/cabnet/gov.cabnet.app_app/cli/edxeix_readiness_report.php
+- Read-only.
+- Does not call EDXEIX.
+- Does not issue AADE.
+- Does not create submission_jobs.
+- Does not create submission_attempts.
+- Does not print session cookies or CSRF tokens.
 
 Next safe task:
-- Deploy and verify v6.6.2.
-- Use the manual parser utility so operations can function ASAP.
-- After business continuity is stable, continue main normalized mail intake/preflight development.
+- Verify v6.6.3 on production.
+- Use the tool with a real Bolt pre-ride email.
+- Copy and run the EDXEIX autofill script inside the EDXEIX page Console.
+- Ask Andreas for screenshot/output of fields that fail to populate, then patch label matching.
+- Continue main normalized mail intake after manual business operation is stable.
 - Do not live-submit unless Andreas explicitly asks.
