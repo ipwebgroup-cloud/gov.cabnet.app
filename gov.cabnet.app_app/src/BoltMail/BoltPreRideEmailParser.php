@@ -273,26 +273,28 @@ final class BoltPreRideEmailParser
             return '';
         }
 
-        if (preg_match_all('/([0-9]+(?:[,.][0-9]{1,2})?)/', $text, $matches) < 1) {
+        /*
+         * Bolt can send a price range, for example:
+         *   40.00 - 44.00 eur
+         *
+         * Business rule:
+         * - Use the FIRST value.
+         * - Remove unnecessary trailing decimals.
+         *   40.00 -> 40
+         *   40,00 -> 40
+         *   40.50 -> 40.5
+         */
+        if (preg_match('/([0-9]+(?:[,.][0-9]{1,2})?)/', $text, $m) !== 1) {
             return '';
         }
 
-        $amounts = [];
-        foreach ($matches[1] as $rawAmount) {
-            $normalized = str_replace(',', '.', (string)$rawAmount);
-            if (is_numeric($normalized)) {
-                $amounts[] = (float)$normalized;
-            }
+        $amount = str_replace(',', '.', $m[1]);
+
+        if (str_contains($amount, '.')) {
+            $amount = rtrim(rtrim($amount, '0'), '.');
         }
 
-        if ($amounts === []) {
-            return '';
-        }
-
-        // Bolt sometimes sends a range, e.g. "40.00 - 44.00 eur".
-        // For EDXEIX manual entry, use the upper bound so the contract value is not understated.
-        $amount = max($amounts);
-        return number_format($amount, 2, '.', '');
+        return $amount;
     }
 
     private function extractPriceCurrency(string $text): string

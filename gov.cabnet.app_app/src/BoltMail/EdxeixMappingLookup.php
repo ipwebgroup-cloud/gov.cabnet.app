@@ -1,17 +1,21 @@
 <?php
 /**
- * gov.cabnet.app — Read-only EDXEIX mapping lookup for pre-ride emails.
+ * gov.cabnet.app — EDXEIX mapping lookup.
+ *
+ * v6.6.13-edxeix-source-of-truth
+ *
+ * Rule:
+ * - Bolt operator/fleet label is NOT the EDXEIX legal lessor source.
+ * - EDXEIX company/lessor comes from mapped driver/vehicle ownership.
+ * - Vehicle lessor wins when available.
+ * - Driver lessor is second.
+ * - Bolt operator alias is fallback only and does not make lookup production-ready.
  *
  * Safety:
- * - Read-only SELECT/SHOW queries only.
- * - No writes.
+ * - SELECT only.
+ * - No DB writes.
  * - No EDXEIX calls.
  * - No AADE calls.
- *
- * v6.6.10:
- * - Adds exact driver/vehicle lookup before fuzzy scoring.
- * - Does not require the email operator lessor to match the mapped driver/vehicle lessor.
- * - Allows mapped driver/vehicle lessor to override the email operator lessor for partner/executing vehicles.
  */
 
 declare(strict_types=1);
@@ -23,86 +27,111 @@ use Throwable;
 
 final class EdxeixMappingLookup
 {
-    public const VERSION = 'v6.6.10';
+    public const VERSION = 'v6.6.13-edxeix-source-of-truth';
 
     private mysqli $db;
-
-    /** @var array<string,array<int,string>> */
-    private array $columnsCache = [];
 
     public function __construct(mysqli $db)
     {
         $this->db = $db;
     }
 
-    /**
-     * @param array<string,string> $fields
-     * @return array<string,mixed>
-     */
     public function lookup(array $fields): array
     {
-        $messages = [];
+        $messages = ['Lookup engine: ' . self::VERSION];
         $warnings = [];
 
         $operator = trim((string)($fields['operator'] ?? ''));
         $driverName = trim((string)($fields['driver_name'] ?? ''));
         $vehiclePlate = trim((string)($fields['vehicle_plate'] ?? ''));
 
-        $driver = $this->lookupDriver($driverName);
-        $vehicle = $this->lookupVehicle($vehiclePlate);
-        $startingPoint = $this->lookupStartingPoint();
-        $lessor = $this->resolveLessorId($operator, $driver, $vehicle);
+        $driver = $this->findDriver($driverName, $warnings);
+        $vehicle = $this->findVehicle($vehiclePlate, $warnings);
+        $startingPoint = $this->findStartingPoint($warnings);
 
-        $messages[] = 'Lookup engine: ' . self::VERSION;
+        $operatorLessor = $this->knownOperatorAlias($operator);
+        $driverLessor = trim((string)($driver['lessor_id'] ?? ''));
+        $vehicleLessor = trim((string)($vehicle['lessor_id'] ?? ''));
 
-        if ($lessor['id'] !== '') {
-            $messages[] = 'Company/lessor ID resolved: ' . $lessor['source'] . ' → ' . $lessor['id'];
-        } else {
-            $warnings[] = 'Company/lessor ID could not be resolved from DB or known operator aliases.';
+        $lessorId = '';
+        $lessorSource = '';
+        $companyTrusted = false;
+        $mappingConflict = false;
+
+        if ($driverLessor !== '' && $vehicleLessor !== '' && $driverLessor !== $vehicleLessor) {
+            $mappingConflict = true;
+            $warnings[] = 'EDXEIX mapping conflict: driver lessor is ' . $driverLessor . ', vehicle lessor is ' . $vehicleLessor . '. Manual review required.';
         }
 
-        if ($driver['id'] !== '') {
-            $messages[] = 'Driver ID found in DB: ' . $driver['label'] . ' → ' . $driver['id'];
-            if ($this->rowLessorId($driver['row'] ?? null) !== '') {
-                $messages[] = 'Driver mapped lessor: ' . $this->rowLessorId($driver['row'] ?? null);
+        if (!$mappingConflict && $vehicleLessor !== '') {
+            $lessorId = $vehicleLessor;
+            $lessorSource = 'vehicle EDXEIX mapping';
+            $companyTrusted = true;
+        } elseif (!$mappingConflict && $driverLessor !== '') {
+            $lessorId = $driverLessor;
+            $lessorSource = 'driver EDXEIX mapping';
+            $companyTrusted = true;
+        } elseif ($operatorLessor !== '') {
+            $lessorId = $operatorLessor;
+            $lessorSource = 'Bolt operator alias fallback';
+            $warnings[] = 'Company/lessor was resolved only from Bolt operator alias. This is not production-safe; map driver or vehicle to its EDXEIX lessor.';
+        }
+
+        if ($lessorId !== '') {
+            $messages[] = 'Company/lessor ID resolved: ' . $lessorSource . ' → ' . $lessorId;
+        } else {
+            $warnings[] = 'Company/lessor ID could not be resolved from EDXEIX mapping.';
+        }
+
+        if (($driver['id'] ?? '') !== '') {
+            $messages[] = 'Driver ID found in DB: ' . ($driver['label'] ?? $driverName) . ' → ' . $driver['id'];
+            if ($driverLessor !== '') {
+                $messages[] = 'Driver EDXEIX lessor: ' . $driverLessor;
             }
         } elseif ($driverName !== '') {
             $warnings[] = 'Driver was not mapped in DB: ' . $driverName;
         }
 
-        if ($vehicle['id'] !== '') {
-            $messages[] = 'Vehicle ID found in DB: ' . $vehicle['label'] . ' → ' . $vehicle['id'];
-            if ($this->rowLessorId($vehicle['row'] ?? null) !== '') {
-                $messages[] = 'Vehicle mapped lessor: ' . $this->rowLessorId($vehicle['row'] ?? null);
+        if (($vehicle['id'] ?? '') !== '') {
+            $messages[] = 'Vehicle ID found in DB: ' . ($vehicle['label'] ?? $vehiclePlate) . ' → ' . $vehicle['id'];
+            if ($vehicleLessor !== '') {
+                $messages[] = 'Vehicle EDXEIX lessor: ' . $vehicleLessor;
             }
         } elseif ($vehiclePlate !== '') {
             $warnings[] = 'Vehicle was not mapped in DB: ' . $vehiclePlate;
         }
 
-        if ($startingPoint['id'] !== '') {
-            $messages[] = 'Starting point ID resolved: ' . $startingPoint['label'] . ' → ' . $startingPoint['id'];
+        if (($startingPoint['id'] ?? '') !== '') {
+            $messages[] = 'Starting point ID resolved: ' . ($startingPoint['label'] ?? 'starting point') . ' → ' . $startingPoint['id'];
         } else {
-            $warnings[] = 'Starting point ID not found in DB; using default 5875309.';
-            $startingPoint = ['id' => '5875309', 'label' => 'Έδρα μας', 'source' => 'fallback'];
+            $startingPoint = ['id' => '', 'label' => ''];
+            $warnings[] = 'Starting point ID was not found in DB. Browser helper should select from live EDXEIX options.';
         }
 
-        $operatorLessor = $this->knownLessorId($operator);
-        $effectiveLessor = (string)$lessor['id'];
-        if ($operatorLessor !== '' && $effectiveLessor !== '' && $operatorLessor !== $effectiveLessor) {
-            $warnings[] = 'Operator lessor alias is ' . $operatorLessor . ', but mapped driver/vehicle lessor is ' . $effectiveLessor . '. Using mapped lessor for EDXEIX form.';
+        if ($operatorLessor !== '' && $lessorId !== '' && $operatorLessor !== $lessorId) {
+            $warnings[] = 'Bolt operator alias points to ' . $operatorLessor . ', but EDXEIX driver/vehicle mapping points to ' . $lessorId . '. Using EDXEIX mapping.';
         }
+
+        $ok = (
+            !$mappingConflict &&
+            $companyTrusted &&
+            (($driver['id'] ?? '') !== '') &&
+            (($vehicle['id'] ?? '') !== '') &&
+            $lessorId !== ''
+        );
 
         return [
-            'ok' => $driver['id'] !== '' && $vehicle['id'] !== '' && $lessor['id'] !== '',
+            'ok' => $ok,
             'lookup_version' => self::VERSION,
-            'lessor_id' => $lessor['id'],
-            'lessor_source' => $lessor['source'],
-            'driver_id' => $driver['id'],
-            'driver_label' => $driver['label'],
-            'vehicle_id' => $vehicle['id'],
-            'vehicle_label' => $vehicle['label'],
-            'starting_point_id' => $startingPoint['id'],
-            'starting_point_label' => $startingPoint['label'],
+            'lessor_id' => $lessorId,
+            'lessor_source' => $lessorSource,
+            'company_trusted_from_edxeix_mapping' => $companyTrusted,
+            'driver_id' => $driver['id'] ?? '',
+            'driver_label' => $driver['label'] ?? '',
+            'vehicle_id' => $vehicle['id'] ?? '',
+            'vehicle_label' => $vehicle['label'] ?? '',
+            'starting_point_id' => $startingPoint['id'] ?? '',
+            'starting_point_label' => $startingPoint['label'] ?? '',
             'messages' => $messages,
             'warnings' => $warnings,
             'driver_match' => $driver,
@@ -110,262 +139,148 @@ final class EdxeixMappingLookup
         ];
     }
 
-    /**
-     * @return array{id:string,label:string,source:string,row:array<string,mixed>|null,score:int}
-     */
-    private function lookupDriver(string $driverName): array
+    private function findDriver(string $driverName, array &$warnings): array
     {
-        $empty = ['id' => '', 'label' => '', 'source' => 'none', 'row' => null, 'score' => 0];
-        if ($driverName === '' || !$this->tableExists('mapping_drivers')) {
-            return $empty;
-        }
-
-        $cols = $this->columns('mapping_drivers');
-        $idCol = $this->firstColumn($cols, ['edxeix_driver_id', 'driver_edxeix_id', 'edxeix_id']);
-        $nameCol = $this->firstColumn($cols, ['external_driver_name', 'driver_name', 'name', 'full_name']);
-        if ($idCol === '' || $nameCol === '') {
-            return $empty;
-        }
-
-        $exact = $this->fetchExactDriverRow($driverName, $idCol, $nameCol);
-        if ($exact !== null) {
-            return [
-                'id' => trim((string)($exact[$idCol] ?? '')),
-                'label' => (string)($exact[$nameCol] ?? $driverName),
-                'source' => 'mapping_drivers exact',
-                'row' => $exact,
-                'score' => 150,
-            ];
-        }
-
-        $rows = $this->fetchRows('mapping_drivers', [$idCol, $nameCol, 'external_driver_id', 'edxeix_lessor_id', 'lessor_id', 'company_id', 'edxeix_company_id', 'is_active', 'active_vehicle_plate', 'driver_identifier', 'individual_identifier'], $idCol . ' IS NOT NULL');
-        $best = null;
-        $bestScore = 0;
-        foreach ($rows as $row) {
-            if (isset($row['is_active']) && (string)$row['is_active'] === '0') {
-                continue;
-            }
-            if (trim((string)($row[$idCol] ?? '')) === '' || trim((string)($row[$idCol] ?? '')) === '0') {
-                continue;
-            }
-            $score = $this->nameScore($driverName, (string)($row[$nameCol] ?? ''));
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $best = $row;
-            }
-        }
-
-        if ($best === null || $bestScore < 45) {
-            return $empty;
-        }
-
-        return [
-            'id' => trim((string)($best[$idCol] ?? '')),
-            'label' => (string)($best[$nameCol] ?? $driverName),
-            'source' => 'mapping_drivers fuzzy',
-            'row' => $best,
-            'score' => $bestScore,
-        ];
-    }
-
-    /** @return array<string,mixed>|null */
-    private function fetchExactDriverRow(string $driverName, string $idCol, string $nameCol): ?array
-    {
-        $driverName = trim($driverName);
         if ($driverName === '') {
-            return null;
-        }
-        $select = $this->selectList('mapping_drivers', [$idCol, $nameCol, 'external_driver_id', 'edxeix_lessor_id', 'lessor_id', 'company_id', 'edxeix_company_id', 'is_active', 'active_vehicle_plate', 'driver_identifier', 'individual_identifier']);
-        if ($select === '') {
-            return null;
-        }
-
-        $sql = 'SELECT ' . $select . ' FROM `mapping_drivers` WHERE `' . $nameCol . '` = ? AND `' . $idCol . '` IS NOT NULL ORDER BY CASE WHEN `is_active` = 1 THEN 0 ELSE 1 END, id DESC LIMIT 1';
-        try {
-            $stmt = $this->db->prepare($sql);
-            $stmt->bind_param('s', $driverName);
-            $stmt->execute();
-            $row = $stmt->get_result()->fetch_assoc();
-            if (is_array($row) && trim((string)($row[$idCol] ?? '')) !== '' && trim((string)($row[$idCol] ?? '')) !== '0') {
-                return $row;
-            }
-        } catch (Throwable) {
-        }
-
-        // Case-insensitive normalized fallback directly in PHP, still read-only.
-        $target = $this->nameNorm($driverName);
-        $rows = $this->fetchRows('mapping_drivers', [$idCol, $nameCol, 'external_driver_id', 'edxeix_lessor_id', 'lessor_id', 'company_id', 'edxeix_company_id', 'is_active', 'active_vehicle_plate', 'driver_identifier', 'individual_identifier'], $idCol . ' IS NOT NULL');
-        foreach ($rows as $row) {
-            if (isset($row['is_active']) && (string)$row['is_active'] === '0') {
-                continue;
-            }
-            if ($this->nameNorm((string)($row[$nameCol] ?? '')) === $target) {
-                return $row;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * @return array{id:string,label:string,source:string,row:array<string,mixed>|null,score:int}
-     */
-    private function lookupVehicle(string $plate): array
-    {
-        $empty = ['id' => '', 'label' => '', 'source' => 'none', 'row' => null, 'score' => 0];
-        if ($plate === '' || !$this->tableExists('mapping_vehicles')) {
-            return $empty;
-        }
-
-        $cols = $this->columns('mapping_vehicles');
-        $idCol = $this->firstColumn($cols, ['edxeix_vehicle_id', 'vehicle_edxeix_id', 'edxeix_id']);
-        $plateCol = $this->firstColumn($cols, ['plate', 'vehicle_plate', 'registration', 'license_plate', 'licence_plate']);
-        if ($idCol === '' || $plateCol === '') {
-            return $empty;
-        }
-
-        $exact = $this->fetchExactVehicleRow($plate, $idCol, $plateCol);
-        if ($exact !== null) {
-            return [
-                'id' => trim((string)($exact[$idCol] ?? '')),
-                'label' => (string)($exact[$plateCol] ?? $plate),
-                'source' => 'mapping_vehicles exact',
-                'row' => $exact,
-                'score' => 150,
-            ];
-        }
-
-        $rows = $this->fetchRows('mapping_vehicles', [$idCol, $plateCol, 'external_vehicle_id', 'external_vehicle_name', 'vehicle_model', 'edxeix_lessor_id', 'lessor_id', 'company_id', 'edxeix_company_id', 'is_active'], $idCol . ' IS NOT NULL');
-        $target = $this->plateNorm($plate);
-        $best = null;
-        $bestScore = 0;
-        foreach ($rows as $row) {
-            if (isset($row['is_active']) && (string)$row['is_active'] === '0') {
-                continue;
-            }
-            if (trim((string)($row[$idCol] ?? '')) === '' || trim((string)($row[$idCol] ?? '')) === '0') {
-                continue;
-            }
-            $candidate = $this->plateNorm((string)($row[$plateCol] ?? ''));
-            $score = 0;
-            if ($candidate !== '' && $candidate === $target) {
-                $score = 120;
-            } elseif ($candidate !== '' && ($this->contains($candidate, $target) || $this->contains($target, $candidate))) {
-                $score = 80;
-            }
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $best = $row;
-            }
-        }
-
-        if ($best === null || $bestScore < 70) {
-            return $empty;
-        }
-
-        return [
-            'id' => trim((string)($best[$idCol] ?? '')),
-            'label' => (string)($best[$plateCol] ?? $plate),
-            'source' => 'mapping_vehicles fuzzy',
-            'row' => $best,
-            'score' => $bestScore,
-        ];
-    }
-
-    /** @return array<string,mixed>|null */
-    private function fetchExactVehicleRow(string $plate, string $idCol, string $plateCol): ?array
-    {
-        $target = $this->plateNorm($plate);
-        if ($target === '') {
-            return null;
-        }
-        $rows = $this->fetchRows('mapping_vehicles', [$idCol, $plateCol, 'external_vehicle_id', 'external_vehicle_name', 'vehicle_model', 'edxeix_lessor_id', 'lessor_id', 'company_id', 'edxeix_company_id', 'is_active'], $idCol . ' IS NOT NULL');
-        foreach ($rows as $row) {
-            if (isset($row['is_active']) && (string)$row['is_active'] === '0') {
-                continue;
-            }
-            if (trim((string)($row[$idCol] ?? '')) === '' || trim((string)($row[$idCol] ?? '')) === '0') {
-                continue;
-            }
-            if ($this->plateNorm((string)($row[$plateCol] ?? '')) === $target) {
-                return $row;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * @return array{id:string,label:string,source:string}
-     */
-    private function lookupStartingPoint(): array
-    {
-        if (!$this->tableExists('mapping_starting_points')) {
-            return ['id' => '', 'label' => '', 'source' => 'none'];
+            return ['id' => '', 'label' => '', 'lessor_id' => ''];
         }
 
         try {
-            $sql = "SELECT label, edxeix_starting_point_id, internal_key FROM mapping_starting_points WHERE is_active = 1 ORDER BY CASE WHEN internal_key IN ('default','hq','home','edra','base','edra_mas') THEN 0 ELSE 1 END, CASE WHEN internal_key = 'default' THEN 0 ELSE 1 END, id ASC LIMIT 1";
-            $result = $this->db->query($sql);
-            $row = $result ? $result->fetch_assoc() : null;
-            if (is_array($row) && trim((string)($row['edxeix_starting_point_id'] ?? '')) !== '') {
+            $res = $this->db->query("
+                SELECT id, external_driver_name, edxeix_driver_id, edxeix_lessor_id, is_active
+                FROM mapping_drivers
+                WHERE edxeix_driver_id IS NOT NULL
+                  AND edxeix_driver_id <> 0
+                ORDER BY id DESC
+                LIMIT 5000
+            ");
+
+            $target = $this->nameNorm($driverName);
+            $loose = null;
+
+            while ($row = $res->fetch_assoc()) {
+                if ((string)($row['is_active'] ?? '1') === '0') {
+                    continue;
+                }
+
+                $candidate = trim((string)($row['external_driver_name'] ?? ''));
+                if ($candidate === '') {
+                    continue;
+                }
+
+                $candidateNorm = $this->nameNorm($candidate);
+
+                if ($candidateNorm === $target) {
+                    return [
+                        'id' => trim((string)$row['edxeix_driver_id']),
+                        'label' => $candidate,
+                        'lessor_id' => trim((string)($row['edxeix_lessor_id'] ?? '')),
+                        'db_row_id' => (string)($row['id'] ?? ''),
+                        'source' => 'mapping_drivers exact normalized',
+                    ];
+                }
+
+                if ($loose === null && $this->looseNameMatch($candidateNorm, $target)) {
+                    $loose = [
+                        'id' => trim((string)$row['edxeix_driver_id']),
+                        'label' => $candidate,
+                        'lessor_id' => trim((string)($row['edxeix_lessor_id'] ?? '')),
+                        'db_row_id' => (string)($row['id'] ?? ''),
+                        'source' => 'mapping_drivers loose normalized',
+                    ];
+                }
+            }
+
+            return $loose ?: ['id' => '', 'label' => '', 'lessor_id' => ''];
+        } catch (Throwable $e) {
+            $warnings[] = 'Driver lookup DB error: ' . $e->getMessage();
+            return ['id' => '', 'label' => '', 'lessor_id' => ''];
+        }
+    }
+
+    private function findVehicle(string $plate, array &$warnings): array
+    {
+        if ($plate === '') {
+            return ['id' => '', 'label' => '', 'lessor_id' => ''];
+        }
+
+        try {
+            $res = $this->db->query("
+                SELECT id, plate, edxeix_vehicle_id, edxeix_lessor_id, is_active
+                FROM mapping_vehicles
+                WHERE edxeix_vehicle_id IS NOT NULL
+                  AND edxeix_vehicle_id <> 0
+                ORDER BY id DESC
+                LIMIT 5000
+            ");
+
+            $target = $this->plateNorm($plate);
+
+            while ($row = $res->fetch_assoc()) {
+                if ((string)($row['is_active'] ?? '1') === '0') {
+                    continue;
+                }
+
+                $candidate = trim((string)($row['plate'] ?? ''));
+                if ($candidate === '') {
+                    continue;
+                }
+
+                if ($this->plateNorm($candidate) === $target) {
+                    return [
+                        'id' => trim((string)$row['edxeix_vehicle_id']),
+                        'label' => $candidate,
+                        'lessor_id' => trim((string)($row['edxeix_lessor_id'] ?? '')),
+                        'db_row_id' => (string)($row['id'] ?? ''),
+                        'source' => 'mapping_vehicles exact normalized',
+                    ];
+                }
+            }
+
+            return ['id' => '', 'label' => '', 'lessor_id' => ''];
+        } catch (Throwable $e) {
+            $warnings[] = 'Vehicle lookup DB error: ' . $e->getMessage();
+            return ['id' => '', 'label' => '', 'lessor_id' => ''];
+        }
+    }
+
+    private function findStartingPoint(array &$warnings): array
+    {
+        try {
+            $res = $this->db->query("
+                SELECT id, internal_key, label, edxeix_starting_point_id
+                FROM mapping_starting_points
+                WHERE is_active = 1
+                  AND edxeix_starting_point_id IS NOT NULL
+                  AND edxeix_starting_point_id <> ''
+                ORDER BY
+                  CASE WHEN internal_key = 'edra_mas' THEN 0
+                       WHEN internal_key = 'default' THEN 1
+                       ELSE 2 END,
+                  id ASC
+                LIMIT 1
+            ");
+
+            $row = $res ? $res->fetch_assoc() : null;
+
+            if (is_array($row) && trim((string)$row['edxeix_starting_point_id']) !== '') {
                 return [
-                    'id' => (string)$row['edxeix_starting_point_id'],
-                    'label' => (string)($row['label'] ?? $row['internal_key'] ?? 'starting point'),
-                    'source' => 'mapping_starting_points',
+                    'id' => trim((string)$row['edxeix_starting_point_id']),
+                    'label' => (string)($row['label'] ?: $row['internal_key']),
                 ];
             }
-        } catch (Throwable) {
-        }
 
-        return ['id' => '', 'label' => '', 'source' => 'none'];
+            return ['id' => '', 'label' => ''];
+        } catch (Throwable $e) {
+            $warnings[] = 'Starting point lookup DB error: ' . $e->getMessage();
+            return ['id' => '', 'label' => ''];
+        }
     }
 
-    /**
-     * @param array<string,mixed> $driver
-     * @param array<string,mixed> $vehicle
-     * @return array{id:string,source:string}
-     */
-    private function resolveLessorId(string $operator, array $driver, array $vehicle): array
-    {
-        $driverLessor = $this->rowLessorId($driver['row'] ?? null);
-        $vehicleLessor = $this->rowLessorId($vehicle['row'] ?? null);
-
-        // Important production rule for partner/executing vehicles:
-        // use the company where the selected driver/vehicle is registered in EDXEIX.
-        if ($driverLessor !== '' && $vehicleLessor !== '' && $driverLessor === $vehicleLessor) {
-            return ['id' => $driverLessor, 'source' => 'driver+vehicle DB lessor'];
-        }
-        if ($vehicleLessor !== '') {
-            return ['id' => $vehicleLessor, 'source' => 'vehicle DB lessor'];
-        }
-        if ($driverLessor !== '') {
-            return ['id' => $driverLessor, 'source' => 'driver DB lessor'];
-        }
-
-        $known = $this->knownLessorId($operator);
-        if ($known !== '') {
-            return ['id' => $known, 'source' => 'known operator alias'];
-        }
-
-        return ['id' => '', 'source' => 'not resolved'];
-    }
-
-    /** @param array<string,mixed>|null $row */
-    private function rowLessorId(?array $row): string
-    {
-        if (!is_array($row)) {
-            return '';
-        }
-        foreach (['edxeix_lessor_id', 'lessor_id', 'edxeix_company_id', 'company_id', 'operator_edxeix_id'] as $key) {
-            if (isset($row[$key]) && trim((string)$row[$key]) !== '' && trim((string)$row[$key]) !== '0') {
-                return trim((string)$row[$key]);
-            }
-        }
-        return '';
-    }
-
-    private function knownLessorId(string $operator): string
+    private function knownOperatorAlias(string $operator): string
     {
         $key = $this->nameNorm($operator);
+
         $map = [
             'fleet mykonos luxlimo i k e mykonos cab' => '3814',
             'fleet mykonos luxlimo ike mykonos cab' => '3814',
@@ -374,15 +289,13 @@ final class EdxeixMappingLookup
             'luxlimo i k e' => '3814',
             'luxlimo ike' => '3814',
             'luxlimo' => '3814',
+            'qualitative transfer mykonos ik e' => '2307',
+            'qualitative transfer mykonos' => '2307',
             'n g k μονοπροσωπη i k e' => '2124',
             'n g k' => '2124',
             'ngk' => '2124',
-            'qualitative transfer mykonos ik e' => '2307',
-            'qualitative transfer mykonos' => '2307',
             'mta' => '3894',
-            'mykonos tourist agency ιδιωτικη κεφαλαιουχικη εταιρεια' => '3894',
             'mykonos tourist agency' => '3894',
-            'vip road mykonos ιδιωτικη κεφαλαιουχικη εταιρεια' => '1487',
             'vip road mykonos' => '1487',
             'vip road' => '1487',
             'whiteblue premium e e' => '1756',
@@ -395,134 +308,61 @@ final class EdxeixMappingLookup
         if (isset($map[$key])) {
             return $map[$key];
         }
+
         foreach ($map as $name => $id) {
-            if ($key !== '' && ($this->contains($key, $name) || $this->contains($name, $key))) {
+            if ($key !== '' && (str_contains($key, $name) || str_contains($name, $key))) {
                 return $id;
             }
         }
+
         return '';
     }
 
-    private function tableExists(string $table): bool
+    private function looseNameMatch(string $candidate, string $target): bool
     {
-        try {
-            $stmt = $this->db->prepare('SHOW TABLES LIKE ?');
-            $stmt->bind_param('s', $table);
-            $stmt->execute();
-            return $stmt->get_result()->num_rows > 0;
-        } catch (Throwable) {
+        if ($candidate === '' || $target === '') {
             return false;
         }
-    }
 
-    /** @return array<int,string> */
-    private function columns(string $table): array
-    {
-        if (isset($this->columnsCache[$table])) {
-            return $this->columnsCache[$table];
-        }
-        $cols = [];
-        try {
-            $result = $this->db->query('SHOW COLUMNS FROM `' . $this->db->real_escape_string($table) . '`');
-            while ($row = $result->fetch_assoc()) {
-                $cols[] = (string)$row['Field'];
-            }
-        } catch (Throwable) {
-        }
-        $this->columnsCache[$table] = $cols;
-        return $cols;
-    }
-
-    /** @param array<int,string> $columns @param array<int,string> $candidates */
-    private function firstColumn(array $columns, array $candidates): string
-    {
-        foreach ($candidates as $candidate) {
-            if (in_array($candidate, $columns, true)) {
-                return $candidate;
-            }
-        }
-        return '';
-    }
-
-    /** @param array<int,string> $preferredColumns */
-    private function selectList(string $table, array $preferredColumns): string
-    {
-        $columns = $this->columns($table);
-        $select = [];
-        foreach ($preferredColumns as $col) {
-            if (in_array($col, $columns, true)) {
-                $select[] = '`' . $col . '`';
-            }
-        }
-        if (in_array('id', $columns, true)) {
-            $select[] = '`id`';
-        }
-        return implode(', ', array_unique($select));
-    }
-
-    /**
-     * @param array<int,string> $preferredColumns
-     * @return array<int,array<string,mixed>>
-     */
-    private function fetchRows(string $table, array $preferredColumns, string $where): array
-    {
-        $select = $this->selectList($table, $preferredColumns);
-        if ($select === '') {
-            return [];
-        }
-        try {
-            $sql = 'SELECT ' . $select . ' FROM `' . $table . '` WHERE ' . $where . ' ORDER BY id DESC LIMIT 2000';
-            $result = $this->db->query($sql);
-            $rows = [];
-            while ($row = $result->fetch_assoc()) {
-                $rows[] = $row;
-            }
-            return $rows;
-        } catch (Throwable) {
-            return [];
-        }
-    }
-
-    private function nameScore(string $a, string $b): int
-    {
-        $a = $this->nameNorm($a);
-        $b = $this->nameNorm($b);
-        if ($a === '' || $b === '') {
-            return 0;
-        }
-        if ($a === $b) {
-            return 120;
-        }
-        if ($this->contains($a, $b) || $this->contains($b, $a)) {
-            return 90;
+        if (str_contains($candidate, $target) || str_contains($target, $candidate)) {
+            return true;
         }
 
-        $aParts = array_values(array_filter(explode(' ', $a)));
-        $bParts = array_values(array_filter(explode(' ', $b)));
+        $candidateTokens = array_values(array_filter(explode(' ', $candidate)));
+        $targetTokens = array_values(array_filter(explode(' ', $target)));
+
+        if (count($candidateTokens) < 2 || count($targetTokens) < 2) {
+            return false;
+        }
+
         $hits = 0;
-        foreach ($aParts as $part) {
-            if (strlen($part) < 3) {
+        foreach ($targetTokens as $token) {
+            if (strlen($token) < 3) {
                 continue;
             }
-            foreach ($bParts as $other) {
-                if ($part === $other || $this->contains($part, $other) || $this->contains($other, $part)) {
+            foreach ($candidateTokens as $candidateToken) {
+                if ($token === $candidateToken) {
                     $hits++;
                     break;
                 }
             }
         }
-        return $hits * 30;
+
+        return $hits >= 2;
     }
 
     private function nameNorm(string $value): string
     {
+        $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $value = trim($value);
+
         if (function_exists('mb_strtolower')) {
             $value = mb_strtolower($value, 'UTF-8');
         } else {
             $value = strtolower($value);
         }
-        $value = str_replace(['||', '|', '.', ',', ';', ':', '-', '_', '/', '\\', '(', ')', '"', "'"], ' ', $value);
+
+        $value = str_replace(['||', '|', '.', ',', ';', ':', '-', '_', '/', '\\', '(', ')', '"', "'", "\xc2\xa0"], ' ', $value);
         $value = str_replace(['ί', 'ϊ', 'ΐ'], 'ι', $value);
         $value = str_replace(['ή'], 'η', $value);
         $value = str_replace(['ύ', 'ϋ', 'ΰ'], 'υ', $value);
@@ -532,29 +372,27 @@ final class EdxeixMappingLookup
         $value = str_replace(['ώ'], 'ω', $value);
         $value = str_replace(['ς'], 'σ', $value);
         $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+
         return trim($value);
     }
 
     private function plateNorm(string $plate): string
     {
+        $plate = html_entity_decode(strip_tags($plate), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $plate = trim($plate);
+
         if (function_exists('mb_strtoupper')) {
             $plate = mb_strtoupper($plate, 'UTF-8');
         } else {
             $plate = strtoupper($plate);
         }
-        $plate = strtr($plate, [
-            'Α' => 'A', 'Β' => 'B', 'Ε' => 'E', 'Ζ' => 'Z', 'Η' => 'H', 'Ι' => 'I', 'Κ' => 'K', 'Μ' => 'M',
-            'Ν' => 'N', 'Ο' => 'O', 'Ρ' => 'P', 'Τ' => 'T', 'Υ' => 'Y', 'Χ' => 'X',
-        ]);
-        return preg_replace('/[^A-Z0-9]/', '', $plate) ?? $plate;
-    }
 
-    private function contains(string $haystack, string $needle): bool
-    {
-        if ($haystack === '' || $needle === '') {
-            return false;
-        }
-        return str_contains($haystack, $needle);
+        $plate = strtr($plate, [
+            'Α' => 'A', 'Β' => 'B', 'Ε' => 'E', 'Ζ' => 'Z', 'Η' => 'H',
+            'Ι' => 'I', 'Κ' => 'K', 'Μ' => 'M', 'Ν' => 'N', 'Ο' => 'O',
+            'Ρ' => 'P', 'Τ' => 'T', 'Υ' => 'Y', 'Χ' => 'X',
+        ]);
+
+        return preg_replace('/[^A-Z0-9]/', '', $plate) ?? $plate;
     }
 }
