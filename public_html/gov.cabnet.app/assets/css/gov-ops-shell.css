@@ -417,3 +417,59 @@ body {
         min-width: 620px;
     }
 }
+
+
+/* v1.7 profile-edit form helpers
+ * Presentation only. No workflow logic changes.
+ */
+.gov-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.gov-form-row { margin-bottom: 15px; }
+.gov-form-row label {
+    display: block;
+    font-weight: 700;
+    color: #27385f;
+    margin-bottom: 7px;
+}
+.gov-form-row input,
+.gov-form-row select,
+.gov-form-row textarea {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #d8dde7;
+    border-radius: 4px;
+    padding: 11px 12px;
+    font-size: 15px;
+    color: #20293a;
+    background: #fff;
+}
+.gov-form-row input[readonly],
+.gov-readonly-field {
+    background: #f5f7fb !important;
+    color: #667085 !important;
+}
+.gov-help-text {
+    display: block;
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.35;
+    margin-top: 6px;
+}
+.gov-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 18px;
+}
+.gov-danger-note {
+    border-left: 5px solid #d4922d;
+    background: #fff7ed;
+    color: #9a5b00;
+    padding: 12px 14px;
+    border-radius: 4px;
+}
+@media(max-width: 860px){ .gov-form-grid { grid-template-columns: 1fr; } }

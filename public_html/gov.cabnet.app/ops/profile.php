@@ -1,8 +1,8 @@
 <?php
 /**
- * gov.cabnet.app — operator profile page v1.1
+ * gov.cabnet.app — operator profile page v1.2
  *
- * Read-only profile dashboard with links to password change and user control.
+ * Read-only profile dashboard with links to edit profile, password change, and activity.
  * Does not call Bolt, does not call EDXEIX.
  */
 
@@ -28,7 +28,7 @@ $isAdmin = opsui_is_admin($user);
 opsui_shell_begin([
     'title' => 'Operator Profile',
     'page_title' => 'Προφίλ χρήστη',
-    'active_section' => 'User Profile',
+    'active_section' => 'User area',
     'subtitle' => 'Current signed-in operator account',
     'breadcrumbs' => 'Αρχική / Χρήστες / Προφίλ',
     'safe_notice' => 'This profile page reads the current login session only. It does not call Bolt, does not call EDXEIX, and does not change trip data.',
@@ -45,7 +45,7 @@ opsui_shell_begin([
             <?= $authViaInternalKey ? opsui_badge('INTERNAL KEY', 'warn') : opsui_badge('SESSION LOGIN', 'good') ?>
         </div>
         <div class="gov-compact-actions" style="justify-content:center;">
-            <a class="btn" href="/ops/home.php">Ops Home</a>
+            <a class="btn" href="/ops/profile-edit.php">Edit Profile</a>
             <a class="btn good" href="/ops/profile-password.php">Change Password</a>
             <a class="btn dark" href="/ops/logout.php">Logout</a>
         </div>
@@ -65,11 +65,13 @@ opsui_shell_begin([
 </section>
 
 <section class="gov-admin-grid">
+    <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-edit.php"><strong>Edit Profile</strong><span>Update your display name and email address.</span><small>Self-service</small></a>
     <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-password.php"><strong>Change Password</strong><span>Update your own operator password using current-password confirmation.</span><small>CSRF protected</small></a>
+    <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-activity.php"><strong>My Activity</strong><span>Review your recent login attempts and account audit events.</span><small>Read only</small></a>
     <a class="gov-admin-link gov-profile-action-card" href="/ops/pre-ride-email-tool.php"><strong>Production Pre-Ride Tool</strong><span>Open the current live production operator workflow.</span><small>Do not disrupt</small></a>
     <a class="gov-admin-link gov-profile-action-card" href="/ops/firefox-extension.php"><strong>Firefox Helper</strong><span>Download the current operator browser helper package.</span><small>Authenticated access</small></a>
     <?php if ($isAdmin): ?>
-        <a class="gov-admin-link gov-profile-action-card" href="/ops/users-control.php"><strong>Users Control</strong><span>Read-only list of operator accounts and recent login state.</span><small>Admin only</small></a>
+        <a class="gov-admin-link gov-profile-action-card" href="/ops/users-control.php"><strong>Users Control</strong><span>Manage local operator accounts.</span><small>Admin only</small></a>
     <?php endif; ?>
 </section>
 
@@ -77,9 +79,9 @@ opsui_shell_begin([
     <article class="card">
         <h2>User area status</h2>
         <ul class="list">
-            <li>Profile display and password change route are now available.</li>
-            <li>User management remains conservative: Phase 3 adds an admin read-only users list only.</li>
-            <li>New user creation remains CLI-controlled until a later reviewed admin form.</li>
+            <li>Profile display, profile editing, password change, and activity visibility are available.</li>
+            <li>Role and active status remain controlled by admin user management.</li>
+            <li>User actions do not affect the Bolt → EDXEIX workflow state.</li>
         </ul>
     </article>
 
