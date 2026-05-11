@@ -34,6 +34,13 @@
 .DS_Store
 Thumbs.db
 
+# Deployment patch scratch files
+/PATCH_README.md
+/docs/IP_RESTRICTION_CLEANUP_*.md
+/docs/HTACCESS_MERGED_CLEANUP_*.md
+/docs/OPS_IP_GUARD_DISABLE_*.md
+/docs/*_PATCH_README.md
+
 # Public temporary utility scripts should not be committed or kept deployed
 /public_html/gov.cabnet.app/bolt_cleanup_lab_jobs.php
 /public_html/gov.cabnet.app/bootstrap_path_check.php
