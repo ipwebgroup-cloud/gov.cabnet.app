@@ -1,14 +1,66 @@
-# gov.cabnet.app .gitignore housekeeping — 2026-05-11
+# gov.cabnet.app — Ops UI Shell + Profile Patch
 
-This patch updates `.gitignore` only.
+## What changed
 
-Purpose:
-- Keep server-only config files out of Git.
-- Keep one-off deployment patch README/docs out of GitHub Desktop changes.
-- Preserve existing runtime/log/archive ignore rules.
+Adds a shared EDXEIX-style operations UI shell and a read-only user profile page.
 
-Upload/extract into the local GitHub Desktop repository root only.
-No server upload is required for this patch.
+## Files included
 
-After extracting, GitHub Desktop should show only `.gitignore` as the intended commit.
-If `PATCH_README.md` or temporary docs still appear, they are already tracked or staged; unstage/delete them before committing.
+```text
+public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+public_html/gov.cabnet.app/ops/_shell.php
+public_html/gov.cabnet.app/ops/profile.php
+public_html/gov.cabnet.app/ops/ui-shell-preview.php
+docs/OPS_UI_SHELL_PROFILE_2026_05_11.md
+PATCH_README.md
+```
+
+## Exact upload paths
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/home/cabnet/public_html/gov.cabnet.app/ops/profile.php
+/home/cabnet/public_html/gov.cabnet.app/ops/ui-shell-preview.php
+```
+
+## SQL to run
+
+None.
+
+## Verification commands
+
+```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/profile.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/ui-shell-preview.php
+```
+
+## Verification URLs
+
+```text
+https://gov.cabnet.app/ops/profile.php
+https://gov.cabnet.app/ops/ui-shell-preview.php
+```
+
+## Expected result
+
+Both pages require login and then show the shared EDXEIX-style shell with user profile navigation.
+
+## Production safety
+
+`/ops/pre-ride-email-tool.php` is not changed.
+
+## Git commit title
+
+```text
+Add shared ops UI shell and profile page
+```
+
+## Git commit description
+
+```text
+Adds a reusable EDXEIX-style operations UI shell for future /ops pages and a read-only operator profile page. Includes profile/user navigation and a UI shell preview page for safe development.
+
+Does not modify the production pre-ride email tool, does not call Bolt or EDXEIX, does not write database rows, and does not enable live EDXEIX submission.
+```
