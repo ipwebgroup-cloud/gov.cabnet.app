@@ -314,3 +314,106 @@
 .gov-empty-state { border:1px dashed #cfd6e1; background:#f8fafc; color:#59657a; padding:18px; border-radius:4px; }
 @media(max-width: 1180px){ .gov-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media(max-width: 860px){ .gov-mini-grid, .gov-mini-grid.two-col { grid-template-columns:1fr; } }
+
+
+/* v1.6 layout containment hotfix
+ * Fixes horizontal page drift on activity/profile pages while keeping wide tables scrollable inside their cards.
+ * Presentation only. No workflow logic changes.
+ */
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+.gov-topbar,
+.gov-shell,
+.gov-content,
+.wrap,
+.wrap-shell,
+.gov-page-header,
+.card,
+.gov-dashboard-card,
+.gov-profile-grid,
+.gov-mini-grid,
+.gov-admin-grid,
+.gov-log-summary,
+.grid,
+.three,
+.two,
+.workflow {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+.gov-shell {
+    width: 100%;
+    overflow-x: hidden;
+}
+.gov-content {
+    overflow-x: hidden;
+}
+.gov-page-header,
+.gov-topbar {
+    flex-wrap: wrap;
+}
+.gov-top-links,
+.gov-tabs,
+.actions,
+.gov-panel-actions,
+.gov-compact-actions {
+    min-width: 0;
+}
+.gov-top-links {
+    justify-content: flex-end;
+}
+.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.two > *,
+.grid > *,
+.three > *,
+.workflow > *,
+.gov-mini-grid > *,
+.gov-log-summary > *,
+.gov-admin-grid > * {
+    min-width: 0 !important;
+}
+.table-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+.table-wrap table {
+    width: 100%;
+    min-width: 720px;
+    max-width: none;
+}
+.gov-user-table,
+.gov-log-table {
+    min-width: 760px;
+}
+.gov-truncate-cell {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width: 1280px) {
+    .two {
+        grid-template-columns: 1fr !important;
+    }
+    .table-wrap table {
+        min-width: 680px;
+    }
+}
+@media (max-width: 860px) {
+    .gov-content {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    .table-wrap table {
+        min-width: 620px;
+    }
+}
