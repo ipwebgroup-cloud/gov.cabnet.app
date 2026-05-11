@@ -1,18 +1,36 @@
-# gov.cabnet.app — Ops UI Shell Phase 21 Quick Launch
+# gov.cabnet.app patch — Ops UI Shell Phase 22 Release Notes
+
+## Files included
+
+- `public_html/gov.cabnet.app/ops/release-notes.php`
+- `docs/OPS_UI_SHELL_PHASE22_RELEASE_NOTES_2026_05_11.md`
+
+## Upload paths
 
 Upload:
-- `public_html/gov.cabnet.app/ops/_shell.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
-- `public_html/gov.cabnet.app/ops/quick-launch.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/quick-launch.php`
 
-No SQL required.
+`public_html/gov.cabnet.app/ops/release-notes.php`
 
-Verify:
+to:
+
+`/home/cabnet/public_html/gov.cabnet.app/ops/release-notes.php`
+
+## SQL
+
+None.
+
+## Verify
+
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/quick-launch.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/release-notes.php
 ```
 
-URL:
-- `https://gov.cabnet.app/ops/quick-launch.php`
+Open:
 
-Production pre-ride tool is unchanged.
+```text
+https://gov.cabnet.app/ops/release-notes.php
+```
+
+## Safety
+
+The production pre-ride email tool is unchanged.
