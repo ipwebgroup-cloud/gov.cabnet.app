@@ -1,22 +1,22 @@
-# gov.cabnet.app patch — Ops UI Shell Phase 11 Extension Pair Status
+# gov.cabnet.app patch — Ops UI Shell Phase 12 Mobile Compatibility
+
+## What changed
+
+Adds a read-only mobile compatibility guidance page and updates the shared shell navigation/CSS.
+
+## Files included
+
+- `public_html/gov.cabnet.app/ops/_shell.php`
+- `public_html/gov.cabnet.app/ops/mobile-compatibility.php`
+- `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
+- `docs/OPS_UI_SHELL_PHASE12_MOBILE_COMPATIBILITY_2026_05_11.md`
+- `PATCH_README.md`
 
 ## Upload paths
 
-Upload:
-
-```text
-public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-public_html/gov.cabnet.app/ops/_shell.php
-public_html/gov.cabnet.app/ops/firefox-extensions-status.php
-```
-
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-/home/cabnet/public_html/gov.cabnet.app/ops/firefox-extensions-status.php
-```
+- `public_html/gov.cabnet.app/ops/_shell.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+- `public_html/gov.cabnet.app/ops/mobile-compatibility.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/mobile-compatibility.php`
+- `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css` → `/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
 
 ## SQL
 
@@ -26,19 +26,13 @@ None.
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/firefox-extensions-status.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-compatibility.php
 ```
 
 Open:
 
-```text
-https://gov.cabnet.app/ops/firefox-extensions-status.php
-```
+- `https://gov.cabnet.app/ops/mobile-compatibility.php`
 
-Expected:
+## Safety
 
-- Login required.
-- Page opens in the shared ops shell.
-- It explains that both Firefox helpers remain required today.
-- It shows detected helper folders, manifest versions/IDs, and safe file hashes.
-- Production pre-ride tool remains unchanged.
+This patch does not modify the production pre-ride tool and does not call Bolt, EDXEIX, or AADE.

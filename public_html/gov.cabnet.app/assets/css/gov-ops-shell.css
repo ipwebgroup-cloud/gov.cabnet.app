@@ -692,3 +692,49 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* v2.2 mobile compatibility page */
+.gov-mobile-decision-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.gov-mobile-decision {
+    border-top-width: 4px !important;
+}
+.gov-mobile-ok { border-top-color: #5fa865 !important; }
+.gov-mobile-warn { border-top-color: #d4922d !important; }
+.gov-mobile-no { border-top-color: #c44b44 !important; }
+.gov-checklist-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.gov-check-item {
+    border: 1px solid #d8dde7;
+    border-radius: 4px;
+    background: #fff;
+    padding: 14px;
+    border-top: 4px solid #667085;
+}
+.gov-check-item.good { border-top-color: #5fa865; }
+.gov-check-item.warn { border-top-color: #d4922d; }
+.gov-check-item.bad { border-top-color: #c44b44; }
+.gov-check-item strong {
+    display: block;
+    color: #27385f;
+    margin-bottom: 8px;
+}
+.gov-check-item span {
+    display: block;
+    color: #59657a;
+    line-height: 1.4;
+}
+@media(max-width: 1100px) {
+    .gov-mobile-decision-grid,
+    .gov-checklist-grid { grid-template-columns: 1fr 1fr; }
+}
+@media(max-width: 720px) {
+    .gov-mobile-decision-grid,
+    .gov-checklist-grid { grid-template-columns: 1fr; }
+}
