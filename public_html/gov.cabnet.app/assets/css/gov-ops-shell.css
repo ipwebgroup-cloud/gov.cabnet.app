@@ -565,3 +565,90 @@ body.gov-pref-hide-safety .safety.gov-optional-safety {
     gap: 8px;
     margin-top: 10px;
 }
+
+/* Phase 10 — Firefox helper center + layout containment safety.
+ * Presentation only. No workflow logic changes.
+ */
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+.gov-topbar,
+.gov-shell,
+.gov-content,
+.wrap,
+.wrap-shell,
+.gov-page-header,
+.card,
+.gov-dashboard-card,
+.gov-profile-grid,
+.gov-mini-grid,
+.gov-admin-grid,
+.gov-log-summary,
+.grid,
+.three,
+.two,
+.workflow {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+.gov-shell,
+.gov-content {
+    overflow-x: hidden;
+}
+.gov-page-header,
+.gov-topbar {
+    flex-wrap: wrap;
+}
+.two > *,
+.grid > *,
+.three > *,
+.workflow > *,
+.gov-mini-grid > *,
+.gov-log-summary > *,
+.gov-admin-grid > * {
+    min-width: 0 !important;
+}
+.table-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+.table-wrap table {
+    width: 100%;
+    min-width: 720px;
+    max-width: none;
+}
+.gov-code-path {
+    font-family: Consolas, Menlo, Monaco, monospace;
+    background: #0b1220;
+    color: #dbeafe;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+.gov-helper-table .gov-truncate-cell {
+    max-width: 380px;
+}
+@media (max-width: 1280px) {
+    .two {
+        grid-template-columns: 1fr !important;
+    }
+    .table-wrap table {
+        min-width: 680px;
+    }
+}
+@media (max-width: 860px) {
+    .gov-content {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    .table-wrap table {
+        min-width: 620px;
+    }
+}

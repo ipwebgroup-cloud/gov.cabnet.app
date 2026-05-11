@@ -1,59 +1,39 @@
-# gov.cabnet.app — Ops UI Shell Phase 9 Apply Preferences
+# gov.cabnet.app patch — Ops UI Shell Phase 10 Firefox Helper Center
 
-## What changed
-
-Adds supported preference application to the shared `/ops` shell and adds `/ops/my-start.php` as a safe redirect to the logged-in operator's preferred landing page.
+Upload changed files only.
 
 ## Files included
 
 - `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
 - `public_html/gov.cabnet.app/ops/_shell.php`
-- `public_html/gov.cabnet.app/ops/my-start.php`
-- `public_html/gov.cabnet.app/ops/profile-preferences.php`
-- `docs/OPS_UI_SHELL_PHASE9_APPLY_PREFERENCES_2026_05_11.md`
+- `public_html/gov.cabnet.app/ops/firefox-extension.php`
+- `docs/OPS_UI_SHELL_PHASE10_FIREFOX_CENTER_2026_05_11.md`
 
 ## Upload paths
 
-```text
-public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-→ /home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-
-public_html/gov.cabnet.app/ops/_shell.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-
-public_html/gov.cabnet.app/ops/my-start.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/my-start.php
-
-public_html/gov.cabnet.app/ops/profile-preferences.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/profile-preferences.php
-```
+- `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css` → `/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
+- `public_html/gov.cabnet.app/ops/_shell.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+- `public_html/gov.cabnet.app/ops/firefox-extension.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/firefox-extension.php`
 
 ## SQL
 
-None. Uses existing Phase 8 table `ops_user_preferences`.
+None.
 
 ## Verify
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/my-start.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/profile-preferences.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/firefox-extension.php
 ```
 
-## Expected result
+Open:
 
-- `/ops/profile-preferences.php` says preferences are now applied where supported.
-- `/ops/my-start.php` redirects to the logged-in user's selected landing page.
-- Shared-shell pages apply compact sidebar/table density where selected.
-- Safety notices can be hidden only on supported shared-shell pages.
-- `/ops/pre-ride-email-tool.php` is not modified.
+- `https://gov.cabnet.app/ops/firefox-extension.php`
 
-## Git commit title
+Expected:
 
-Apply ops user preferences to shared shell
-
-## Git commit description
-
-Applies stored operator UI preferences to the shared `/ops` shell and adds `/ops/my-start.php` for safe preferred landing-page routing. Supported shared-shell pages now honor sidebar density, table density, and safety notice visibility preferences.
-
-The production pre-ride email tool remains unchanged. No Bolt calls, EDXEIX calls, AADE calls, workflow writes, queue staging, or live submission behavior are added.
+- Page requires login.
+- Page displays inside the uniform shell.
+- Helper file status appears.
+- ZIP download works if helper files exist.
+- Production pre-ride tool remains unchanged.

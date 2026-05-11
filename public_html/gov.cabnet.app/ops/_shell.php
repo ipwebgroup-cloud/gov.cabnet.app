@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v1.9
+ * gov.cabnet.app — shared operations UI shell v2.0
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -262,7 +262,7 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.9">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.0">
 </head>
 <body class="<?= opsui_h($bodyClass) ?>">
 <div class="gov-topbar">
@@ -280,6 +280,7 @@ function opsui_shell_begin(array $options = []): void
         <a href="/ops/pre-ride-email-toolv2.php">Pre-Ride V2</a>
         <a href="/ops/test-session.php">Test Session</a>
         <a href="/ops/preflight-review.php">Preflight Review</a>
+        <a href="/ops/firefox-extension.php">Helper</a>
         <a href="/ops/profile.php">Profile</a>
         <?= opsui_is_admin($user) ? '<a href="/ops/users-control.php">Users</a><a href="/ops/activity-center.php">Activity</a>' : '' ?>
         <?= opsui_user_chip($user) ?>
@@ -356,6 +357,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/pre-ride-email-toolv2.php', 'V2 Dev', $current) ?>
                 <?= opsui_tab('/ops/test-session.php', 'Test Session', $current) ?>
                 <?= opsui_tab('/ops/admin-control.php', 'Administration', $current) ?>
+                <?= opsui_tab('/ops/firefox-extension.php', 'Helper', $current) ?>
                 <?= opsui_is_admin($user) ? opsui_tab('/ops/activity-center.php', 'Activity', $current) : '' ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
                 <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
