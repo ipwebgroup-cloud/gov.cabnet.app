@@ -64,7 +64,14 @@ function ola_one(mysqli $db, string $sql, array $params = [], string $types = ''
 
 function ola_has_table(mysqli $db, string $table): bool
 {
-    $row = ola_one($db, 'SHOW TABLES LIKE ?', [$table], 's');
+    // MariaDB/MySQL do not support parameter markers in SHOW TABLES LIKE on all versions.
+    // Use information_schema with bound parameters instead to avoid SQL syntax errors near '?'.
+    $row = ola_one(
+        $db,
+        'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1',
+        [$table],
+        's'
+    );
     return $row !== [];
 }
 

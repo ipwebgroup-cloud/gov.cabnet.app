@@ -1,87 +1,48 @@
-# gov.cabnet.app Patch — Ops UI Shell Phase 5 Activity Logs
+# gov.cabnet.app — Ops UI Shell Phase 5 SQL Hotfix
 
 ## What changed
 
-Adds admin-only read-only activity visibility pages to the unified `/ops` GUI:
+Fixes the MariaDB SQL syntax error on the Phase 5 read-only admin pages:
 
-- `audit-log.php` for `ops_audit_log` events.
-- `login-attempts.php` for `ops_login_attempts` visibility.
-- Updates shared shell navigation to expose Audit Log and Login Attempts for admin users.
-- Adds shared CSS for log filters, result badges, and compact tables.
+- `public_html/gov.cabnet.app/ops/audit-log.php`
+- `public_html/gov.cabnet.app/ops/login-attempts.php`
 
-## Files included
+The error was caused by `SHOW TABLES LIKE ?` using a prepared statement. The pages now use `information_schema.TABLES` with a bound `TABLE_NAME` parameter.
 
-```text
-public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-public_html/gov.cabnet.app/ops/_shell.php
-public_html/gov.cabnet.app/ops/audit-log.php
-public_html/gov.cabnet.app/ops/login-attempts.php
-docs/OPS_UI_SHELL_PHASE5_ACTIVITY_LOGS_2026_05_11.md
-PATCH_README.md
-```
+## Production safety
+
+This patch does not modify:
+
+- `public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
+
+This patch does not call Bolt, EDXEIX, or AADE. It does not stage jobs, write workflow data, or enable live submission.
 
 ## Upload paths
 
-```text
-public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-→ /home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+Upload:
 
-public_html/gov.cabnet.app/ops/_shell.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+- `public_html/gov.cabnet.app/ops/audit-log.php`
+- `public_html/gov.cabnet.app/ops/login-attempts.php`
 
-public_html/gov.cabnet.app/ops/audit-log.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/audit-log.php
+To:
 
-public_html/gov.cabnet.app/ops/login-attempts.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/login-attempts.php
-```
+- `/home/cabnet/public_html/gov.cabnet.app/ops/audit-log.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/login-attempts.php`
 
 ## SQL to run
 
 None.
 
-Uses existing tables:
-
-```text
-ops_users
-ops_login_attempts
-ops_audit_log
-```
-
-## Verification commands
+## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/audit-log.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/login-attempts.php
 ```
 
-## Verification URLs
+Then open:
 
-```text
-https://gov.cabnet.app/ops/audit-log.php
-https://gov.cabnet.app/ops/login-attempts.php
-```
+- `https://gov.cabnet.app/ops/audit-log.php`
+- `https://gov.cabnet.app/ops/login-attempts.php`
 
-## Expected result
-
-- Pages require login.
-- Pages require an admin role.
-- Audit Log shows recent `ops_audit_log` events.
-- Login Attempts shows recent `ops_login_attempts` events.
-- No records are written by these pages.
-- Production pre-ride email tool remains unchanged.
-
-## Git commit title
-
-```text
-Add ops audit and login attempt visibility
-```
-
-## Git commit description
-
-```text
-Continues the unified EDXEIX-style /ops GUI by adding admin-only read-only pages for operator activity audit events and login attempt visibility. Updates the shared shell navigation and CSS for log filters and result tables.
-
-The production pre-ride email tool remains unchanged. No Bolt calls, EDXEIX calls, AADE calls, queue staging, database writes, or live submission behavior are added.
-```
+Expected: pages load without the SQL syntax error and show activity/login rows or an empty table.
