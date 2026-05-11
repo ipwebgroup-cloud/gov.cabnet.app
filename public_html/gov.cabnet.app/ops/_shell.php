@@ -306,6 +306,7 @@ function opsui_shell_begin(array $options = []): void
     ];
     $docsItems = [
         ['/ops/documentation-center.php', 'Documentation Center'],
+        ['/ops/quick-launch.php', 'Quick Launch'],
         ['/ops/tool-inventory.php', 'Tool Inventory'],
         ['/ops/system-status.php', 'System Status'],
         ['/ops/deployment-center.php', 'Deployment Center'],
@@ -339,9 +340,9 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.8">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=3.0">
     <style>
-        /* v2.9 compact top navigation: CSS-only dropdowns to avoid second-row wrapping. */
+        /* v3.0 compact top navigation: CSS-only dropdowns to avoid second-row wrapping. */
         .gov-topbar{position:sticky;top:0;z-index:1000;align-items:center;flex-wrap:nowrap;overflow:visible;}
         .gov-top-links{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:nowrap;overflow:visible;}
         .gov-top-single,.gov-nav-menu>button{white-space:nowrap;display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:8px 10px;color:#55637f;text-decoration:none;font-size:13px;text-transform:uppercase;letter-spacing:.02em;line-height:1;border:1px solid transparent;background:transparent;cursor:pointer;font-family:inherit;}
@@ -369,6 +370,7 @@ function opsui_shell_begin(array $options = []): void
     <div class="gov-top-links" aria-label="Primary operations navigation">
         <?= opsui_top_link('/ops/home.php', 'Αρχική', $current) ?>
         <?= opsui_top_link('/ops/my-start.php', 'My Start', $current) ?>
+        <?= opsui_top_link('/ops/quick-launch.php', 'Launch', $current) ?>
         <?= opsui_top_dropdown('Pre-Ride', $preRideItems, $current) ?>
         <?= opsui_top_dropdown('Workflow', $workflowItems, $current) ?>
         <?= opsui_top_dropdown('Helper', $helperItems, $current) ?>
@@ -400,6 +402,7 @@ function opsui_shell_begin(array $options = []): void
         <div class="gov-side-group">
             <div class="gov-side-group-title">Primary workflow</div>
             <?= opsui_side_link('/ops/home.php', 'Ops Home', $current) ?>
+            <?= opsui_side_link('/ops/quick-launch.php', 'Quick Launch', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-toolv2.php', 'Pre-Ride Tool V2 Dev', $current) ?>
             <?= opsui_side_link('/ops/test-session.php', 'Test Session Control', $current) ?>
@@ -455,6 +458,7 @@ function opsui_shell_begin(array $options = []): void
             <div class="gov-tabs">
                 <?= opsui_tab('/ops/home.php', 'Καρτέλα', $current) ?>
                 <?= opsui_tab('/ops/my-start.php', 'My Start', $current) ?>
+                <?= opsui_tab('/ops/quick-launch.php', 'Launch', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-tool.php', 'Pre-Ride', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-toolv2.php', 'V2 Dev', $current) ?>
                 <?= opsui_tab('/ops/test-session.php', 'Test Session', $current) ?>

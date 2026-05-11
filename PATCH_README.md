@@ -1,46 +1,18 @@
-# gov.cabnet.app patch — Ops UI Shell Phase 20 Top Navigation Dropdowns
-
-## Upload path
+# gov.cabnet.app — Ops UI Shell Phase 21 Quick Launch
 
 Upload:
+- `public_html/gov.cabnet.app/ops/_shell.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+- `public_html/gov.cabnet.app/ops/quick-launch.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/quick-launch.php`
 
-```text
-public_html/gov.cabnet.app/ops/_shell.php
-```
+No SQL required.
 
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-```
-
-## SQL
-
-None.
-
-## Verification
-
+Verify:
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/quick-launch.php
 ```
 
-Expected:
+URL:
+- `https://gov.cabnet.app/ops/quick-launch.php`
 
-```text
-No syntax errors detected
-```
-
-Open:
-
-```text
-https://gov.cabnet.app/ops/documentation-center.php
-https://gov.cabnet.app/ops/home.php
-https://gov.cabnet.app/ops/profile.php
-```
-
-Expected:
-
-- top menu remains one line on desktop
-- route groups open as dropdown menus on hover/focus
-- sidebar remains available
-- production pre-ride email tool remains unchanged
+Production pre-ride tool is unchanged.
