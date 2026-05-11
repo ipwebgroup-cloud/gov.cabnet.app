@@ -1,15 +1,19 @@
-# gov.cabnet.app patch — Ops UI Shell Phase 16 System Status
-
-Upload files to the matching server paths. This patch is read-only and does not touch the production pre-ride tool.
+# gov.cabnet.app — Ops UI Shell Phase 17 Deployment Center
 
 ## Upload paths
 
+Upload:
+
 ```text
 public_html/gov.cabnet.app/ops/_shell.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+public_html/gov.cabnet.app/ops/deployment-center.php
+```
 
-public_html/gov.cabnet.app/ops/system-status.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/system-status.php
+to:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/home/cabnet/public_html/gov.cabnet.app/ops/deployment-center.php
 ```
 
 ## SQL
@@ -20,11 +24,21 @@ None.
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/system-status.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/deployment-center.php
 ```
 
-Then open:
+Open:
 
 ```text
-https://gov.cabnet.app/ops/system-status.php
+https://gov.cabnet.app/ops/deployment-center.php
 ```
+
+## Production safety
+
+This patch does not modify:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+```
+
+No Bolt calls, EDXEIX calls, AADE calls, workflow writes, queue staging, or live submission behavior are added.
