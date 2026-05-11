@@ -1,85 +1,136 @@
-# gov.cabnet.app patch — v6.6.16 minimal pre-ride staff UI
+# gov.cabnet.app patch — Ops login system and Firefox helper download
 
 ## What changed
 
-Adds a minimal staff UI layer to `/ops/pre-ride-email-tool.php`.
+- Adds a plain PHP/mysqli operator login system.
+- Adds global PHP auth guarding through `.user.ini` / `auto_prepend_file`.
+- Adds login/logout screens under `/ops/`.
+- Adds a CLI helper to create/update operator users without exposing passwords.
+- Adds additive SQL tables for users, login attempts, and audit logs.
+- Adds an authenticated Firefox helper ZIP download page.
+- Provides a root `.htaccess` with no IP allow/deny restriction and with direct access denied for auth helper/config files.
 
-The page now presents only the current operational buttons prominently:
+## Safety
 
-1. **Load latest email + check IDs**
-2. **Save + open EDXEIX**
-3. **Manual fallback**
-
-The existing parser, DB lookup, and helper workflow remain untouched.
+- Does not enable live automatic EDXEIX submission.
+- Does not modify AADE receipt behavior.
+- Does not store or expose secrets.
+- Does not include cookies, sessions, logs, tokens, or private config.
+- Public PHP endpoints become session/key protected after `.user.ini` is active.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/assets/pre-ride-minimal-ui.css
-public_html/gov.cabnet.app/ops/assets/pre-ride-minimal-ui.js
-gov.cabnet.app_app/cli/install_pre_ride_minimal_ui.php
-docs/PRE_RIDE_MINIMAL_STAFF_UI.md
+public_html/gov.cabnet.app/.htaccess
+public_html/gov.cabnet.app/.user.ini
+public_html/gov.cabnet.app/_auth_prepend.php
+public_html/gov.cabnet.app/ops/_auth.php
+public_html/gov.cabnet.app/ops/login.php
+public_html/gov.cabnet.app/ops/logout.php
+public_html/gov.cabnet.app/ops/firefox-extension.php
+gov.cabnet.app_app/src/Auth/OpsAuth.php
+gov.cabnet.app_app/cli/create_ops_user.php
+gov.cabnet.app_sql/2026_05_11_ops_login_system.sql
+docs/OPS_LOGIN_AND_FIREFOX_EXTENSION.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Exact upload paths
+
+Upload each file to the matching live path:
 
 ```text
-public_html/gov.cabnet.app/ops/assets/pre-ride-minimal-ui.css
-→ /home/cabnet/public_html/gov.cabnet.app/ops/assets/pre-ride-minimal-ui.css
-
-public_html/gov.cabnet.app/ops/assets/pre-ride-minimal-ui.js
-→ /home/cabnet/public_html/gov.cabnet.app/ops/assets/pre-ride-minimal-ui.js
-
-gov.cabnet.app_app/cli/install_pre_ride_minimal_ui.php
-→ /home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_minimal_ui.php
+/home/cabnet/public_html/gov.cabnet.app/.htaccess
+/home/cabnet/public_html/gov.cabnet.app/.user.ini
+/home/cabnet/public_html/gov.cabnet.app/_auth_prepend.php
+/home/cabnet/public_html/gov.cabnet.app/ops/_auth.php
+/home/cabnet/public_html/gov.cabnet.app/ops/login.php
+/home/cabnet/public_html/gov.cabnet.app/ops/logout.php
+/home/cabnet/public_html/gov.cabnet.app/ops/firefox-extension.php
+/home/cabnet/gov.cabnet.app_app/src/Auth/OpsAuth.php
+/home/cabnet/gov.cabnet.app_app/cli/create_ops_user.php
+/home/cabnet/gov.cabnet.app_sql/2026_05_11_ops_login_system.sql
 ```
 
-Docs go to the local repository root only unless desired on the server.
+Repo/doc-only files:
 
-## Activate
+```text
+docs/OPS_LOGIN_AND_FIREFOX_EXTENSION.md
+PATCH_README.md
+```
+
+## SQL to run
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_minimal_ui.php
-php /home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_minimal_ui.php
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < /home/cabnet/gov.cabnet.app_sql/2026_05_11_ops_login_system.sql
 ```
 
-## Verify
+## Create the first operator user
 
 ```bash
-grep -n "pre-ride-minimal-ui" /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+php /home/cabnet/gov.cabnet.app_app/cli/create_ops_user.php \
+  --username=andreas \
+  --email=YOUR_EMAIL_HERE \
+  --display-name="Andreas" \
+  --role=admin
 ```
 
-Open:
+The script prompts for the password twice. Do not paste the password into chat or commit it.
+
+## Verification commands
+
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/src/Auth/OpsAuth.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/create_ops_user.php
+php -l /home/cabnet/public_html/gov.cabnet.app/_auth_prepend.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/login.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/logout.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/firefox-extension.php
+```
+
+## Verification URLs
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-tool.php?v=6616
+https://gov.cabnet.app/ops/login.php
+https://gov.cabnet.app/ops/pre-ride-email-tool.php
+https://gov.cabnet.app/ops/firefox-extension.php
 ```
 
-Expected result: a large **Pre-Ride EDXEIX Assistant** panel appears above the existing tool with only the simplified workflow buttons.
+## Expected result
 
-## Rollback
+- `/ops/login.php` loads without IP restriction.
+- Unauthenticated access to `/ops/pre-ride-email-tool.php` redirects to login.
+- After login, `/ops/pre-ride-email-tool.php` opens normally.
+- Root public PHP endpoints return authentication-required JSON unless the user is logged in or the request includes a valid `X-Gov-Cabnet-Key` header.
+- The Firefox helper page allows an authenticated ZIP download if the server extension files exist and PHP ZipArchive is available.
 
-The installer creates a backup like:
+## Removing the old IP restriction
 
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php.bak_minimal_ui_YYYYMMDD_HHMMSS
+Only remove the old IP restriction after the login test succeeds.
+
+Check for any of these in live `.htaccess` files or cPanel IP Blocker/Directory Privacy and remove only the old IP-only block:
+
+```apache
+Require ip ...
+Require all denied
+Deny from all
+Allow from ...
 ```
 
-To roll back, copy that backup over the live file.
+Do not remove the new `<FilesMatch>` block that protects `_auth_prepend.php`, `.env`, `.user.ini`, and config files.
 
 ## Git commit title
 
 ```text
-Add minimal staff UI for pre-ride EDXEIX workflow
+Add ops login and authenticated Firefox helper download
 ```
 
 ## Git commit description
 
 ```text
-Adds a UI-only minimal staff interface for the Bolt pre-ride email to EDXEIX workflow.
+Adds a plain PHP/mysqli operator login layer for gov.cabnet.app, replacing IP-only access with session-based authentication while preserving the guarded EDXEIX workflow.
 
-The patch adds CSS/JS assets and an installer that injects them into the existing pre-ride email tool. The simplified panel exposes only the current office workflow: load latest email and check IDs, save/open EDXEIX, and manual fallback.
+Includes additive ops user/login/audit SQL tables, login/logout screens, a global auth prepend guard, a CLI user creation helper, and an authenticated page to download the current Firefox EDXEIX autofill helper package.
 
-No parser, DB lookup, EDXEIX submission, AADE, queue, or helper safety logic is changed.
+Live automatic EDXEIX submission remains disabled. AADE receipt issuing remains separate. Public PHP endpoints are protected by session or internal API key after deployment.
 ```

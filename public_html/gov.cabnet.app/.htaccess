@@ -4,7 +4,7 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
 
-<FilesMatch "^(config\.php|\.env)$">
+<FilesMatch "^(_auth_prepend\.php|config\.php|\.env|\.user\.ini)$">
     Require all denied
 </FilesMatch>
 
