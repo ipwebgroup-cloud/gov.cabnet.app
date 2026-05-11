@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v2.4
+ * gov.cabnet.app — shared operations UI shell v2.5
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -286,6 +286,7 @@ function opsui_shell_begin(array $options = []): void
         <a href="/ops/pre-ride-mobile-review.php">Mobile Review</a>
         <a href="/ops/workflow-guide.php">Guide</a>
         <a href="/ops/safety-checklist.php">Checklist</a>
+        <a href="/ops/tool-inventory.php">Tool Inventory</a>
         <a href="/ops/profile.php">Profile</a>
         <?= opsui_is_admin($user) ? '<a href="/ops/users-control.php">Users</a><a href="/ops/activity-center.php">Activity</a>' : '' ?>
         <?= opsui_user_chip($user) ?>
@@ -334,6 +335,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review', $current) ?>
             <?= opsui_side_link('/ops/workflow-guide.php', 'Workflow Guide', $current) ?>
             <?= opsui_side_link('/ops/safety-checklist.php', 'Safety Checklist', $current) ?>
+            <?= opsui_side_link('/ops/tool-inventory.php', 'Tool Inventory', $current) ?>
             <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
 
             <div class="gov-side-group-title">User area</div>
@@ -373,6 +375,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/pre-ride-mobile-review.php', 'Mobile Review', $current) ?>
                 <?= opsui_tab('/ops/workflow-guide.php', 'Guide', $current) ?>
                 <?= opsui_tab('/ops/safety-checklist.php', 'Checklist', $current) ?>
+                <?= opsui_tab('/ops/tool-inventory.php', 'Inventory', $current) ?>
                 <?= opsui_is_admin($user) ? opsui_tab('/ops/activity-center.php', 'Activity', $current) : '' ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
                 <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
