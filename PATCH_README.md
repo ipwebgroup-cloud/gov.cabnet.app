@@ -1,48 +1,59 @@
-# gov.cabnet.app — Ops UI Shell Phase 5 SQL Hotfix
+# gov.cabnet.app Patch — Ops UI Shell Phase 6 Activity Center
 
 ## What changed
 
-Fixes the MariaDB SQL syntax error on the Phase 5 read-only admin pages:
+Adds an admin-only activity center and a self-service read-only profile activity page.
 
-- `public_html/gov.cabnet.app/ops/audit-log.php`
-- `public_html/gov.cabnet.app/ops/login-attempts.php`
+Included files:
 
-The error was caused by `SHOW TABLES LIKE ?` using a prepared statement. The pages now use `information_schema.TABLES` with a bound `TABLE_NAME` parameter.
-
-## Production safety
-
-This patch does not modify:
-
-- `public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
-
-This patch does not call Bolt, EDXEIX, or AADE. It does not stage jobs, write workflow data, or enable live submission.
+- `public_html/gov.cabnet.app/ops/_shell.php`
+- `public_html/gov.cabnet.app/ops/activity-center.php`
+- `public_html/gov.cabnet.app/ops/profile-activity.php`
+- `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
+- `docs/OPS_UI_SHELL_PHASE6_ACTIVITY_CENTER_2026_05_11.md`
 
 ## Upload paths
 
-Upload:
+Upload to:
 
-- `public_html/gov.cabnet.app/ops/audit-log.php`
-- `public_html/gov.cabnet.app/ops/login-attempts.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/activity-center.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/profile-activity.php`
+- `/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
 
-To:
-
-- `/home/cabnet/public_html/gov.cabnet.app/ops/audit-log.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/login-attempts.php`
-
-## SQL to run
+## SQL
 
 None.
 
-## Verify
+Uses existing tables:
+
+- `ops_users`
+- `ops_login_attempts`
+- `ops_audit_log`
+
+## Verification
+
+Run:
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/audit-log.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/login-attempts.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/activity-center.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/profile-activity.php
 ```
 
-Then open:
+Open:
 
-- `https://gov.cabnet.app/ops/audit-log.php`
-- `https://gov.cabnet.app/ops/login-attempts.php`
+- `https://gov.cabnet.app/ops/activity-center.php`
+- `https://gov.cabnet.app/ops/profile-activity.php`
 
-Expected: pages load without the SQL syntax error and show activity/login rows or an empty table.
+Expected:
+
+- Both pages require login.
+- Activity Center requires admin role.
+- Profile Activity is available to the logged-in operator.
+- No SQL syntax error.
+- No production pre-ride tool changes.
+
+## Safety
+
+This patch does not modify `/ops/pre-ride-email-tool.php`. It does not call Bolt, EDXEIX, or AADE. It does not stage jobs or enable live submission.
