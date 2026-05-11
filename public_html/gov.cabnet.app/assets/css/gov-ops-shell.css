@@ -738,3 +738,93 @@ body {
     .gov-mobile-decision-grid,
     .gov-checklist-grid { grid-template-columns: 1fr; }
 }
+
+/* v2.3 mobile pre-ride review page */
+.gov-mobile-review-status {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+.gov-mobile-review-card {
+    border: 1px solid #d8dde7;
+    border-radius: 4px;
+    background: #fff;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+    border-top: 4px solid #667085;
+}
+.gov-mobile-review-card.good { border-top-color: #5fa865; }
+.gov-mobile-review-card.warn { border-top-color: #d4922d; }
+.gov-mobile-review-card.bad { border-top-color: #c44b44; }
+.gov-mobile-review-card strong {
+    display: block;
+    color: #162b5b;
+    font-size: 20px;
+    line-height: 1.15;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+.gov-mobile-review-card span {
+    display: block;
+    color: #59657a;
+    line-height: 1.35;
+}
+.gov-mobile-review-form textarea {
+    width: 100%;
+    min-height: 220px;
+    border: 1px solid #d8dde7;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 15px;
+    resize: vertical;
+}
+.gov-mobile-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.gov-mobile-field {
+    border: 1px solid #e2e7f0;
+    border-radius: 4px;
+    background: #fbfcff;
+    padding: 10px 12px;
+    min-width: 0;
+}
+.gov-mobile-field label {
+    display: block;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-bottom: 5px;
+}
+.gov-mobile-field div {
+    color: #162b5b;
+    font-weight: 700;
+    word-break: break-word;
+}
+.gov-mobile-field.full { grid-column: 1 / -1; }
+.gov-mobile-summary-box {
+    background: #0b1220;
+    color: #dbeafe;
+    border-radius: 4px;
+    padding: 12px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    font-family: Consolas, Menlo, Monaco, monospace;
+    font-size: 13px;
+    line-height: 1.45;
+}
+@media(max-width: 1100px) {
+    .gov-mobile-review-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width: 720px) {
+    .gov-mobile-review-status,
+    .gov-mobile-field-grid { grid-template-columns: 1fr; }
+    .gov-mobile-field.full { grid-column: auto; }
+    .gov-mobile-review-form textarea { min-height: 180px; }
+}

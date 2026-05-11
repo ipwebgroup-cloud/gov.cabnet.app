@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v2.2
+ * gov.cabnet.app — shared operations UI shell v2.3
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -262,7 +262,7 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.2">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.3">
 </head>
 <body class="<?= opsui_h($bodyClass) ?>">
 <div class="gov-topbar">
@@ -283,6 +283,7 @@ function opsui_shell_begin(array $options = []): void
         <a href="/ops/firefox-extension.php">Helper</a>
         <a href="/ops/firefox-extensions-status.php">Helper Status</a>
         <a href="/ops/mobile-compatibility.php">Mobile</a>
+        <a href="/ops/pre-ride-mobile-review.php">Mobile Review</a>
         <a href="/ops/profile.php">Profile</a>
         <?= opsui_is_admin($user) ? '<a href="/ops/users-control.php">Users</a><a href="/ops/activity-center.php">Activity</a>' : '' ?>
         <?= opsui_user_chip($user) ?>
@@ -328,6 +329,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/firefox-extension.php', 'Firefox Helper Center', $current) ?>
             <?= opsui_side_link('/ops/firefox-extensions-status.php', 'Extension Pair Status', $current) ?>
             <?= opsui_side_link('/ops/mobile-compatibility.php', 'Mobile Compatibility', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review', $current) ?>
             <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
 
             <div class="gov-side-group-title">User area</div>
@@ -364,6 +366,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/firefox-extension.php', 'Helper', $current) ?>
                 <?= opsui_tab('/ops/firefox-extensions-status.php', 'Helper Status', $current) ?>
                 <?= opsui_tab('/ops/mobile-compatibility.php', 'Mobile', $current) ?>
+                <?= opsui_tab('/ops/pre-ride-mobile-review.php', 'Mobile Review', $current) ?>
                 <?= opsui_is_admin($user) ? opsui_tab('/ops/activity-center.php', 'Activity', $current) : '' ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
                 <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
