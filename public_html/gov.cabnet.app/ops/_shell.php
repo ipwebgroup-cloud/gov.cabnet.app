@@ -1,9 +1,9 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v1.1
+ * gov.cabnet.app — shared operations UI shell v1.2
  *
  * Include-only helper for the unified /ops interface.
- * Presentation helper only; no Bolt calls, no EDXEIX calls, no DB writes.
+ * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  */
 
 declare(strict_types=1);
@@ -37,6 +37,12 @@ function opsui_user_role(array $user): string
 {
     $role = trim((string)($user['role'] ?? 'operator'));
     return $role !== '' ? $role : 'operator';
+}
+
+function opsui_is_admin(?array $user = null): bool
+{
+    $user = $user ?? opsui_current_user();
+    return strtolower(opsui_user_role($user)) === 'admin';
 }
 
 function opsui_substr(string $value, int $start, int $length): string
@@ -113,6 +119,12 @@ function opsui_user_chip(array $user): string
         . '</a>';
 }
 
+function opsui_flash(string $message, string $type = 'neutral'): string
+{
+    $class = in_array($type, ['good', 'warn', 'bad', 'neutral'], true) ? $type : 'neutral';
+    return '<div class="gov-alert gov-alert-' . opsui_h($class) . '">' . opsui_h($message) . '</div>';
+}
+
 /**
  * @param array<string,mixed> $options
  */
@@ -138,7 +150,7 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.1">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.2">
 </head>
 <body>
 <div class="gov-topbar">
@@ -155,7 +167,7 @@ function opsui_shell_begin(array $options = []): void
         <a href="/ops/pre-ride-email-toolv2.php">Pre-Ride V2</a>
         <a href="/ops/test-session.php">Test Session</a>
         <a href="/ops/preflight-review.php">Preflight Review</a>
-        <a href="/ops/route-index.php">Route Index</a>
+        <a href="/ops/profile.php">Profile</a>
         <?= opsui_user_chip($user) ?>
     </div>
 </div>
@@ -169,6 +181,7 @@ function opsui_shell_begin(array $options = []): void
             </a>
             <div class="gov-side-mini-actions">
                 <a href="/ops/profile.php">Profile</a>
+                <a href="/ops/profile-password.php">Password</a>
                 <a href="/ops/logout.php">Logout</a>
             </div>
         </div>
@@ -196,7 +209,11 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/jobs-control.php', 'Jobs Review', $current) ?>
             <?= opsui_side_link('/ops/firefox-extension.php', 'Firefox Helper', $current) ?>
             <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
+
+            <div class="gov-side-group-title">User area</div>
             <?= opsui_side_link('/ops/profile.php', 'Operator Profile', $current) ?>
+            <?= opsui_side_link('/ops/profile-password.php', 'Change Password', $current) ?>
+            <?= opsui_is_admin($user) ? opsui_side_link('/ops/users-control.php', 'Users Control', $current) : '' ?>
             <?= opsui_side_link('/ops/ui-shell-preview.php', 'UI Shell Preview', $current) ?>
         </div>
 

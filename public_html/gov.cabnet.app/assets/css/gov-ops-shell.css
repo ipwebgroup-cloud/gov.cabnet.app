@@ -148,3 +148,60 @@
     .gov-info-row { grid-template-columns: 1fr; gap: 4px; }
     .gov-embedded-tool-frame { height: 80vh; min-height: 620px; }
 }
+
+/* v1.2 user profile/password/admin additions */
+.gov-alert {
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin: 0 0 14px;
+    border: 1px solid #d8dde7;
+    background: #f6f7f9;
+    color: #27385f;
+}
+.gov-alert-good { background:#eef8f0; color:#1e6b36; border-color:#cfe4d2; }
+.gov-alert-warn { background:#fff7ed; color:#9a5b00; border-color:#fed7aa; }
+.gov-alert-bad { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+.gov-alert-neutral { background:#eef2ff; color:#27385f; border-color:#d6ddee; }
+.gov-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+.gov-form-field { display: flex; flex-direction: column; gap: 7px; }
+.gov-form-field.full { grid-column: 1 / -1; }
+.gov-form-field label { font-weight: 700; color:#27385f; }
+.gov-form-field input,
+.gov-form-field select,
+.gov-form-field textarea {
+    width: 100%;
+    border: 1px solid #d8dde7;
+    border-radius: 4px;
+    padding: 11px 12px;
+    font-size: 15px;
+    background: #fff;
+    color: #20293a;
+}
+.gov-form-field input:focus,
+.gov-form-field select:focus,
+.gov-form-field textarea:focus {
+    outline: 2px solid rgba(79,94,167,.18);
+    border-color: #4f5ea7;
+}
+.gov-form-help { font-size: 13px; color:#667085; line-height:1.35; }
+.gov-panel-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:16px; }
+.gov-user-table { min-width: 900px; }
+.gov-user-status {
+    display:inline-block;
+    border-radius:999px;
+    padding:4px 8px;
+    font-size:12px;
+    font-weight:700;
+}
+.gov-user-status.active { background:#dbf0dc; color:#2d7b37; }
+.gov-user-status.inactive { background:#f8dedd; color:#b13c35; }
+.gov-profile-action-card { border-top:4px solid #4f5ea7 !important; }
+.gov-danger-note { border-left:5px solid #c44b44; background:#fff5f5; color:#991b1b; padding:12px 14px; border-radius:4px; }
+@media(max-width: 860px){
+    .gov-form-grid { grid-template-columns: 1fr; }
+    .gov-form-field.full { grid-column: auto; }
+}

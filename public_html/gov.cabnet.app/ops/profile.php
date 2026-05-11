@@ -1,8 +1,9 @@
 <?php
 /**
- * gov.cabnet.app — operator profile page v1.0
+ * gov.cabnet.app — operator profile page v1.1
  *
- * Read-only profile view. No password change yet, no DB writes.
+ * Read-only profile dashboard with links to password change and user control.
+ * Does not call Bolt, does not call EDXEIX.
  */
 
 declare(strict_types=1);
@@ -22,6 +23,7 @@ $email = (string)($user['email'] ?? '');
 $loggedInAt = (string)($user['logged_in_at'] ?? '');
 $sessionName = session_name();
 $authViaInternalKey = defined('GOV_CABNET_AUTH_VIA_INTERNAL_KEY') && GOV_CABNET_AUTH_VIA_INTERNAL_KEY;
+$isAdmin = opsui_is_admin($user);
 
 opsui_shell_begin([
     'title' => 'Operator Profile',
@@ -29,7 +31,7 @@ opsui_shell_begin([
     'active_section' => 'User Profile',
     'subtitle' => 'Current signed-in operator account',
     'breadcrumbs' => 'Αρχική / Χρήστες / Προφίλ',
-    'safe_notice' => 'This profile page is read-only. It does not call Bolt, does not call EDXEIX, and does not write database rows.',
+    'safe_notice' => 'This profile page reads the current login session only. It does not call Bolt, does not call EDXEIX, and does not change trip data.',
 ]);
 ?>
 <section class="gov-profile-grid">
@@ -39,11 +41,12 @@ opsui_shell_begin([
         <div class="gov-profile-role"><?= opsui_h($role) ?></div>
         <div style="margin-top:16px;">
             <?= opsui_badge('SIGNED IN', 'good') ?>
-            <?= opsui_badge(strtoupper($role), $role === 'admin' ? 'warn' : 'neutral') ?>
+            <?= opsui_badge(strtoupper($role), $isAdmin ? 'warn' : 'neutral') ?>
             <?= $authViaInternalKey ? opsui_badge('INTERNAL KEY', 'warn') : opsui_badge('SESSION LOGIN', 'good') ?>
         </div>
         <div class="gov-compact-actions" style="justify-content:center;">
             <a class="btn" href="/ops/home.php">Ops Home</a>
+            <a class="btn good" href="/ops/profile-password.php">Change Password</a>
             <a class="btn dark" href="/ops/logout.php">Logout</a>
         </div>
     </article>
@@ -61,28 +64,35 @@ opsui_shell_begin([
     </article>
 </section>
 
+<section class="gov-admin-grid">
+    <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-password.php"><strong>Change Password</strong><span>Update your own operator password using current-password confirmation.</span><small>CSRF protected</small></a>
+    <a class="gov-admin-link gov-profile-action-card" href="/ops/pre-ride-email-tool.php"><strong>Production Pre-Ride Tool</strong><span>Open the current live production operator workflow.</span><small>Do not disrupt</small></a>
+    <a class="gov-admin-link gov-profile-action-card" href="/ops/firefox-extension.php"><strong>Firefox Helper</strong><span>Download the current operator browser helper package.</span><small>Authenticated access</small></a>
+    <?php if ($isAdmin): ?>
+        <a class="gov-admin-link gov-profile-action-card" href="/ops/users-control.php"><strong>Users Control</strong><span>Read-only list of operator accounts and recent login state.</span><small>Admin only</small></a>
+    <?php endif; ?>
+</section>
+
 <section class="two">
     <article class="card">
-        <h2>Profile actions</h2>
-        <p>This first version is intentionally read-only to avoid disrupting production operations.</p>
-        <div class="actions">
-            <a class="btn good" href="/ops/pre-ride-email-tool.php">Open Production Pre-Ride Tool</a>
-            <a class="btn" href="/ops/firefox-extension.php">Firefox Helper</a>
-            <a class="btn dark" href="/ops/logout.php">Sign out</a>
-        </div>
+        <h2>User area status</h2>
+        <ul class="list">
+            <li>Profile display and password change route are now available.</li>
+            <li>User management remains conservative: Phase 3 adds an admin read-only users list only.</li>
+            <li>New user creation remains CLI-controlled until a later reviewed admin form.</li>
+        </ul>
     </article>
 
     <article class="card">
-        <h2>Next profile features</h2>
+        <h2>Safety boundary</h2>
         <div class="gov-alert-note">
-            Password changes are deliberately not enabled on this first patch. User creation/password reset remains CLI/admin-controlled until we add a reviewed form with CSRF, password strength checks, and audit logging.
+            This user area does not affect Bolt ingestion, EDXEIX payload generation, AADE receipt issuing, or live submission state.
         </div>
-        <ul class="list">
-            <li>Change password form with current password confirmation.</li>
-            <li>User management screen for admin role only.</li>
-            <li>Last login and audit history panel.</li>
-            <li>Optional staff preferences for UI language and default landing page.</li>
-        </ul>
+        <div class="actions">
+            <a class="btn good" href="/ops/home.php">Ops Home</a>
+            <a class="btn" href="/ops/pre-ride-email-toolv2.php">Pre-Ride V2 Dev</a>
+            <a class="btn dark" href="/ops/logout.php">Sign out</a>
+        </div>
     </article>
 </section>
 <?php opsui_shell_end(); ?>

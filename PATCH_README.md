@@ -1,53 +1,69 @@
-# gov.cabnet.app Ops UI Shell Phase 2 Patch — 2026-05-11
+# gov.cabnet.app patch — Ops UI Shell Phase 3 User Area
 
-## Upload paths
+## What changed
 
-Upload these files:
+Adds the next safe user/profile layer for the unified `/ops` GUI:
+
+- shared shell v1.2 with user area navigation,
+- updated profile dashboard,
+- self-service Change Password page,
+- admin-only read-only Users Control page,
+- CSS additions for profile/password/user list views.
+
+## Files included
 
 ```text
 public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
 public_html/gov.cabnet.app/ops/_shell.php
-public_html/gov.cabnet.app/ops/home.php
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv2.php
+public_html/gov.cabnet.app/ops/profile.php
+public_html/gov.cabnet.app/ops/profile-password.php
+public_html/gov.cabnet.app/ops/users-control.php
+docs/OPS_UI_SHELL_PHASE3_USER_AREA_2026_05_11.md
+PATCH_README.md
 ```
 
-to:
+## Upload paths
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-/home/cabnet/public_html/gov.cabnet.app/ops/home.php
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv2.php
+public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+→ /home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+
+public_html/gov.cabnet.app/ops/_shell.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+
+public_html/gov.cabnet.app/ops/profile.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/profile.php
+
+public_html/gov.cabnet.app/ops/profile-password.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/profile-password.php
+
+public_html/gov.cabnet.app/ops/users-control.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/users-control.php
 ```
 
-## Important production note
+## SQL to run
 
-This patch does not include or modify:
+None. This uses the existing `ops_users`, `ops_login_attempts`, and `ops_audit_log` tables.
 
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-## Syntax checks
+## Verify
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/home.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv2.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/profile.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/profile-password.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/users-control.php
 ```
 
-## Verification URLs
+## URLs
 
 ```text
-https://gov.cabnet.app/ops/home.php
-https://gov.cabnet.app/ops/pre-ride-email-toolv2.php
 https://gov.cabnet.app/ops/profile.php
-https://gov.cabnet.app/ops/pre-ride-email-tool.php
+https://gov.cabnet.app/ops/profile-password.php
+https://gov.cabnet.app/ops/users-control.php
 ```
 
-Expected result:
+## Safety
 
-- Ops Home uses the shared GUI shell and user/profile section.
-- Pre-Ride Tool V2 opens as a safe wrapper.
-- Production Pre-Ride Tool remains unchanged and usable.
-- Login protection remains active.
+This patch does not modify `/ops/pre-ride-email-tool.php`.
+It does not call Bolt, EDXEIX, or AADE.
+It does not stage jobs or enable live submission.
