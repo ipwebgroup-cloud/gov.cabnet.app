@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v2.5
+ * gov.cabnet.app — shared operations UI shell v2.6
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -262,7 +262,7 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.4">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.6">
 </head>
 <body class="<?= opsui_h($bodyClass) ?>">
 <div class="gov-topbar">
@@ -287,6 +287,7 @@ function opsui_shell_begin(array $options = []): void
         <a href="/ops/workflow-guide.php">Guide</a>
         <a href="/ops/safety-checklist.php">Checklist</a>
         <a href="/ops/tool-inventory.php">Tool Inventory</a>
+        <a href="/ops/system-status.php">System Status</a>
         <a href="/ops/profile.php">Profile</a>
         <?= opsui_is_admin($user) ? '<a href="/ops/users-control.php">Users</a><a href="/ops/activity-center.php">Activity</a>' : '' ?>
         <?= opsui_user_chip($user) ?>
@@ -336,6 +337,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/workflow-guide.php', 'Workflow Guide', $current) ?>
             <?= opsui_side_link('/ops/safety-checklist.php', 'Safety Checklist', $current) ?>
             <?= opsui_side_link('/ops/tool-inventory.php', 'Tool Inventory', $current) ?>
+            <?= opsui_side_link('/ops/system-status.php', 'System Status', $current) ?>
             <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
 
             <div class="gov-side-group-title">User area</div>
@@ -376,6 +378,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/workflow-guide.php', 'Guide', $current) ?>
                 <?= opsui_tab('/ops/safety-checklist.php', 'Checklist', $current) ?>
                 <?= opsui_tab('/ops/tool-inventory.php', 'Inventory', $current) ?>
+                <?= opsui_tab('/ops/system-status.php', 'System', $current) ?>
                 <?= opsui_is_admin($user) ? opsui_tab('/ops/activity-center.php', 'Activity', $current) : '' ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
                 <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
