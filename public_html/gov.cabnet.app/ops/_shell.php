@@ -1,9 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v2.8
+ * gov.cabnet.app — shared operations UI shell v2.9
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
+ *
+ * v2.9:
+ * - Replaces the long wrapping top menu with compact CSS-only dropdown groups.
+ * - Keeps all existing routes accessible without changing workflow behavior.
  */
 
 declare(strict_types=1);
@@ -94,6 +98,37 @@ function opsui_tab(string $href, string $label, ?string $current = null): string
     return '<a class="gov-tab' . opsui_active($href, $current) . '" href="' . opsui_h($href) . '">' . opsui_h($label) . '</a>';
 }
 
+function opsui_top_link(string $href, string $label, ?string $current = null): string
+{
+    return '<a class="gov-top-single' . opsui_active($href, $current) . '" href="' . opsui_h($href) . '">' . opsui_h($label) . '</a>';
+}
+
+/**
+ * @param array<int,array{0:string,1:string}> $items
+ */
+function opsui_top_dropdown(string $label, array $items, ?string $current = null): string
+{
+    $current = $current ?: opsui_current_path();
+    $isActive = false;
+    foreach ($items as $item) {
+        if (($item[0] ?? '') === $current) {
+            $isActive = true;
+            break;
+        }
+    }
+
+    $html = '<div class="gov-nav-menu' . ($isActive ? ' active' : '') . '">';
+    $html .= '<button type="button" aria-haspopup="true" aria-expanded="false">' . opsui_h($label) . ' <span aria-hidden="true">▾</span></button>';
+    $html .= '<div class="gov-nav-menu-panel" role="menu">';
+    foreach ($items as $item) {
+        $href = (string)($item[0] ?? '#');
+        $text = (string)($item[1] ?? $href);
+        $html .= '<a class="gov-nav-menu-item' . opsui_active($href, $current) . '" href="' . opsui_h($href) . '" role="menuitem">' . opsui_h($text) . '</a>';
+    }
+    $html .= '</div></div>';
+    return $html;
+}
+
 function opsui_badge(string $text, string $type = 'neutral'): string
 {
     return '<span class="badge badge-' . opsui_h($type) . '">' . opsui_h($text) . '</span>';
@@ -124,7 +159,6 @@ function opsui_flash(string $message, string $type = 'neutral'): string
     $class = in_array($type, ['good', 'warn', 'bad', 'neutral'], true) ? $type : 'neutral';
     return '<div class="gov-alert gov-alert-' . opsui_h($class) . '">' . opsui_h($message) . '</div>';
 }
-
 
 function opsui_table_exists(mysqli $db, string $table): bool
 {
@@ -233,7 +267,6 @@ function opsui_preference_body_class(array $prefs): string
     return implode(' ', $classes);
 }
 
-
 /**
  * @param array<string,mixed> $options
  */
@@ -254,6 +287,50 @@ function opsui_shell_begin(array $options = []): void
     $bodyClass = opsui_preference_body_class($prefs);
     $showSafetyNotice = (($prefs['show_safety_notices'] ?? '1') !== '0') || !empty($options['force_safe_notice']);
 
+    $preRideItems = [
+        ['/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool'],
+        ['/ops/pre-ride-email-toolv2.php', 'Pre-Ride Tool V2 Dev'],
+        ['/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review'],
+        ['/ops/mobile-compatibility.php', 'Mobile Compatibility'],
+    ];
+    $workflowItems = [
+        ['/ops/test-session.php', 'Test Session Control'],
+        ['/ops/preflight-review.php', 'Preflight Review'],
+        ['/ops/dev-accelerator.php', 'Dev Accelerator'],
+        ['/ops/workflow-guide.php', 'Workflow Guide'],
+        ['/ops/safety-checklist.php', 'Safety Checklist'],
+    ];
+    $helperItems = [
+        ['/ops/firefox-extension.php', 'Firefox Helper Center'],
+        ['/ops/firefox-extensions-status.php', 'Extension Pair Status'],
+    ];
+    $docsItems = [
+        ['/ops/documentation-center.php', 'Documentation Center'],
+        ['/ops/tool-inventory.php', 'Tool Inventory'],
+        ['/ops/system-status.php', 'System Status'],
+        ['/ops/deployment-center.php', 'Deployment Center'],
+        ['/ops/handoff-center.php', 'Handoff Center'],
+        ['/ops/route-index.php', 'Route Index'],
+    ];
+    $profileItems = [
+        ['/ops/profile.php', 'Profile'],
+        ['/ops/profile-edit.php', 'Edit Profile'],
+        ['/ops/profile-preferences.php', 'Preferences'],
+        ['/ops/profile-password.php', 'Change Password'],
+        ['/ops/profile-activity.php', 'My Activity'],
+    ];
+    $adminItems = [
+        ['/ops/admin-control.php', 'Admin Control'],
+        ['/ops/readiness-control.php', 'Readiness Control'],
+        ['/ops/mapping-control.php', 'Mapping Review'],
+        ['/ops/jobs-control.php', 'Jobs Review'],
+        ['/ops/users-control.php', 'Users Control'],
+        ['/ops/users-new.php', 'Create User'],
+        ['/ops/activity-center.php', 'Activity Center'],
+        ['/ops/audit-log.php', 'Audit Log'],
+        ['/ops/login-attempts.php', 'Login Attempts'],
+    ];
+
     ?><!doctype html>
 <html lang="en">
 <head>
@@ -263,6 +340,22 @@ function opsui_shell_begin(array $options = []): void
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
     <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=2.8">
+    <style>
+        /* v2.9 compact top navigation: CSS-only dropdowns to avoid second-row wrapping. */
+        .gov-topbar{position:sticky;top:0;z-index:1000;align-items:center;flex-wrap:nowrap;overflow:visible;}
+        .gov-top-links{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:nowrap;overflow:visible;}
+        .gov-top-single,.gov-nav-menu>button{white-space:nowrap;display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:8px 10px;color:#55637f;text-decoration:none;font-size:13px;text-transform:uppercase;letter-spacing:.02em;line-height:1;border:1px solid transparent;background:transparent;cursor:pointer;font-family:inherit;}
+        .gov-top-single:hover,.gov-top-single.active,.gov-nav-menu:hover>button,.gov-nav-menu:focus-within>button,.gov-nav-menu.active>button{background:#eef1f8;border-color:#d8dde7;color:#3f4b87;text-decoration:none;}
+        .gov-nav-menu{position:relative;display:inline-flex;align-items:center;}
+        .gov-nav-menu-panel{display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:240px;background:#fff;border:1px solid #d8dde7;border-radius:8px;box-shadow:0 18px 44px rgba(26,33,52,.18);padding:8px;z-index:2000;}
+        .gov-nav-menu-panel:before{content:"";position:absolute;left:0;right:0;top:-10px;height:10px;}
+        .gov-nav-menu:hover .gov-nav-menu-panel,.gov-nav-menu:focus-within .gov-nav-menu-panel{display:block;}
+        .gov-nav-menu-item{display:block;padding:10px 12px;border-radius:6px;color:#27385f;text-decoration:none;font-size:14px;text-transform:none;letter-spacing:0;white-space:nowrap;}
+        .gov-nav-menu-item:hover,.gov-nav-menu-item.active{background:#eef1f8;color:#3f4b87;text-decoration:none;}
+        .gov-top-links .gov-user-chip{margin-left:4px;flex:0 0 auto;white-space:nowrap;}
+        .gov-brand{flex:0 0 auto;}
+        @media (max-width:1180px){.gov-top-links{display:none!important;}}
+    </style>
 </head>
 <body class="<?= opsui_h($bodyClass) ?>">
 <div class="gov-topbar">
@@ -273,25 +366,15 @@ function opsui_shell_begin(array $options = []): void
             <span>Bolt → EDXEIX operational console</span>
         </div>
     </div>
-    <div class="gov-top-links">
-        <a href="/ops/home.php">Αρχική</a>
-        <a href="/ops/my-start.php">My Start</a>
-        <a href="/ops/pre-ride-email-tool.php">Pre-Ride</a>
-        <a href="/ops/pre-ride-email-toolv2.php">Pre-Ride V2</a>
-        <a href="/ops/test-session.php">Test Session</a>
-        <a href="/ops/preflight-review.php">Preflight Review</a>
-        <a href="/ops/firefox-extension.php">Helper</a>
-        <a href="/ops/firefox-extensions-status.php">Helper Status</a>
-        <a href="/ops/mobile-compatibility.php">Mobile</a>
-        <a href="/ops/pre-ride-mobile-review.php">Mobile Review</a>
-        <a href="/ops/workflow-guide.php">Guide</a>
-        <a href="/ops/safety-checklist.php">Checklist</a>
-        <a href="/ops/tool-inventory.php">Tool Inventory</a>
-        <a href="/ops/system-status.php">System Status</a>
-        <a href="/ops/deployment-center.php">Deploy</a>
-        <a href="/ops/handoff-center.php">Handoff</a>
-        <a href="/ops/profile.php">Profile</a>
-        <?= opsui_is_admin($user) ? '<a href="/ops/users-control.php">Users</a><a href="/ops/activity-center.php">Activity</a>' : '' ?>
+    <div class="gov-top-links" aria-label="Primary operations navigation">
+        <?= opsui_top_link('/ops/home.php', 'Αρχική', $current) ?>
+        <?= opsui_top_link('/ops/my-start.php', 'My Start', $current) ?>
+        <?= opsui_top_dropdown('Pre-Ride', $preRideItems, $current) ?>
+        <?= opsui_top_dropdown('Workflow', $workflowItems, $current) ?>
+        <?= opsui_top_dropdown('Helper', $helperItems, $current) ?>
+        <?= opsui_top_dropdown('Docs', $docsItems, $current) ?>
+        <?= opsui_is_admin($user) ? opsui_top_dropdown('Admin', $adminItems, $current) : '' ?>
+        <?= opsui_top_dropdown('Profile', $profileItems, $current) ?>
         <?= opsui_user_chip($user) ?>
     </div>
 </div>
@@ -338,6 +421,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review', $current) ?>
             <?= opsui_side_link('/ops/workflow-guide.php', 'Workflow Guide', $current) ?>
             <?= opsui_side_link('/ops/safety-checklist.php', 'Safety Checklist', $current) ?>
+            <?= opsui_side_link('/ops/documentation-center.php', 'Documentation Center', $current) ?>
             <?= opsui_side_link('/ops/tool-inventory.php', 'Tool Inventory', $current) ?>
             <?= opsui_side_link('/ops/system-status.php', 'System Status', $current) ?>
             <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
@@ -376,16 +460,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/test-session.php', 'Test Session', $current) ?>
                 <?= opsui_tab('/ops/admin-control.php', 'Administration', $current) ?>
                 <?= opsui_tab('/ops/firefox-extension.php', 'Helper', $current) ?>
-                <?= opsui_tab('/ops/firefox-extensions-status.php', 'Helper Status', $current) ?>
-                <?= opsui_tab('/ops/mobile-compatibility.php', 'Mobile', $current) ?>
-                <?= opsui_tab('/ops/pre-ride-mobile-review.php', 'Mobile Review', $current) ?>
-                <?= opsui_tab('/ops/workflow-guide.php', 'Guide', $current) ?>
-                <?= opsui_tab('/ops/safety-checklist.php', 'Checklist', $current) ?>
-                <?= opsui_tab('/ops/tool-inventory.php', 'Inventory', $current) ?>
-                <?= opsui_tab('/ops/system-status.php', 'System', $current) ?>
-                <?= opsui_tab('/ops/deployment-center.php', 'Deploy', $current) ?>
-                <?= opsui_tab('/ops/handoff-center.php', 'Handoff', $current) ?>
-                <?= opsui_is_admin($user) ? opsui_tab('/ops/activity-center.php', 'Activity', $current) : '' ?>
+                <?= opsui_tab('/ops/documentation-center.php', 'Docs', $current) ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
                 <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
             </div>
