@@ -1,44 +1,22 @@
-# gov.cabnet.app — Ops UI Shell Phase 17 Deployment Center
+# gov.cabnet.app patch — Ops UI Shell Phase 18 Handoff Center
 
-## Upload paths
+Upload paths:
 
-Upload:
+- `public_html/gov.cabnet.app/ops/_shell.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+- `public_html/gov.cabnet.app/ops/handoff-center.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php`
 
-```text
-public_html/gov.cabnet.app/ops/_shell.php
-public_html/gov.cabnet.app/ops/deployment-center.php
-```
+No SQL is required.
 
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-/home/cabnet/public_html/gov.cabnet.app/ops/deployment-center.php
-```
-
-## SQL
-
-None.
-
-## Verification
+Verify:
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/deployment-center.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
 ```
 
 Open:
 
-```text
-https://gov.cabnet.app/ops/deployment-center.php
-```
+- `https://gov.cabnet.app/ops/handoff-center.php`
+- `https://gov.cabnet.app/ops/handoff-center.php?format=text`
 
-## Production safety
-
-This patch does not modify:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-No Bolt calls, EDXEIX calls, AADE calls, workflow writes, queue staging, or live submission behavior are added.
+Production pre-ride tool is not modified.
