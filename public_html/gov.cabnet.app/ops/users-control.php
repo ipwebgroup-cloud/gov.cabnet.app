@@ -1,9 +1,9 @@
 <?php
 /**
- * gov.cabnet.app — users control v1.0
+ * gov.cabnet.app — users control v1.1
  *
- * Admin-only, read-only operator account overview.
- * No user create/edit/delete in this phase.
+ * Admin-only operator account overview.
+ * Phase 4 adds safe links to create/edit/reset user pages.
  */
 
 declare(strict_types=1);
@@ -24,7 +24,7 @@ if (!opsui_is_admin($user)) {
         'active_section' => 'User Area',
         'subtitle' => 'Admin-only operator user overview',
         'breadcrumbs' => 'Αρχική / Χρήστες / Users Control',
-        'safe_notice' => 'This admin route is read-only and does not change users or workflow data.',
+        'safe_notice' => 'This admin route requires the admin role and does not change workflow data.',
     ]);
     echo '<section class="card"><h2>Access denied</h2><p class="badline"><strong>Admin role required.</strong></p><p>This page is available only to operator accounts with the admin role.</p><div class="actions"><a class="btn" href="/ops/profile.php">Back to Profile</a><a class="btn dark" href="/ops/home.php">Ops Home</a></div></section>';
     opsui_shell_end();
@@ -78,28 +78,39 @@ foreach ($users as $row) {
     if ((string)($row['role'] ?? '') === 'admin') { $adminUsers++; }
 }
 
+$notice = '';
+if (isset($_GET['created'])) { $notice = 'User account created.'; }
+if (isset($_GET['updated'])) { $notice = 'User account updated.'; }
+
 opsui_shell_begin([
     'title' => 'Users Control',
     'page_title' => 'Διαχείριση χρηστών',
     'active_section' => 'User Area',
-    'subtitle' => 'Admin-only operator user overview',
+    'subtitle' => 'Admin-only operator user management',
     'breadcrumbs' => 'Αρχική / Χρήστες / Users Control',
-    'safe_notice' => 'READ-ONLY USERS CONTROL. This page lists operator accounts and recent login attempts only. It does not create, edit, disable, or delete users.',
+    'safe_notice' => 'USER ADMIN CONTROL. This page manages local operator login accounts only. It does not affect Bolt, EDXEIX, AADE, bookings, or queue jobs.',
 ]);
 ?>
+<?php if ($notice !== ''): ?><?= opsui_flash($notice, 'good') ?><?php endif; ?>
+
 <section class="card hero neutral">
     <h1>Users Control</h1>
-    <p>Read-only account visibility for the operations login system.</p>
+    <p>Account visibility and controlled local user administration for the operations login system.</p>
     <div>
         <?= opsui_badge('ADMIN ONLY', 'warn') ?>
-        <?= opsui_badge('READ ONLY', 'good') ?>
-        <?= opsui_badge('NO USER WRITES', 'good') ?>
+        <?= opsui_badge('LOCAL OPS USERS', 'neutral') ?>
+        <?= opsui_badge('NO DELETE ACTION', 'good') ?>
     </div>
     <div class="grid" style="margin-top:14px">
         <?= opsui_metric((string)$totalUsers, 'Total users') ?>
         <?= opsui_metric((string)$activeUsers, 'Active users') ?>
         <?= opsui_metric((string)$adminUsers, 'Admin users') ?>
         <?= opsui_metric((string)count($recentAttempts), 'Recent attempts shown') ?>
+    </div>
+    <div class="actions">
+        <a class="btn good" href="/ops/users-new.php">Create User</a>
+        <a class="btn" href="/ops/profile.php">My Profile</a>
+        <a class="btn dark" href="/ops/home.php">Ops Home</a>
     </div>
 </section>
 
@@ -117,11 +128,12 @@ opsui_shell_begin([
                     <th>Last login</th>
                     <th>Last IP</th>
                     <th>Created</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($users === []): ?>
-                    <tr><td colspan="8">No users found.</td></tr>
+                    <tr><td colspan="9">No users found.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($users as $row): ?>
                     <?php $active = (int)($row['is_active'] ?? 0) === 1; ?>
@@ -134,6 +146,7 @@ opsui_shell_begin([
                         <td><?= opsui_h($row['last_login_at'] ?: '—') ?></td>
                         <td><code><?= opsui_h($row['last_login_ip'] ?: '—') ?></code></td>
                         <td><?= opsui_h($row['created_at'] ?? '') ?></td>
+                        <td><div class="gov-table-actions"><a class="gov-mini-btn" href="/ops/users-edit.php?id=<?= opsui_h((string)($row['id'] ?? '')) ?>">Edit</a></div></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -169,16 +182,19 @@ opsui_shell_begin([
     </article>
 
     <article class="card">
-        <h2>Current user policy</h2>
+        <h2>User administration policy</h2>
         <div class="gov-alert-note">
-            This page is intentionally read-only. For now, create new operators with the CLI helper so production access changes remain deliberate and easy to audit.
+            Phase 4 allows controlled admin creation/editing and password reset. Delete actions are intentionally not available. At least one active admin must remain.
         </div>
-        <h3>CLI user creation</h3>
-        <p>Use this server command when a new staff account is needed:</p>
-        <p><code>php /home/cabnet/gov.cabnet.app_app/cli/create_ops_user.php --username=name --email=email@example.com --display-name="Name" --role=operator</code></p>
+        <ul class="list">
+            <li>Use <strong>Create User</strong> for new operator accounts.</li>
+            <li>Use <strong>Edit</strong> to change display name, role, active status, or reset a password.</li>
+            <li>Do not share passwords by public chat, email threads, screenshots, or Git.</li>
+            <li>Workflow safety remains separate: this area does not enable EDXEIX live submission.</li>
+        </ul>
         <div class="actions">
-            <a class="btn" href="/ops/profile.php">Back to Profile</a>
-            <a class="btn dark" href="/ops/home.php">Ops Home</a>
+            <a class="btn good" href="/ops/users-new.php">Create User</a>
+            <a class="btn dark" href="/ops/route-index.php">Route Index</a>
         </div>
     </article>
 </section>
