@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v1.8
+ * gov.cabnet.app — shared operations UI shell v1.9
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -125,6 +125,115 @@ function opsui_flash(string $message, string $type = 'neutral'): string
     return '<div class="gov-alert gov-alert-' . opsui_h($class) . '">' . opsui_h($message) . '</div>';
 }
 
+
+function opsui_table_exists(mysqli $db, string $table): bool
+{
+    try {
+        $stmt = $db->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
+        $stmt->bind_param('s', $table);
+        $stmt->execute();
+        return (bool)$stmt->get_result()->fetch_assoc();
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function opsui_preferences_defaults(): array
+{
+    return [
+        'default_landing_path' => '/ops/home.php',
+        'sidebar_density' => 'comfortable',
+        'table_density' => 'comfortable',
+        'show_safety_notices' => '1',
+    ];
+}
+
+function opsui_sanitize_preferences(array $prefs): array
+{
+    $defaults = opsui_preferences_defaults();
+    $allowedLanding = [
+        '/ops/home.php',
+        '/ops/pre-ride-email-tool.php',
+        '/ops/pre-ride-email-toolv2.php',
+        '/ops/test-session.php',
+        '/ops/preflight-review.php',
+        '/ops/profile.php',
+    ];
+    $allowedDensity = ['comfortable', 'compact'];
+
+    $out = array_merge($defaults, $prefs);
+    if (!in_array((string)$out['default_landing_path'], $allowedLanding, true)) {
+        $out['default_landing_path'] = $defaults['default_landing_path'];
+    }
+    if (!in_array((string)$out['sidebar_density'], $allowedDensity, true)) {
+        $out['sidebar_density'] = $defaults['sidebar_density'];
+    }
+    if (!in_array((string)$out['table_density'], $allowedDensity, true)) {
+        $out['table_density'] = $defaults['table_density'];
+    }
+    $out['show_safety_notices'] = ((string)$out['show_safety_notices'] === '0') ? '0' : '1';
+    return $out;
+}
+
+function opsui_preferences(): array
+{
+    static $cached = null;
+    if (is_array($cached)) {
+        return $cached;
+    }
+
+    $defaults = opsui_preferences_defaults();
+    $user = opsui_current_user();
+    $userId = (int)($user['id'] ?? 0);
+    if ($userId <= 0) {
+        $cached = $defaults;
+        return $cached;
+    }
+
+    $bootstrap = dirname(__DIR__, 3) . '/gov.cabnet.app_app/src/bootstrap.php';
+    if (!is_file($bootstrap)) {
+        $cached = $defaults;
+        return $cached;
+    }
+
+    try {
+        $ctx = require $bootstrap;
+        if (!is_array($ctx) || !isset($ctx['db']) || !method_exists($ctx['db'], 'connection')) {
+            throw new RuntimeException('Invalid private app context.');
+        }
+        $db = $ctx['db']->connection();
+        if (!opsui_table_exists($db, 'ops_user_preferences')) {
+            $cached = $defaults;
+            return $cached;
+        }
+        $stmt = $db->prepare('SELECT default_landing_path, sidebar_density, table_density, show_safety_notices FROM ops_user_preferences WHERE user_id = ? LIMIT 1');
+        $stmt->bind_param('i', $userId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $cached = is_array($row) ? opsui_sanitize_preferences($row) : $defaults;
+        return $cached;
+    } catch (Throwable) {
+        $cached = $defaults;
+        return $cached;
+    }
+}
+
+function opsui_preference_body_class(array $prefs): string
+{
+    $classes = [];
+    if (($prefs['sidebar_density'] ?? 'comfortable') === 'compact') {
+        $classes[] = 'gov-pref-sidebar-compact';
+    }
+    if (($prefs['table_density'] ?? 'comfortable') === 'compact') {
+        $classes[] = 'gov-pref-table-compact';
+    }
+    if (($prefs['show_safety_notices'] ?? '1') === '0') {
+        $classes[] = 'gov-pref-hide-safety';
+    }
+    return implode(' ', $classes);
+}
+
+
 /**
  * @param array<string,mixed> $options
  */
@@ -141,6 +250,9 @@ function opsui_shell_begin(array $options = []): void
     $role = opsui_user_role($user);
     $initials = opsui_initials($name);
     $safeNotice = (string)($options['safe_notice'] ?? 'This page uses the shared operations shell. It does not change live EDXEIX submission behavior.');
+    $prefs = opsui_preferences();
+    $bodyClass = opsui_preference_body_class($prefs);
+    $showSafetyNotice = (($prefs['show_safety_notices'] ?? '1') !== '0') || !empty($options['force_safe_notice']);
 
     ?><!doctype html>
 <html lang="en">
@@ -150,9 +262,9 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.8">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.9">
 </head>
-<body>
+<body class="<?= opsui_h($bodyClass) ?>">
 <div class="gov-topbar">
     <div class="gov-brand">
         <div class="gov-brand-crest">ΕΔ</div>
@@ -163,6 +275,7 @@ function opsui_shell_begin(array $options = []): void
     </div>
     <div class="gov-top-links">
         <a href="/ops/home.php">Αρχική</a>
+        <a href="/ops/my-start.php">My Start</a>
         <a href="/ops/pre-ride-email-tool.php">Pre-Ride</a>
         <a href="/ops/pre-ride-email-toolv2.php">Pre-Ride V2</a>
         <a href="/ops/test-session.php">Test Session</a>
@@ -213,6 +326,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
 
             <div class="gov-side-group-title">User area</div>
+            <?= opsui_side_link('/ops/my-start.php', 'My Start', $current) ?>
             <?= opsui_side_link('/ops/profile.php', 'Operator Profile', $current) ?>
             <?= opsui_side_link('/ops/profile-edit.php', 'Edit Profile', $current) ?>
             <?= opsui_side_link('/ops/profile-preferences.php', 'Preferences', $current) ?>
@@ -237,6 +351,7 @@ function opsui_shell_begin(array $options = []): void
             </div>
             <div class="gov-tabs">
                 <?= opsui_tab('/ops/home.php', 'Καρτέλα', $current) ?>
+                <?= opsui_tab('/ops/my-start.php', 'My Start', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-tool.php', 'Pre-Ride', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-toolv2.php', 'V2 Dev', $current) ?>
                 <?= opsui_tab('/ops/test-session.php', 'Test Session', $current) ?>
@@ -248,10 +363,12 @@ function opsui_shell_begin(array $options = []): void
         </div>
 
         <main class="wrap wrap-shell">
-            <section class="safety">
+            <?php if ($showSafetyNotice): ?>
+            <section class="safety gov-optional-safety">
                 <strong>SAFE OPS SHELL.</strong>
                 <?= opsui_h($safeNotice) ?>
             </section>
+            <?php endif; ?>
     <?php
 }
 

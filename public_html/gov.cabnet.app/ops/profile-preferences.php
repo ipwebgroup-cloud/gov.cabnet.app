@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — operator preferences page v1.0
+ * gov.cabnet.app — operator preferences page v1.1
  *
  * Allows a logged-in operator to store safe UI/display preferences.
  * Does not call Bolt, EDXEIX, AADE, or any trip workflow.
@@ -199,7 +199,7 @@ opsui_shell_begin([
     'active_section' => 'User area',
     'subtitle' => 'Safe personal display preferences for the operator console',
     'breadcrumbs' => 'Αρχική / Χρήστες / Προτιμήσεις',
-    'safe_notice' => 'This page only stores personal UI preferences for the logged-in operator. It does not call Bolt, EDXEIX, AADE, or any trip workflow.',
+    'safe_notice' => 'This page stores personal UI preferences and the shared shell now applies supported display settings. It does not call Bolt, EDXEIX, AADE, or any trip workflow.',
 ]);
 ?>
 <?php if (!$tableReady): ?>
@@ -211,7 +211,7 @@ opsui_shell_begin([
 
 <section class="card hero neutral">
     <h1>Operator preferences</h1>
-    <p>Store personal UI preferences for your account. These settings are intentionally limited and do not affect live workflow behavior.</p>
+    <p>Store personal UI preferences for your account. Supported shell pages now apply sidebar density, table density, safety notice visibility, and My Start routing.</p>
     <div>
         <?= opsui_badge('PROFILE AREA', 'neutral') ?>
         <?= opsui_badge('SELF-SERVICE', 'good') ?>
@@ -232,7 +232,7 @@ opsui_shell_begin([
                             <option value="<?= opsui_h($path) ?>" <?= $preferences['default_landing_path'] === $path ? 'selected' : '' ?>><?= opsui_h($label) ?> — <?= opsui_h($path) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <div class="gov-form-help">Stored only as a preference for now. We can apply it to login redirects after confirming the flow.</div>
+                    <div class="gov-form-help">Used by /ops/my-start.php. The normal production routes remain unchanged.</div>
                 </div>
 
                 <div class="gov-form-field">
@@ -258,13 +258,14 @@ opsui_shell_begin([
                         <input type="checkbox" name="show_safety_notices" value="1" <?= $preferences['show_safety_notices'] === '1' ? 'checked' : '' ?>>
                         Show safety notices where supported
                     </label>
-                    <div class="gov-form-help">Safety notices remain enabled by default. Hiding them will only be applied on pages we later update to honor this preference.</div>
+                    <div class="gov-form-help">Safety notices remain enabled by default. Hiding them only affects shared-shell pages that support this preference.</div>
                 </div>
             </div>
 
             <div class="gov-panel-actions">
                 <button class="btn good" type="submit" <?= $tableReady ? '' : 'disabled' ?>>Save preferences</button>
                 <a class="btn dark" href="/ops/profile.php">Back to profile</a>
+                <a class="btn" href="/ops/my-start.php">Open My Start</a>
             </div>
         </form>
     </article>
@@ -279,7 +280,7 @@ opsui_shell_begin([
             <div class="gov-info-row"><div class="label">Updated</div><div class="value"><?= opsui_h($preferences['updated_at'] !== '' ? $preferences['updated_at'] : 'Not saved yet') ?></div></div>
         </div>
         <div class="gov-alert-note" style="margin-top:14px;">
-            Phase 8 stores preferences first. Applying them globally should be a separate tested rollout so production pages are not disrupted.
+            Phase 9 applies these preferences only in the shared /ops shell and /ops/my-start.php. The production pre-ride tool route is unchanged.
         </div>
     </article>
 </section>
