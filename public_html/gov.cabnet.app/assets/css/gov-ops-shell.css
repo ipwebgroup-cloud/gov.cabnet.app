@@ -652,3 +652,43 @@ body {
         min-width: 620px;
     }
 }
+
+/* Phase 11 — Firefox extension pair status.
+ * Presentation only. No workflow logic changes.
+ */
+.gov-extension-card code {
+    word-break: break-all;
+}
+.gov-checklist-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+.gov-check-card {
+    background: #fff;
+    border: 1px solid #d8dde7;
+    border-radius: 4px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+}
+.gov-check-card strong {
+    display: block;
+    color: #27385f;
+    font-size: 16px;
+    margin-bottom: 7px;
+}
+.gov-check-card span {
+    color: #59657a;
+    line-height: 1.4;
+}
+@media (max-width: 1280px) {
+    .gov-checklist-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 860px) {
+    .gov-checklist-grid {
+        grid-template-columns: 1fr;
+    }
+}

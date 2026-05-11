@@ -1,19 +1,22 @@
-# gov.cabnet.app patch — Ops UI Shell Phase 10 Firefox Helper Center
-
-Upload changed files only.
-
-## Files included
-
-- `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
-- `public_html/gov.cabnet.app/ops/_shell.php`
-- `public_html/gov.cabnet.app/ops/firefox-extension.php`
-- `docs/OPS_UI_SHELL_PHASE10_FIREFOX_CENTER_2026_05_11.md`
+# gov.cabnet.app patch — Ops UI Shell Phase 11 Extension Pair Status
 
 ## Upload paths
 
-- `public_html/gov.cabnet.app/assets/css/gov-ops-shell.css` → `/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css`
-- `public_html/gov.cabnet.app/ops/_shell.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
-- `public_html/gov.cabnet.app/ops/firefox-extension.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/firefox-extension.php`
+Upload:
+
+```text
+public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+public_html/gov.cabnet.app/ops/_shell.php
+public_html/gov.cabnet.app/ops/firefox-extensions-status.php
+```
+
+to:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/assets/css/gov-ops-shell.css
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/home/cabnet/public_html/gov.cabnet.app/ops/firefox-extensions-status.php
+```
 
 ## SQL
 
@@ -23,17 +26,19 @@ None.
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/firefox-extension.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/firefox-extensions-status.php
 ```
 
 Open:
 
-- `https://gov.cabnet.app/ops/firefox-extension.php`
+```text
+https://gov.cabnet.app/ops/firefox-extensions-status.php
+```
 
 Expected:
 
-- Page requires login.
-- Page displays inside the uniform shell.
-- Helper file status appears.
-- ZIP download works if helper files exist.
+- Login required.
+- Page opens in the shared ops shell.
+- It explains that both Firefox helpers remain required today.
+- It shows detected helper folders, manifest versions/IDs, and safe file hashes.
 - Production pre-ride tool remains unchanged.
