@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v1.7
+ * gov.cabnet.app — shared operations UI shell v1.8
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -150,7 +150,7 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.7">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.8">
 </head>
 <body>
 <div class="gov-topbar">
@@ -215,6 +215,7 @@ function opsui_shell_begin(array $options = []): void
             <div class="gov-side-group-title">User area</div>
             <?= opsui_side_link('/ops/profile.php', 'Operator Profile', $current) ?>
             <?= opsui_side_link('/ops/profile-edit.php', 'Edit Profile', $current) ?>
+            <?= opsui_side_link('/ops/profile-preferences.php', 'Preferences', $current) ?>
             <?= opsui_side_link('/ops/profile-password.php', 'Change Password', $current) ?>
             <?= opsui_side_link('/ops/profile-activity.php', 'My Activity', $current) ?>
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/activity-center.php', 'Activity Center', $current) : '' ?>
@@ -242,6 +243,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/admin-control.php', 'Administration', $current) ?>
                 <?= opsui_is_admin($user) ? opsui_tab('/ops/activity-center.php', 'Activity', $current) : '' ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
+                <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
             </div>
         </div>
 

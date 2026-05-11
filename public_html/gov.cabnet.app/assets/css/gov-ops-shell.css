@@ -473,3 +473,33 @@ body {
     border-radius: 4px;
 }
 @media(max-width: 860px){ .gov-form-grid { grid-template-columns: 1fr; } }
+
+/* Phase 8 — operator preferences */
+.gov-check-field label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #27385f;
+}
+.gov-check-field input[type="checkbox"] {
+    width: auto;
+    min-width: 18px;
+    height: 18px;
+}
+.gov-preference-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #d8dde7;
+    border-radius: 999px;
+    background: #fff;
+    padding: 6px 10px;
+    color: #27385f;
+    font-size: 13px;
+}
+button.btn:disabled,
+.btn[disabled] {
+    opacity: .55;
+    cursor: not-allowed;
+}

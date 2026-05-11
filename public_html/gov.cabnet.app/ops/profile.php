@@ -1,8 +1,8 @@
 <?php
 /**
- * gov.cabnet.app — operator profile page v1.2
+ * gov.cabnet.app — operator profile page v1.3
  *
- * Read-only profile dashboard with links to edit profile, password change, and activity.
+ * Read-only profile dashboard with links to edit profile, preferences, password change, and activity.
  * Does not call Bolt, does not call EDXEIX.
  */
 
@@ -46,6 +46,7 @@ opsui_shell_begin([
         </div>
         <div class="gov-compact-actions" style="justify-content:center;">
             <a class="btn" href="/ops/profile-edit.php">Edit Profile</a>
+            <a class="btn" href="/ops/profile-preferences.php">Preferences</a>
             <a class="btn good" href="/ops/profile-password.php">Change Password</a>
             <a class="btn dark" href="/ops/logout.php">Logout</a>
         </div>
@@ -66,6 +67,7 @@ opsui_shell_begin([
 
 <section class="gov-admin-grid">
     <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-edit.php"><strong>Edit Profile</strong><span>Update your display name and email address.</span><small>Self-service</small></a>
+    <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-preferences.php"><strong>Preferences</strong><span>Set your preferred landing page and UI display preferences.</span><small>Self-service</small></a>
     <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-password.php"><strong>Change Password</strong><span>Update your own operator password using current-password confirmation.</span><small>CSRF protected</small></a>
     <a class="gov-admin-link gov-profile-action-card" href="/ops/profile-activity.php"><strong>My Activity</strong><span>Review your recent login attempts and account audit events.</span><small>Read only</small></a>
     <a class="gov-admin-link gov-profile-action-card" href="/ops/pre-ride-email-tool.php"><strong>Production Pre-Ride Tool</strong><span>Open the current live production operator workflow.</span><small>Do not disrupt</small></a>
@@ -79,7 +81,7 @@ opsui_shell_begin([
     <article class="card">
         <h2>User area status</h2>
         <ul class="list">
-            <li>Profile display, profile editing, password change, and activity visibility are available.</li>
+            <li>Profile display, profile editing, preferences, password change, and activity visibility are available.</li>
             <li>Role and active status remain controlled by admin user management.</li>
             <li>User actions do not affect the Bolt → EDXEIX workflow state.</li>
         </ul>
