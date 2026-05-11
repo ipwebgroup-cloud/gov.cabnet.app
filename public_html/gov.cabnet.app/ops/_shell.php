@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v1.0
+ * gov.cabnet.app — shared operations UI shell v1.1
  *
  * Include-only helper for the unified /ops interface.
  * Presentation helper only; no Bolt calls, no EDXEIX calls, no DB writes.
@@ -39,14 +39,30 @@ function opsui_user_role(array $user): string
     return $role !== '' ? $role : 'operator';
 }
 
+function opsui_substr(string $value, int $start, int $length): string
+{
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, $start, $length, 'UTF-8');
+    }
+    return substr($value, $start, $length);
+}
+
+function opsui_upper(string $value): string
+{
+    if (function_exists('mb_strtoupper')) {
+        return mb_strtoupper($value, 'UTF-8');
+    }
+    return strtoupper($value);
+}
+
 function opsui_initials(string $name): string
 {
     $name = trim(preg_replace('/\s+/', ' ', $name) ?? '');
     if ($name === '') { return 'OP'; }
     $parts = explode(' ', $name);
-    $first = mb_substr($parts[0] ?? 'O', 0, 1, 'UTF-8');
-    $last = count($parts) > 1 ? mb_substr($parts[count($parts) - 1], 0, 1, 'UTF-8') : '';
-    $out = mb_strtoupper($first . $last, 'UTF-8');
+    $first = opsui_substr($parts[0] ?? 'O', 0, 1);
+    $last = count($parts) > 1 ? opsui_substr($parts[count($parts) - 1], 0, 1) : '';
+    $out = opsui_upper($first . $last);
     return $out !== '' ? $out : 'OP';
 }
 
@@ -77,6 +93,16 @@ function opsui_badge(string $text, string $type = 'neutral'): string
     return '<span class="badge badge-' . opsui_h($type) . '">' . opsui_h($text) . '</span>';
 }
 
+function opsui_metric(mixed $value, string $label): string
+{
+    return '<div class="metric"><strong>' . opsui_h((string)$value) . '</strong><span>' . opsui_h($label) . '</span></div>';
+}
+
+function opsui_bool_badge(bool $value, string $yes = 'YES', string $no = 'NO'): string
+{
+    return opsui_badge($value ? $yes : $no, $value ? 'good' : 'bad');
+}
+
 function opsui_user_chip(array $user): string
 {
     $name = opsui_user_display($user);
@@ -96,7 +122,7 @@ function opsui_shell_begin(array $options = []): void
     $pageTitle = (string)($options['page_title'] ?? $title);
     $subtitle = (string)($options['subtitle'] ?? 'Safe Bolt → EDXEIX operator console');
     $breadcrumbs = (string)($options['breadcrumbs'] ?? 'Αρχική / Διαχειριστικό');
-    $activeSection = (string)($options['active_section'] ?? '');
+    $activeSection = (string)($options['active_section'] ?? 'Operations');
     $current = opsui_current_path();
     $user = opsui_current_user();
     $name = opsui_user_display($user);
@@ -112,7 +138,7 @@ function opsui_shell_begin(array $options = []): void
     <meta name="robots" content="noindex,nofollow">
     <title><?= opsui_h($title) ?> | gov.cabnet.app</title>
     <link rel="stylesheet" href="/assets/css/gov-ops-edxeix.css?v=2.5">
-    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.0">
+    <link rel="stylesheet" href="/assets/css/gov-ops-shell.css?v=1.1">
 </head>
 <body>
 <div class="gov-topbar">
@@ -125,27 +151,27 @@ function opsui_shell_begin(array $options = []): void
     </div>
     <div class="gov-top-links">
         <a href="/ops/home.php">Αρχική</a>
-        <a href="/ops/pre-ride-email-tool.php">Pre-Ride Tool</a>
+        <a href="/ops/pre-ride-email-tool.php">Pre-Ride</a>
+        <a href="/ops/pre-ride-email-toolv2.php">Pre-Ride V2</a>
         <a href="/ops/test-session.php">Test Session</a>
         <a href="/ops/preflight-review.php">Preflight Review</a>
         <a href="/ops/route-index.php">Route Index</a>
-        <a href="/ops/profile.php">Profile</a>
         <?= opsui_user_chip($user) ?>
     </div>
 </div>
 
 <div class="gov-shell">
     <aside class="gov-sidebar">
-        <a class="gov-side-profile" href="/ops/profile.php">
-            <div class="gov-side-profile-row">
+        <div class="gov-side-profile">
+            <a class="gov-side-profile-main" href="/ops/profile.php">
                 <span class="gov-user-avatar"><?= opsui_h($initials) ?></span>
                 <span><strong><?= opsui_h($name) ?></strong><span><?= opsui_h($role) ?></span></span>
-            </div>
+            </a>
             <div class="gov-side-mini-actions">
                 <a href="/ops/profile.php">Profile</a>
                 <a href="/ops/logout.php">Logout</a>
             </div>
-        </a>
+        </div>
 
         <h3><?= opsui_h($activeSection !== '' ? $activeSection : $pageTitle) ?></h3>
         <p><?= opsui_h($subtitle) ?></p>
@@ -154,6 +180,7 @@ function opsui_shell_begin(array $options = []): void
             <div class="gov-side-group-title">Primary workflow</div>
             <?= opsui_side_link('/ops/home.php', 'Ops Home', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-toolv2.php', 'Pre-Ride Tool V2 Dev', $current) ?>
             <?= opsui_side_link('/ops/test-session.php', 'Test Session Control', $current) ?>
             <?= opsui_side_link('/ops/preflight-review.php', 'Preflight Review', $current) ?>
             <?= opsui_side_link('/ops/dev-accelerator.php', 'Dev Accelerator', $current) ?>
@@ -169,6 +196,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/jobs-control.php', 'Jobs Review', $current) ?>
             <?= opsui_side_link('/ops/firefox-extension.php', 'Firefox Helper', $current) ?>
             <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
+            <?= opsui_side_link('/ops/profile.php', 'Operator Profile', $current) ?>
             <?= opsui_side_link('/ops/ui-shell-preview.php', 'UI Shell Preview', $current) ?>
         </div>
 
@@ -184,6 +212,7 @@ function opsui_shell_begin(array $options = []): void
             <div class="gov-tabs">
                 <?= opsui_tab('/ops/home.php', 'Καρτέλα', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-tool.php', 'Pre-Ride', $current) ?>
+                <?= opsui_tab('/ops/pre-ride-email-toolv2.php', 'V2 Dev', $current) ?>
                 <?= opsui_tab('/ops/test-session.php', 'Test Session', $current) ?>
                 <?= opsui_tab('/ops/admin-control.php', 'Administration', $current) ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
