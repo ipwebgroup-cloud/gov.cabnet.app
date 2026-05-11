@@ -1,50 +1,30 @@
-# gov.cabnet.app patch — Ops UI Shell Phase 25 Ops Dashboard
+# gov.cabnet.app — Ops UI Shell Phase 26 Printable Guide
 
-## Files included
-
-- `public_html/gov.cabnet.app/ops/ops-dashboard.php`
-- `docs/OPS_UI_SHELL_PHASE25_OPS_DASHBOARD_2026_05_11.md`
-
-## Upload paths
+Upload:
 
 ```text
-public_html/gov.cabnet.app/ops/ops-dashboard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/ops-dashboard.php
+public_html/gov.cabnet.app/ops/print-guide.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/print-guide.php
 ```
 
-## SQL
+Optional repo docs:
 
-None.
+```text
+docs/OPS_UI_SHELL_PHASE26_PRINTABLE_GUIDE_2026_05_11.md
+```
 
-## Verify
+SQL: none.
+
+Verify:
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/ops-dashboard.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/print-guide.php
 ```
 
-Open:
+URL:
 
 ```text
-https://gov.cabnet.app/ops/ops-dashboard.php
+https://gov.cabnet.app/ops/print-guide.php
 ```
 
-## Expected result
-
-- Login required.
-- Page opens in shared ops shell.
-- Shows safe ops overview, user summary, auth/activity counts, file snapshot, and next safe actions.
-- Production pre-ride email tool remains unchanged.
-
-## Git commit title
-
-```text
-Add ops dashboard overview
-```
-
-## Git commit description
-
-```text
-Continues the unified EDXEIX-style /ops GUI by adding a read-only Ops Dashboard overview. The page summarizes the current operator, safe auth/activity counts, critical file status, and next safe actions without touching the production pre-ride route.
-
-The production pre-ride email tool remains unchanged. No Bolt calls, EDXEIX calls, AADE calls, secret output, database writes, queue staging, or live submission behavior are added.
-```
+Production pre-ride tool remains unchanged.
