@@ -1,30 +1,47 @@
-# gov.cabnet.app patch — Phase 32 EDXEIX Submit Dry-Run Builder
+# gov.cabnet.app — Ops UI Shell Phase 33: EDXEIX Submit Preflight Gate
 
-## Files included
+## What changed
+
+Adds a reusable read-only EDXEIX submit preflight gate class and a shared-shell page:
+
+- `gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php`
+- `public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php`
+
+The page parses a Bolt pre-ride email, resolves EDXEIX IDs, reads the latest sanitized submit capture metadata, and evaluates technical/live-submit blockers for the future mobile/server-side EDXEIX workflow.
+
+## Production safety
+
+This patch does not modify:
+
+- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
+
+It does not call Bolt, EDXEIX, or AADE. It does not write workflow data, stage jobs, or enable live submit.
+
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/edxeix-submit-dry-run.php
-docs/OPS_UI_SHELL_PHASE32_EDXEIX_DRY_RUN_2026_05_12.md
-PATCH_README.md
-```
+gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php
+→ /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php
 
-## Upload path
-
-```text
-public_html/gov.cabnet.app/ops/edxeix-submit-dry-run.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-dry-run.php
+public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
 ```
 
 ## SQL
 
-None. This page reads `ops_edxeix_submit_captures` if Phase 31 SQL has been installed.
+None.
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-dry-run.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
 ```
 
-## Production safety
+Open:
 
-This patch does not modify `/ops/pre-ride-email-tool.php` and does not enable live EDXEIX submission.
+```text
+https://gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
+```
+
+Expected: login required, read-only page opens, gate result displays after parsing email, live submit remains blocked.
