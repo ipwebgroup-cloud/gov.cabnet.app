@@ -1,40 +1,37 @@
-# Phase 58 — Mobile Submit Evidence Snapshot
+# gov.cabnet.app Patch — Phase 59 Mobile Submit Evidence Log
 
-## What changed
-
-Adds:
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
-```
+public_html/gov.cabnet.app/ops/mobile-submit-evidence-log.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence-log.php
 
-This is a read-only evidence snapshot page for the future mobile/server-side EDXEIX submit workflow.
-
-## Upload path
-
-```text
-public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
+gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
 ```
 
 ## SQL
 
-None.
+```bash
+mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
+```
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence-log.php
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mobile-submit-evidence.php
+https://gov.cabnet.app/ops/mobile-submit-evidence-log.php
 ```
 
 ## Safety
 
-No Bolt calls, no EDXEIX calls, no AADE calls, no database writes, no queue staging, and no live submission behavior.
-
-The generated evidence JSON excludes raw email text and redacts token/session-sensitive placeholders.
+- Does not modify production `/ops/pre-ride-email-tool.php`.
+- Does not call Bolt, EDXEIX, or AADE.
+- Does not stage jobs or enable live submission.
+- Stores sanitized evidence JSON only.
+- Blocks obvious raw email / secret patterns.
