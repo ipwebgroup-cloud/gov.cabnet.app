@@ -1,77 +1,29 @@
-# gov.cabnet.app Patch — Phase 41 Safe Handoff Package Builder
+# Phase 42 — Safe Handoff Package Inspector
 
-## What changed
+## Files included
 
-Adds an admin-only Safe Handoff ZIP builder to:
+- `public_html/gov.cabnet.app/ops/handoff-package-inspector.php`
+- `docs/OPS_UI_SHELL_PHASE42_HANDOFF_PACKAGE_INSPECTOR_2026_05_12.md`
 
-```text
-/ops/handoff-center.php
-```
+## Upload path
 
-Backed by:
+`public_html/gov.cabnet.app/ops/handoff-package-inspector.php`
+→ `/home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-inspector.php`
 
-```text
-gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
-```
-
-The utility downloads a private ZIP containing:
-
-```text
-public_html/gov.cabnet.app/...
-gov.cabnet.app_app/...
-gov.cabnet.app_sql/...
-docs/...
-tools/firefox*/... when present
-DATABASE_EXPORT.sql
-gov.cabnet.app_config_examples/... sanitized placeholders
-PACKAGE_MANIFEST.md
-```
-
-## Safety
-
-The builder excludes real config values and obvious logs/sessions/cache/mail/temp/backups/archive files.
-
-The database export may contain operational/customer data. Treat the downloaded ZIP as private operational material. Do not commit `DATABASE_EXPORT.sql` unless intentionally sanitized.
-
-No Bolt, EDXEIX, or AADE calls are made.
-
-## Upload paths
-
-```text
-gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
-→ /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
-
-public_html/gov.cabnet.app/ops/handoff-center.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
-```
-
-## SQL to run
+## SQL
 
 None.
 
-## Verification commands
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-inspector.php
 ```
 
-Expected:
+Open:
 
-```text
-No syntax errors detected
-```
+`https://gov.cabnet.app/ops/handoff-package-inspector.php`
 
-## Verification URL
+## Safety
 
-```text
-https://gov.cabnet.app/ops/handoff-center.php
-```
-
-Expected:
-
-- Login required.
-- Admin user sees Build / Download Safe Handoff ZIP.
-- Download starts when clicked.
-- ZIP contains sanitized config placeholders, not real config values.
-- Production pre-ride tool remains unchanged.
+Read-only inspector only. It does not build a ZIP, does not dump the database, does not read/display secrets, and does not modify the production pre-ride tool.
