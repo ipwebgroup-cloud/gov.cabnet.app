@@ -1,34 +1,77 @@
-# Patch: Phase 40 Mapping Exception Queue Hotfix
+# gov.cabnet.app Patch — Phase 41 Safe Handoff Package Builder
 
-## Files included
+## What changed
 
-```text
-public_html/gov.cabnet.app/ops/mapping-exceptions.php
-docs/OPS_UI_SHELL_PHASE40_MAPPING_EXCEPTION_QUEUE_HOTFIX_2026_05_12.md
-PATCH_README.md
-```
-
-## Upload path
+Adds an admin-only Safe Handoff ZIP builder to:
 
 ```text
-public_html/gov.cabnet.app/ops/mapping-exceptions.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mapping-exceptions.php
+/ops/handoff-center.php
 ```
 
-## SQL
+Backed by:
+
+```text
+gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+```
+
+The utility downloads a private ZIP containing:
+
+```text
+public_html/gov.cabnet.app/...
+gov.cabnet.app_app/...
+gov.cabnet.app_sql/...
+docs/...
+tools/firefox*/... when present
+DATABASE_EXPORT.sql
+gov.cabnet.app_config_examples/... sanitized placeholders
+PACKAGE_MANIFEST.md
+```
+
+## Safety
+
+The builder excludes real config values and obvious logs/sessions/cache/mail/temp/backups/archive files.
+
+The database export may contain operational/customer data. Treat the downloaded ZIP as private operational material. Do not commit `DATABASE_EXPORT.sql` unless intentionally sanitized.
+
+No Bolt, EDXEIX, or AADE calls are made.
+
+## Upload paths
+
+```text
+gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+→ /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+
+public_html/gov.cabnet.app/ops/handoff-center.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+```
+
+## SQL to run
 
 None.
 
-## Verification
+## Verification commands
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-exceptions.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
 ```
 
-Open:
+Expected:
 
 ```text
-https://gov.cabnet.app/ops/mapping-exceptions.php
+No syntax errors detected
 ```
 
-Expected: no 500; the exception queue loads or displays a safe diagnostic card.
+## Verification URL
+
+```text
+https://gov.cabnet.app/ops/handoff-center.php
+```
+
+Expected:
+
+- Login required.
+- Admin user sees Build / Download Safe Handoff ZIP.
+- Download starts when clicked.
+- ZIP contains sanitized config placeholders, not real config values.
+- Production pre-ride tool remains unchanged.
