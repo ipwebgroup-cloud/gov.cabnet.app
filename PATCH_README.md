@@ -1,38 +1,35 @@
-# Phase 38 — Mapping Audit
+# Phase 39 — Mapping Resolver Test
 
-## What changed
-
-Adds a read-only mapping failure-point audit page:
+Upload:
 
 ```text
-public_html/gov.cabnet.app/ops/mapping-audit.php
+public_html/gov.cabnet.app/ops/mapping-resolver-test.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mapping-resolver-test.php
 ```
 
-## Upload path
+SQL: none.
 
-```text
-public_html/gov.cabnet.app/ops/mapping-audit.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mapping-audit.php
-```
-
-## SQL to run
-
-None.
-
-## Verify
+Verify:
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-audit.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-resolver-test.php
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mapping-audit.php
+https://gov.cabnet.app/ops/mapping-resolver-test.php
+https://gov.cabnet.app/ops/mapping-resolver-test.php?operator=WHITEBLUE%20PREMIUM%20E%20E&driver=Georgios%20Tsatsas&vehicle=XZO1837
 ```
 
-## Production safety
+Expected WHITEBLUE result:
 
-The production pre-ride email tool is unchanged.
+```text
+lessor 1756
+driver 4382
+vehicle 4327
+starting point 612164
+lessor-specific starting point YES
+```
 
-No Bolt calls, EDXEIX calls, AADE calls, database writes, queue staging, or live submission behavior are added.
+Production pre-ride tool remains unchanged.
