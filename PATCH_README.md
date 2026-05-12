@@ -1,58 +1,68 @@
-# gov.cabnet.app patch — WHITEBLUE starting point hotfix
+# gov.cabnet.app — Phase 34 Company Mapping Control
 
 ## What changed
 
-- Updates `EdxeixMappingLookup.php` to resolve starting points by lessor first.
-- Adds a WHITEBLUE lessor-specific starting point mapping:
-  - lessor `1756`
-  - starting point `612164`
-- Leaves global starting point defaults unchanged.
-- Does not modify `/ops/pre-ride-email-tool.php`.
+Adds a read-only GUI page:
+
+```text
+public_html/gov.cabnet.app/ops/company-mapping-control.php
+```
+
+The page provides company/lessor mapping governance and flags missing or incorrect lessor-specific starting point overrides.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
-gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
-docs/OPS_WHITEBLUE_STARTING_POINT_HOTFIX_2026_05_12.md
+public_html/gov.cabnet.app/ops/company-mapping-control.php
+docs/OPS_UI_SHELL_PHASE34_COMPANY_MAPPING_CONTROL_2026_05_12.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
-gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
-→ /home/cabnet/gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
-
-gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
+public_html/gov.cabnet.app/ops/company-mapping-control.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/company-mapping-control.php
 ```
 
 ## SQL to run
 
-```bash
-mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
-```
+None.
 
-## Verify
+## Verification command
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/company-mapping-control.php
 ```
 
-Then reload the correct Bolt pre-ride email in:
+Expected:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-tool.php
+No syntax errors detected
 ```
 
-Expected helper IDs:
+## Verification URLs
 
 ```text
-Company ID: 1756
-Driver ID: 4382
-Vehicle ID: 4327
-Starting point ID: 612164
+https://gov.cabnet.app/ops/company-mapping-control.php
+https://gov.cabnet.app/ops/company-mapping-control.php?lessor=1756
 ```
 
-Do not POST unless the ride is future and the map point is confirmed.
+## Expected result
+
+- Login required.
+- Page opens inside the shared ops shell if `_shell.php` exists.
+- Company/lessor mapping health is displayed.
+- WHITEBLUE / 1756 is checked against the verified starting point `612164`.
+- Missing lessor-specific starting point overrides are flagged.
+- Production pre-ride tool remains unchanged.
+
+## Production safety
+
+This patch does not modify:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+```
+
+It does not call Bolt, EDXEIX, or AADE, does not write DB rows, does not stage jobs, and does not enable live submission.
