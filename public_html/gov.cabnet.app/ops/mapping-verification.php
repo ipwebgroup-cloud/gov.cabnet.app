@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Mapping Verification Register v1.0
+ * gov.cabnet.app — Mapping Verification Register v1.1 schema-safe hotfix
  * Admin can record sanitized mapping verification decisions. No EDXEIX/Bolt calls.
  */
 declare(strict_types=1);
@@ -58,17 +58,69 @@ function mvr_db(?string &$error = null): ?mysqli
 }
 function mvr_table_exists(mysqli $db, string $table): bool
 {
-    $stmt = $db->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
-    $stmt->bind_param('s', $table); $stmt->execute(); return (bool)$stmt->get_result()->fetch_assoc();
+    try {
+        $stmt = $db->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
+        if (!$stmt) { return false; }
+        $stmt->bind_param('s', $table);
+        $stmt->execute();
+        return (bool)$stmt->get_result()->fetch_assoc();
+    } catch (Throwable) {
+        return false;
+    }
+}
+function mvr_columns(mysqli $db, string $table): array
+{
+    static $cache = [];
+    if (isset($cache[$table])) { return $cache[$table]; }
+    $cache[$table] = [];
+    try {
+        $stmt = $db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION');
+        if (!$stmt) { return $cache[$table]; }
+        $stmt->bind_param('s', $table);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $name = (string)($row['COLUMN_NAME'] ?? '');
+            if ($name !== '') { $cache[$table][$name] = true; }
+        }
+    } catch (Throwable) {
+        $cache[$table] = [];
+    }
+    return $cache[$table];
+}
+function mvr_has_col(mysqli $db, string $table, string $col): bool
+{
+    $cols = mvr_columns($db, $table);
+    return isset($cols[$col]);
+}
+function mvr_first_col(mysqli $db, string $table, array $choices): ?string
+{
+    $cols = mvr_columns($db, $table);
+    foreach ($choices as $col) {
+        if (isset($cols[$col])) { return (string)$col; }
+    }
+    return null;
+}
+function mvr_qid(string $identifier): string
+{
+    return '`' . str_replace('`', '``', $identifier) . '`';
 }
 function mvr_fetch_all(mysqli $db, string $sql): array
 {
-    $res = $db->query($sql); if (!$res) { return []; }
-    $rows = []; while ($row = $res->fetch_assoc()) { $rows[] = $row; } return $rows;
+    try {
+        $res = $db->query($sql);
+        if (!$res) { return []; }
+        $rows = [];
+        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        return $rows;
+    } catch (Throwable) {
+        return [];
+    }
 }
 function mvr_fetch_one(mysqli $db, string $sql): ?array
 {
-    $rows = mvr_fetch_all($db, $sql); return $rows[0] ?? null;
+    $rows = mvr_fetch_all($db, $sql);
+    return $rows[0] ?? null;
 }
 function mvr_clean_text(string $value, int $max = 255): string
 {
@@ -78,52 +130,73 @@ function mvr_clean_text(string $value, int $max = 255): string
 }
 function mvr_lessor_name(mysqli $db, int $lessorId): string
 {
+    if ($lessorId <= 0) { return 'Lessor'; }
+
+    if (mvr_table_exists($db, 'mapping_verification_status')) {
+        $row = mvr_fetch_one($db, 'SELECT lessor_name FROM mapping_verification_status WHERE edxeix_lessor_id=' . (int)$lessorId . " AND lessor_name <> '' LIMIT 1");
+        if (is_array($row) && !empty($row['lessor_name'])) { return (string)$row['lessor_name']; }
+    }
+
     if (mvr_table_exists($db, 'edxeix_export_lessors')) {
-        $stmt = $db->prepare('SELECT * FROM edxeix_export_lessors WHERE id = ? LIMIT 1');
-        $row = null;
-        if ($stmt) {
-            $stmt->bind_param('i', $lessorId);
-            try { $stmt->execute(); $row = $stmt->get_result()->fetch_assoc(); } catch (Throwable) { $row = null; }
-        }
-        if (is_array($row)) {
-            foreach (['name','label','lessor_name','title'] as $key) { if (!empty($row[$key])) { return (string)$row[$key]; } }
+        $idCol = mvr_first_col($db, 'edxeix_export_lessors', ['id', 'edxeix_lessor_id', 'lessor_id']);
+        $nameCol = mvr_first_col($db, 'edxeix_export_lessors', ['name', 'label', 'lessor_name', 'company_name', 'title']);
+        if ($idCol && $nameCol) {
+            try {
+                $sql = 'SELECT ' . mvr_qid($nameCol) . ' AS nm FROM edxeix_export_lessors WHERE ' . mvr_qid($idCol) . ' = ? LIMIT 1';
+                $stmt = $db->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param('i', $lessorId);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    if (is_array($row) && trim((string)($row['nm'] ?? '')) !== '') { return (string)$row['nm']; }
+                }
+            } catch (Throwable) {}
         }
     }
-    $row = mvr_fetch_one($db, 'SELECT external_driver_name, edxeix_lessor_id FROM mapping_drivers WHERE edxeix_lessor_id=' . (int)$lessorId . ' LIMIT 1');
-    return $row ? ('Lessor ' . $lessorId) : ('Lessor ' . $lessorId);
+
+    return 'Lessor ' . $lessorId;
 }
 function mvr_lessor_ids(mysqli $db): array
 {
     $ids = [];
-    if (mvr_table_exists($db, 'edxeix_export_lessors')) {
-        foreach (['id','edxeix_lessor_id'] as $col) {
-            try {
-                foreach (mvr_fetch_all($db, 'SELECT DISTINCT ' . $col . ' AS id FROM edxeix_export_lessors WHERE ' . $col . ' IS NOT NULL AND ' . $col . ' <> 0') as $r) { $ids[(int)$r['id']] = true; }
-                break;
-            } catch (Throwable) {}
+    $sources = [
+        'edxeix_export_lessors' => ['id', 'edxeix_lessor_id', 'lessor_id'],
+        'mapping_drivers' => ['edxeix_lessor_id'],
+        'mapping_vehicles' => ['edxeix_lessor_id'],
+        'mapping_lessor_starting_points' => ['edxeix_lessor_id'],
+        'mapping_verification_status' => ['edxeix_lessor_id'],
+    ];
+
+    foreach ($sources as $table => $choices) {
+        if (!mvr_table_exists($db, $table)) { continue; }
+        $idCol = mvr_first_col($db, $table, $choices);
+        if (!$idCol) { continue; }
+        $sql = 'SELECT DISTINCT ' . mvr_qid($idCol) . ' AS id FROM ' . mvr_qid($table)
+            . ' WHERE ' . mvr_qid($idCol) . ' IS NOT NULL AND ' . mvr_qid($idCol) . " <> '' AND " . mvr_qid($idCol) . ' <> 0';
+        foreach (mvr_fetch_all($db, $sql) as $r) {
+            $id = (int)($r['id'] ?? 0);
+            if ($id > 0) { $ids[$id] = true; }
         }
     }
-    if (mvr_table_exists($db, 'mapping_drivers')) {
-        foreach (mvr_fetch_all($db, 'SELECT DISTINCT edxeix_lessor_id AS id FROM mapping_drivers WHERE edxeix_lessor_id IS NOT NULL AND edxeix_lessor_id <> 0') as $r) { $ids[(int)$r['id']] = true; }
-    }
-    if (mvr_table_exists($db, 'mapping_vehicles')) {
-        foreach (mvr_fetch_all($db, 'SELECT DISTINCT edxeix_lessor_id AS id FROM mapping_vehicles WHERE edxeix_lessor_id IS NOT NULL AND edxeix_lessor_id <> 0') as $r) { $ids[(int)$r['id']] = true; }
-    }
-    if (mvr_table_exists($db, 'mapping_lessor_starting_points')) {
-        foreach (mvr_fetch_all($db, 'SELECT DISTINCT edxeix_lessor_id AS id FROM mapping_lessor_starting_points WHERE edxeix_lessor_id IS NOT NULL AND edxeix_lessor_id <> 0') as $r) { $ids[(int)$r['id']] = true; }
-    }
-    $out = array_keys($ids); sort($out); return $out;
+    $out = array_keys($ids);
+    sort($out);
+    return $out;
 }
-function mvr_count(mysqli $db, string $table, int $lessorId, string $extra = ''): int
+function mvr_count_active(mysqli $db, string $table, int $lessorId): int
 {
-    if (!mvr_table_exists($db, $table)) { return 0; }
-    $sql = 'SELECT COUNT(*) AS c FROM ' . $table . ' WHERE edxeix_lessor_id=' . (int)$lessorId . ' ' . $extra;
-    return (int)(mvr_fetch_one($db, $sql)['c'] ?? 0);
+    if (!mvr_table_exists($db, $table) || !mvr_has_col($db, $table, 'edxeix_lessor_id')) { return 0; }
+    $where = ' WHERE edxeix_lessor_id=' . (int)$lessorId;
+    if (mvr_has_col($db, $table, 'is_active')) { $where .= ' AND is_active=1'; }
+    return (int)(mvr_fetch_one($db, 'SELECT COUNT(*) AS c FROM ' . mvr_qid($table) . $where)['c'] ?? 0);
 }
 function mvr_override(mysqli $db, int $lessorId): ?array
 {
-    if (!mvr_table_exists($db, 'mapping_lessor_starting_points')) { return null; }
-    return mvr_fetch_one($db, 'SELECT * FROM mapping_lessor_starting_points WHERE edxeix_lessor_id=' . (int)$lessorId . ' AND is_active=1 ORDER BY updated_at DESC, id DESC LIMIT 1');
+    if (!mvr_table_exists($db, 'mapping_lessor_starting_points') || !mvr_has_col($db, 'mapping_lessor_starting_points', 'edxeix_lessor_id')) { return null; }
+    $order = mvr_has_col($db, 'mapping_lessor_starting_points', 'updated_at') ? 'updated_at DESC, ' : '';
+    $order .= mvr_has_col($db, 'mapping_lessor_starting_points', 'id') ? 'id DESC' : 'edxeix_lessor_id ASC';
+    $where = 'WHERE edxeix_lessor_id=' . (int)$lessorId;
+    if (mvr_has_col($db, 'mapping_lessor_starting_points', 'is_active')) { $where .= ' AND is_active=1'; }
+    return mvr_fetch_one($db, 'SELECT * FROM mapping_lessor_starting_points ' . $where . ' ORDER BY ' . $order . ' LIMIT 1');
 }
 function mvr_verification(mysqli $db, int $lessorId): ?array
 {
@@ -206,8 +279,8 @@ if ($db) {
         $rows[] = [
             'id' => (int)$id,
             'name' => $name,
-            'drivers' => mvr_count($db, 'mapping_drivers', (int)$id, ' AND is_active=1'),
-            'vehicles' => mvr_count($db, 'mapping_vehicles', (int)$id, ' AND is_active=1'),
+            'drivers' => mvr_count_active($db, 'mapping_drivers', (int)$id),
+            'vehicles' => mvr_count_active($db, 'mapping_vehicles', (int)$id),
             'override' => $override,
             'verification' => $verification,
         ];
