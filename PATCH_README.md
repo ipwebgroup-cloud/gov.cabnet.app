@@ -1,35 +1,45 @@
-# Phase 39 — Mapping Resolver Test
+# gov.cabnet.app Patch — Phase 40 Mapping Exception Queue
 
-Upload:
+## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/mapping-resolver-test.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mapping-resolver-test.php
+public_html/gov.cabnet.app/ops/_mapping_nav.php
+public_html/gov.cabnet.app/ops/mapping-exceptions.php
+docs/OPS_UI_SHELL_PHASE40_MAPPING_EXCEPTION_QUEUE_2026_05_12.md
+PATCH_README.md
 ```
 
-SQL: none.
+## Upload paths
 
-Verify:
+```text
+public_html/gov.cabnet.app/ops/_mapping_nav.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/_mapping_nav.php
+
+public_html/gov.cabnet.app/ops/mapping-exceptions.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mapping-exceptions.php
+```
+
+## SQL to run
+
+None.
+
+## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-resolver-test.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_mapping_nav.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-exceptions.php
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mapping-resolver-test.php
-https://gov.cabnet.app/ops/mapping-resolver-test.php?operator=WHITEBLUE%20PREMIUM%20E%20E&driver=Georgios%20Tsatsas&vehicle=XZO1837
+https://gov.cabnet.app/ops/mapping-exceptions.php
 ```
 
-Expected WHITEBLUE result:
+Expected:
 
-```text
-lessor 1756
-driver 4382
-vehicle 4327
-starting point 612164
-lessor-specific starting point YES
-```
-
-Production pre-ride tool remains unchanged.
+- login required
+- page opens in shared ops shell
+- exception queue displays
+- WHITEBLUE / 1756 is treated as critical if starting point 612164 is not active
+- production pre-ride tool remains unchanged
