@@ -1,38 +1,44 @@
-# gov.cabnet.app patch — Phase 50 Mobile Submit Readiness
+# gov.cabnet.app Phase 51 — EDXEIX Session Readiness
 
-## What changed
+## Files included
 
-Adds:
-
-```text
-public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
-```
-
-This is a read-only integration page for the future mobile/server-side EDXEIX submit workflow.
+- `public_html/gov.cabnet.app/ops/edxeix-session-readiness.php`
+- `docs/OPS_UI_SHELL_PHASE51_EDXEIX_SESSION_READINESS_2026_05_12.md`
 
 ## Upload path
 
 ```text
-public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
+public_html/gov.cabnet.app/ops/edxeix-session-readiness.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-readiness.php
 ```
 
 ## SQL
 
 None.
 
-## Verification
+## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-session-readiness.php
+```
+
+Expected:
+
+```text
+No syntax errors detected
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mobile-submit-readiness.php
+https://gov.cabnet.app/ops/edxeix-session-readiness.php
 ```
 
-## Safety
+Expected:
 
-This patch does not modify the production pre-ride tool and does not call Bolt, EDXEIX, or AADE. It does not write workflow data, stage jobs, or enable live submission.
+- login required
+- page opens in the shared ops shell
+- readiness checklist displays
+- latest sanitized submit capture metadata displays if available
+- no live submit control exists
+- production pre-ride tool remains unchanged
