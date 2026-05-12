@@ -1,68 +1,55 @@
-# gov.cabnet.app — Phase 34 Company Mapping Control
+# gov.cabnet.app — Phase 35 Mapping Governance
 
-## What changed
+## Upload paths
 
-Adds a read-only GUI page:
-
-```text
-public_html/gov.cabnet.app/ops/company-mapping-control.php
-```
-
-The page provides company/lessor mapping governance and flags missing or incorrect lessor-specific starting point overrides.
-
-## Files included
+Upload:
 
 ```text
-public_html/gov.cabnet.app/ops/company-mapping-control.php
-docs/OPS_UI_SHELL_PHASE34_COMPANY_MAPPING_CONTROL_2026_05_12.md
-PATCH_README.md
+public_html/gov.cabnet.app/ops/company-mapping-detail.php
+public_html/gov.cabnet.app/ops/starting-point-control.php
 ```
 
-## Upload path
+to:
 
 ```text
-public_html/gov.cabnet.app/ops/company-mapping-control.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/company-mapping-control.php
+/home/cabnet/public_html/gov.cabnet.app/ops/company-mapping-detail.php
+/home/cabnet/public_html/gov.cabnet.app/ops/starting-point-control.php
 ```
 
-## SQL to run
+## SQL
 
 None.
 
-## Verification command
+Uses existing tables:
+
+```text
+mapping_lessor_starting_points
+mapping_starting_points
+mapping_drivers
+mapping_vehicles
+edxeix_export_lessors
+edxeix_export_starting_points
+ops_audit_log optional
+```
+
+## Verification
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/company-mapping-control.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/company-mapping-detail.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/starting-point-control.php
+```
+
+Open:
+
+```text
+https://gov.cabnet.app/ops/company-mapping-detail.php?lessor=1756
+https://gov.cabnet.app/ops/starting-point-control.php?lessor=1756
 ```
 
 Expected:
 
-```text
-No syntax errors detected
-```
-
-## Verification URLs
-
-```text
-https://gov.cabnet.app/ops/company-mapping-control.php
-https://gov.cabnet.app/ops/company-mapping-control.php?lessor=1756
-```
-
-## Expected result
-
 - Login required.
-- Page opens inside the shared ops shell if `_shell.php` exists.
-- Company/lessor mapping health is displayed.
-- WHITEBLUE / 1756 is checked against the verified starting point `612164`.
-- Missing lessor-specific starting point overrides are flagged.
+- Detail page is read-only.
+- Starting Point Control shows WHITEBLUE / 1756 override as 612164.
+- Admin users can add/update/deactivate lessor-specific starting point override rows.
 - Production pre-ride tool remains unchanged.
-
-## Production safety
-
-This patch does not modify:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-It does not call Bolt, EDXEIX, or AADE, does not write DB rows, does not stage jobs, and does not enable live submission.
