@@ -1,37 +1,42 @@
-# gov.cabnet.app Patch — Phase 59 Mobile Submit Evidence Log
+# Phase 60 — Mobile Submit Evidence Review
 
-## Upload paths
+## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/mobile-submit-evidence-log.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence-log.php
+public_html/gov.cabnet.app/ops/mobile-submit-evidence-review.php
+docs/OPS_UI_SHELL_PHASE60_MOBILE_SUBMIT_EVIDENCE_REVIEW_2026_05_12.md
+PATCH_README.md
+```
 
-gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
+## Upload path
+
+```text
+public_html/gov.cabnet.app/ops/mobile-submit-evidence-review.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence-review.php
 ```
 
 ## SQL
 
-```bash
-mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
+None.
+
+Uses the Phase 59 table if present:
+
+```text
+mobile_submit_evidence_log
 ```
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence-log.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence-review.php
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mobile-submit-evidence-log.php
+https://gov.cabnet.app/ops/mobile-submit-evidence-review.php
 ```
 
 ## Safety
 
-- Does not modify production `/ops/pre-ride-email-tool.php`.
-- Does not call Bolt, EDXEIX, or AADE.
-- Does not stage jobs or enable live submission.
-- Stores sanitized evidence JSON only.
-- Blocks obvious raw email / secret patterns.
+This patch is read-only and does not modify `/ops/pre-ride-email-tool.php`.
