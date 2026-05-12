@@ -1,14 +1,21 @@
-# gov.cabnet.app Patch — Phase 57 Mobile Submit Trial Run
+# Phase 58 — Mobile Submit Evidence Snapshot
 
-## Upload
+## What changed
 
-Upload:
+Adds:
 
-- `public_html/gov.cabnet.app/ops/mobile-submit-trial-run.php`
+```text
+public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
+```
 
-To:
+This is a read-only evidence snapshot page for the future mobile/server-side EDXEIX submit workflow.
 
-- `/home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-trial-run.php`
+## Upload path
+
+```text
+public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
+```
 
 ## SQL
 
@@ -17,20 +24,17 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-trial-run.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-evidence.php
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/mobile-submit-trial-run.php
+https://gov.cabnet.app/ops/mobile-submit-evidence.php
 ```
 
-Expected:
+## Safety
 
-- Login required.
-- Shared ops shell loads.
-- Latest/pasted email can be evaluated.
-- Final dry-run result displays.
-- No live submit controls exist.
-- Production pre-ride tool remains unchanged.
+No Bolt calls, no EDXEIX calls, no AADE calls, no database writes, no queue staging, and no live submission behavior.
+
+The generated evidence JSON excludes raw email text and redacts token/session-sensitive placeholders.
