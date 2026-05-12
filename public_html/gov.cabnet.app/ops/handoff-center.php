@@ -70,22 +70,24 @@ Project identity:
   /home/cabnet/gov.cabnet.app_config
   /home/cabnet/gov.cabnet.app_sql
   /home/cabnet/tools/firefox-edxeix-autofill-helper
+- Live server is not a cloned Git repo. Workflow remains: ChatGPT patch ZIP → local GitHub Desktop repo → manual cPanel/server upload → live test → GitHub Desktop commit.
 
 Current operational priority:
 - The live production tool is:
   https://gov.cabnet.app/ops/pre-ride-email-tool.php
 - This page is production-critical and actively used by staff.
 - Do not modify it directly unless Andreas explicitly asks for a production hotfix.
-- Use /ops/pre-ride-email-toolv2.php for ongoing development and staged changes.
+- Use /ops/pre-ride-email-toolv2.php or separate development routes for staged changes.
 
 Current access/security state:
 - The old IP-only restriction has been replaced by the ops login system.
 - /ops/pre-ride-email-tool.php redirects unauthenticated users to /ops/login.php.
 - Server-only config files under /home/cabnet/gov.cabnet.app_config must not be committed.
 - Real config, API keys, DB passwords, tokens, cookies, sessions, AADE credentials, and raw private data must never be exposed or committed.
+- Config examples may be committed only when sanitized and placeholder-based.
 
 Current mapping governance status:
-- Mappings are a known failure point and now have their own governance pages.
+- Mappings are a confirmed failure point and now have their own governance subsystem.
 - Important mapping routes:
   /ops/mapping-center.php
   /ops/company-mapping-control.php
@@ -102,8 +104,9 @@ Current mapping governance status:
   driver Georgios Tsatsas → 4382
   vehicle XZO1837 → 4327
   starting point Ομβροδέκτης / Mykonos → 612164
-- EdxeixMappingLookup now resolves lessor first, then prefers mapping_lessor_starting_points before global starting point fallback.
+- The wrong starting point issue was found and fixed: the resolver had been falling back to a global starting point. EdxeixMappingLookup now resolves lessor first, then prefers mapping_lessor_starting_points before global fallback.
 - Any lessor without a lessor-specific starting point override must be treated as a mapping risk.
+- Before live submission, use mapping governance pages or /ops/mapping-resolver-test.php to verify lessor, driver, vehicle, and starting point.
 
 Mobile development direction:
 - Mobile must eventually be able to submit, otherwise it is not operationally complete.
@@ -116,12 +119,25 @@ Mobile development direction:
   /ops/edxeix-submit-dry-run.php
   /ops/edxeix-submit-preflight-gate.php
 - No live server-side EDXEIX submit is enabled yet.
+- Next mobile work should integrate parser, mapping resolver, lessor-specific starting point verification, dry-run payload, and preflight gate into the mobile submit dev flow while keeping final submit disabled.
 
-Current handoff package utility:
-- /ops/handoff-center.php has an admin-only Safe Handoff ZIP builder.
-- The ZIP should include live project files, a database SQL export, sanitized config placeholders, docs, and handoff files.
-- The ZIP must be treated as private operational material because the database export can contain operational/customer data.
+Current handoff package subsystem:
+- /ops/handoff-center.php has an admin-only immediate Safe Handoff ZIP download builder.
+- /ops/handoff-package-tools.php is the admin hub for the handoff package subsystem.
+- /ops/handoff-package-inspector.php checks readiness without building a ZIP.
+- /ops/handoff-package-cli.php documents CLI build/cleanup commands.
+- /ops/handoff-package-archive.php lists, downloads, deletes, and now builds archived ZIPs from the GUI with or without DATABASE_EXPORT.sql.
+- /ops/handoff-package-validator.php validates generated ZIPs without extracting them or displaying database contents.
+- CLI builder:
+  php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json
+- CLI validator:
+  php /home/cabnet/gov.cabnet.app_app/cli/validate_safe_handoff_package.php --latest
+- Build CLI packages as user cabnet when possible:
+  su -s /bin/bash cabnet -c 'php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json'
+- The ZIP includes live project files, a database SQL export when requested, sanitized config placeholders, docs, SQL files, tools, and handoff files.
+- The ZIP must be treated as private operational material when DATABASE_EXPORT.sql is included.
 - Real config values are not included; sanitized examples are generated under gov.cabnet.app_config_examples/.
+- Runtime storage/artifacts/log/temp/var paths and generated handoff packages are excluded from future package builds.
 
 Critical safety rules:
 - Do not enable automatic live EDXEIX submission unless Andreas explicitly asks.
@@ -131,6 +147,7 @@ Critical safety rules:
 - Pre-ride email parsing must not issue AADE receipts.
 - AADE receipt issuing remains separate from the pre-ride workflow.
 - Prefer read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
+- Before EDXEIX save, verify exact pickup map point/coordinates; dropdown IDs alone are not enough.
 
 Current live workflow for staff:
 1. Open https://gov.cabnet.app/ops/pre-ride-email-tool.php
@@ -153,7 +170,7 @@ Current Firefox helper rule:
 
 Current shared GUI direction:
 - A shared /ops shell has been added for the uniform EDXEIX-style operator GUI.
-- User/profile pages, preferences, activity logs, system status, deployment center, guides, tool inventory, mapping governance, mobile dev, and submit research pages have been added.
+- User/profile pages, preferences, activity logs, system status, deployment center, guides, tool inventory, mapping governance, handoff package tools, mobile dev, and submit research pages have been added.
 - The production pre-ride tool remains intentionally stable unless a production hotfix is explicitly approved.
 
 Development workflow:
@@ -168,6 +185,7 @@ Patch packaging rule:
 - Zip root must mirror live/repo structure directly.
 - Do not wrap files in an extra package folder.
 - Include only changed/added files unless Andreas asks for a full archive.
+- Exclude secrets, logs, sessions, cache, mailboxes, raw dumps, and generated private packages from patch ZIPs.
 
 Expected response style:
 - Be direct, practical, implementation-focused.
@@ -241,6 +259,12 @@ $checks = [
     'Shared ops shell' => $publicRoot . '/ops/_shell.php',
     'Ops auth prepend' => $publicRoot . '/_auth_prepend.php',
     'Safe handoff package builder' => $appRoot . '/src/Support/SafeHandoffPackageBuilder.php',
+    'Safe handoff package validator' => $appRoot . '/src/Support/SafeHandoffPackageValidator.php',
+    'CLI handoff package builder' => $appRoot . '/cli/build_safe_handoff_package.php',
+    'CLI handoff package validator' => $appRoot . '/cli/validate_safe_handoff_package.php',
+    'Handoff package tools page' => $publicRoot . '/ops/handoff-package-tools.php',
+    'Handoff package archive page' => $publicRoot . '/ops/handoff-package-archive.php',
+    'Handoff package validator page' => $publicRoot . '/ops/handoff-package-validator.php',
     'Private app bootstrap' => $appRoot . '/src/bootstrap.php',
     'OpsAuth class' => $appRoot . '/src/Auth/OpsAuth.php',
     'Pre-ride parser' => $appRoot . '/src/BoltMail/BoltPreRideEmailParser.php',
@@ -259,12 +283,12 @@ opsui_shell_begin([
     'page_title' => 'Handoff Center',
     'active_section' => 'Deployment',
     'breadcrumbs' => 'Αρχική / Διαχειριστικό / Handoff Center',
-    'safe_notice' => 'Continuity page and admin-only safe handoff ZIP builder. Real config values are never copied into the ZIP.',
+    'safe_notice' => 'Continuity page and admin-only safe handoff ZIP builder. Current-state prompt includes mapping governance, mobile submit direction, and handoff package tools. Real config values are never copied into the ZIP.',
 ]);
 ?>
 <section class="card hero neutral">
     <h1>New session handoff</h1>
-    <p>This page gives Andreas a clean, current copy/paste prompt and an admin-only safe handoff ZIP for continuity without exposing real server-only config values.</p>
+    <p>This page gives Andreas a current copy/paste prompt and an admin-only safe handoff ZIP workflow for continuity without exposing real server-only config values.</p>
     <div>
         <?= opsui_badge('PROMPT READY', 'good') ?>
         <?= opsui_badge('SAFE ZIP BUILDER', $builderInstalled ? 'good' : 'warn') ?>
@@ -273,6 +297,9 @@ opsui_shell_begin([
     </div>
     <div class="actions">
         <a class="btn" href="/ops/handoff-center.php?format=text" target="_blank" rel="noopener">Open plain text</a>
+        <a class="btn dark" href="/ops/handoff-package-tools.php">Package Tools</a>
+        <a class="btn dark" href="/ops/handoff-package-archive.php">Package Archive</a>
+        <a class="btn dark" href="/ops/handoff-package-validator.php">Package Validator</a>
         <a class="btn dark" href="/ops/deployment-center.php">Deployment Center</a>
         <a class="btn dark" href="/ops/system-status.php">System Status</a>
     </div>
