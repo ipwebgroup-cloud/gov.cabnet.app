@@ -1,47 +1,58 @@
-# gov.cabnet.app — Ops UI Shell Phase 33: EDXEIX Submit Preflight Gate
+# gov.cabnet.app patch — WHITEBLUE starting point hotfix
 
 ## What changed
 
-Adds a reusable read-only EDXEIX submit preflight gate class and a shared-shell page:
+- Updates `EdxeixMappingLookup.php` to resolve starting points by lessor first.
+- Adds a WHITEBLUE lessor-specific starting point mapping:
+  - lessor `1756`
+  - starting point `612164`
+- Leaves global starting point defaults unchanged.
+- Does not modify `/ops/pre-ride-email-tool.php`.
 
-- `gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php`
-- `public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php`
+## Files included
 
-The page parses a Bolt pre-ride email, resolves EDXEIX IDs, reads the latest sanitized submit capture metadata, and evaluates technical/live-submit blockers for the future mobile/server-side EDXEIX workflow.
-
-## Production safety
-
-This patch does not modify:
-
-- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
-
-It does not call Bolt, EDXEIX, or AADE. It does not write workflow data, stage jobs, or enable live submit.
+```text
+gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
+gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
+docs/OPS_WHITEBLUE_STARTING_POINT_HOTFIX_2026_05_12.md
+PATCH_README.md
+```
 
 ## Upload paths
 
 ```text
-gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php
-→ /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php
+gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
+→ /home/cabnet/gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
 
-public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
+gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
 ```
 
-## SQL
+## SQL to run
 
-None.
+```bash
+mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_whiteblue_starting_point_612164.sql
+```
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPreflightGate.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
 ```
 
-Open:
+Then reload the correct Bolt pre-ride email in:
 
 ```text
-https://gov.cabnet.app/ops/edxeix-submit-preflight-gate.php
+https://gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
-Expected: login required, read-only page opens, gate result displays after parsing email, live submit remains blocked.
+Expected helper IDs:
+
+```text
+Company ID: 1756
+Driver ID: 4382
+Vehicle ID: 4327
+Starting point ID: 612164
+```
+
+Do not POST unless the ride is future and the map point is confirmed.

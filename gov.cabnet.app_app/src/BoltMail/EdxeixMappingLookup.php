@@ -2,7 +2,7 @@
 /**
  * gov.cabnet.app — EDXEIX mapping lookup.
  *
- * v6.6.13-edxeix-source-of-truth
+ * v6.6.16-lessor-starting-point
  *
  * Rule:
  * - Bolt operator/fleet label is NOT the EDXEIX legal lessor source.
@@ -10,6 +10,8 @@
  * - Vehicle lessor wins when available.
  * - Driver lessor is second.
  * - Bolt operator alias is fallback only and does not make lookup production-ready.
+ * - Starting point is resolved after the EDXEIX lessor is known.
+ * - Lessor-specific starting point overrides global/default starting point.
  *
  * Safety:
  * - SELECT only.
@@ -27,7 +29,7 @@ use Throwable;
 
 final class EdxeixMappingLookup
 {
-    public const VERSION = 'v6.6.13-edxeix-source-of-truth';
+    public const VERSION = 'v6.6.16-lessor-starting-point';
 
     private mysqli $db;
 
@@ -36,6 +38,10 @@ final class EdxeixMappingLookup
         $this->db = $db;
     }
 
+    /**
+     * @param array<string,mixed> $fields
+     * @return array<string,mixed>
+     */
     public function lookup(array $fields): array
     {
         $messages = ['Lookup engine: ' . self::VERSION];
@@ -47,7 +53,6 @@ final class EdxeixMappingLookup
 
         $driver = $this->findDriver($driverName, $warnings);
         $vehicle = $this->findVehicle($vehiclePlate, $warnings);
-        $startingPoint = $this->findStartingPoint($warnings);
 
         $operatorLessor = $this->knownOperatorAlias($operator);
         $driverLessor = trim((string)($driver['lessor_id'] ?? ''));
@@ -77,6 +82,8 @@ final class EdxeixMappingLookup
             $warnings[] = 'Company/lessor was resolved only from Bolt operator alias. This is not production-safe; map driver or vehicle to its EDXEIX lessor.';
         }
 
+        $startingPoint = $this->findStartingPoint($warnings, $lessorId);
+
         if ($lessorId !== '') {
             $messages[] = 'Company/lessor ID resolved: ' . $lessorSource . ' → ' . $lessorId;
         } else {
@@ -103,9 +110,12 @@ final class EdxeixMappingLookup
 
         if (($startingPoint['id'] ?? '') !== '') {
             $messages[] = 'Starting point ID resolved: ' . ($startingPoint['label'] ?? 'starting point') . ' → ' . $startingPoint['id'];
+            if (!empty($startingPoint['source'])) {
+                $messages[] = 'Starting point source: ' . $startingPoint['source'];
+            }
         } else {
-            $startingPoint = ['id' => '', 'label' => ''];
-            $warnings[] = 'Starting point ID was not found in DB. Browser helper should select from live EDXEIX options.';
+            $startingPoint = ['id' => '', 'label' => '', 'source' => ''];
+            $warnings[] = 'Starting point ID was not found in DB. Browser helper must not guess; choose manually or add a verified mapping.';
         }
 
         if ($operatorLessor !== '' && $lessorId !== '' && $operatorLessor !== $lessorId) {
@@ -117,6 +127,7 @@ final class EdxeixMappingLookup
             $companyTrusted &&
             (($driver['id'] ?? '') !== '') &&
             (($vehicle['id'] ?? '') !== '') &&
+            (($startingPoint['id'] ?? '') !== '') &&
             $lessorId !== ''
         );
 
@@ -132,6 +143,7 @@ final class EdxeixMappingLookup
             'vehicle_label' => $vehicle['label'] ?? '',
             'starting_point_id' => $startingPoint['id'] ?? '',
             'starting_point_label' => $startingPoint['label'] ?? '',
+            'starting_point_source' => $startingPoint['source'] ?? '',
             'messages' => $messages,
             'warnings' => $warnings,
             'driver_match' => $driver,
@@ -139,6 +151,7 @@ final class EdxeixMappingLookup
         ];
     }
 
+    /** @param array<int,string> $warnings */
     private function findDriver(string $driverName, array &$warnings): array
     {
         if ($driverName === '') {
@@ -154,6 +167,10 @@ final class EdxeixMappingLookup
                 ORDER BY id DESC
                 LIMIT 5000
             ");
+
+            if (!$res) {
+                return ['id' => '', 'label' => '', 'lessor_id' => ''];
+            }
 
             $target = $this->nameNorm($driverName);
             $loose = null;
@@ -198,6 +215,7 @@ final class EdxeixMappingLookup
         }
     }
 
+    /** @param array<int,string> $warnings */
     private function findVehicle(string $plate, array &$warnings): array
     {
         if ($plate === '') {
@@ -213,6 +231,10 @@ final class EdxeixMappingLookup
                 ORDER BY id DESC
                 LIMIT 5000
             ");
+
+            if (!$res) {
+                return ['id' => '', 'label' => '', 'lessor_id' => ''];
+            }
 
             $target = $this->plateNorm($plate);
 
@@ -244,9 +266,41 @@ final class EdxeixMappingLookup
         }
     }
 
-    private function findStartingPoint(array &$warnings): array
+    /** @param array<int,string> $warnings */
+    private function findStartingPoint(array &$warnings, string $lessorId = ''): array
     {
+        $lessorId = trim($lessorId);
+
         try {
+            if ($lessorId !== '' && $this->tableExists('mapping_lessor_starting_points')) {
+                $sql = "
+                    SELECT id, edxeix_lessor_id, internal_key, label, edxeix_starting_point_id
+                    FROM mapping_lessor_starting_points
+                    WHERE is_active = 1
+                      AND edxeix_lessor_id = ?
+                      AND edxeix_starting_point_id IS NOT NULL
+                      AND edxeix_starting_point_id <> ''
+                    ORDER BY
+                      CASE WHEN internal_key IN ('default', 'whiteblue_default', 'edra_mas') THEN 0 ELSE 1 END,
+                      id ASC
+                    LIMIT 1
+                ";
+                $stmt = $this->db->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param('s', $lessorId);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    if (is_array($row) && trim((string)$row['edxeix_starting_point_id']) !== '') {
+                        return [
+                            'id' => trim((string)$row['edxeix_starting_point_id']),
+                            'label' => (string)($row['label'] ?: $row['internal_key']),
+                            'source' => 'mapping_lessor_starting_points lessor ' . $lessorId,
+                            'db_row_id' => (string)($row['id'] ?? ''),
+                        ];
+                    }
+                }
+            }
+
             $res = $this->db->query("
                 SELECT id, internal_key, label, edxeix_starting_point_id
                 FROM mapping_starting_points
@@ -267,13 +321,30 @@ final class EdxeixMappingLookup
                 return [
                     'id' => trim((string)$row['edxeix_starting_point_id']),
                     'label' => (string)($row['label'] ?: $row['internal_key']),
+                    'source' => 'mapping_starting_points global fallback',
+                    'db_row_id' => (string)($row['id'] ?? ''),
                 ];
             }
 
-            return ['id' => '', 'label' => ''];
+            return ['id' => '', 'label' => '', 'source' => ''];
         } catch (Throwable $e) {
             $warnings[] = 'Starting point lookup DB error: ' . $e->getMessage();
-            return ['id' => '', 'label' => ''];
+            return ['id' => '', 'label' => '', 'source' => ''];
+        }
+    }
+
+    private function tableExists(string $table): bool
+    {
+        try {
+            $stmt = $this->db->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
+            if (!$stmt) {
+                return false;
+            }
+            $stmt->bind_param('s', $table);
+            $stmt->execute();
+            return (bool)$stmt->get_result()->fetch_assoc();
+        } catch (Throwable) {
+            return false;
         }
     }
 
