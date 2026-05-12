@@ -1,63 +1,97 @@
-# gov.cabnet.app Patch — Phase 62 Mobile Submit QA Dashboard
+# gov.cabnet.app Patch — Phase 63 Capture Compatibility + Field Extraction Guide
 
 ## What changed
 
-Added a new read-only `/ops/mobile-submit-qa-dashboard.php` route that summarizes the future mobile/server-side EDXEIX submit readiness state.
+Adds an additive SQL compatibility migration for the sanitized EDXEIX submit capture table.
 
-It checks:
+The current capture writer stores canonical columns:
 
-1. Mapping readiness.
-2. WHITEBLUE / lessor `1756` starting point override readiness for EDXEIX starting point `612164`.
-3. Sanitized EDXEIX submit capture readiness.
-4. Dry-run support readiness.
-5. Mobile submit evidence readiness.
-6. Live-submit blocked state.
+```text
+form_action_host
+form_action_path
+required_field_names_json
+map_address_field_name
+map_lat_field_name
+map_lng_field_name
+```
 
-The production pre-ride tool is not modified.
+Some readiness/dashboard pages still read compatibility columns:
+
+```text
+action_host
+action_path
+required_field_names
+coordinate_field_names
+```
+
+This patch adds those compatibility columns and triggers so future sanitized capture rows populate both naming styles.
+
+Also adds a documentation guide with a browser-console extractor that outputs field names only, not values.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/mobile-submit-qa-dashboard.php
-docs/MOBILE_SUBMIT_QA_DASHBOARD.md
+gov.cabnet.app_sql/2026_05_12_phase63_capture_compat_aliases.sql
+docs/EDXEIX_CAPTURE_FIELD_NAME_EXTRACTION.md
 PATCH_README.md
 ```
 
 ## Exact upload paths
 
-```text
-public_html/gov.cabnet.app/ops/mobile-submit-qa-dashboard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-qa-dashboard.php
+Upload/copy:
 
-docs/MOBILE_SUBMIT_QA_DASHBOARD.md
-→ /home/cabnet/public_html/gov.cabnet.app/docs/MOBILE_SUBMIT_QA_DASHBOARD.md
+```text
+gov.cabnet.app_sql/2026_05_12_phase63_capture_compat_aliases.sql
 ```
 
-If your local GitHub Desktop repo keeps `docs/` only at repository root, keep the docs file at repo root `docs/MOBILE_SUBMIT_QA_DASHBOARD.md`; it does not need to be uploaded to public webroot unless you want it available on-server.
+To:
+
+```text
+/home/cabnet/gov.cabnet.app_sql/2026_05_12_phase63_capture_compat_aliases.sql
+```
+
+Keep docs in the GitHub Desktop repo:
+
+```text
+docs/EDXEIX_CAPTURE_FIELD_NAME_EXTRACTION.md
+PATCH_README.md
+```
+
+The docs file does not need to be uploaded to the public webroot unless you want it on-server.
 
 ## SQL to run
 
-No new SQL is included in this patch.
-
-Confirm whether Phase 59 SQL has already been applied:
+Run once:
 
 ```bash
-mysql -u cabnet_gov -p cabnet_gov -e "SHOW TABLES LIKE 'mobile_submit_evidence_log';"
-```
-
-Run this only if the table is missing:
-
-```bash
-mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_mobile_submit_evidence_log.sql
+mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase63_capture_compat_aliases.sql
 ```
 
 ## Verification commands
 
+Confirm compatibility columns exist:
+
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-qa-dashboard.php
+mysql -u cabnet_gov -p cabnet_gov -e "SHOW COLUMNS FROM ops_edxeix_submit_captures LIKE 'action_host'; SHOW COLUMNS FROM ops_edxeix_submit_captures LIKE 'action_path'; SHOW COLUMNS FROM ops_edxeix_submit_captures LIKE 'coordinate_field_names'; SHOW COLUMNS FROM ops_edxeix_submit_captures LIKE 'required_field_names';"
 ```
 
-## Verification URL
+Confirm triggers exist:
+
+```bash
+mysql -u cabnet_gov -p cabnet_gov -e "SHOW TRIGGERS LIKE 'ops_edxeix_submit_captures'\G"
+```
+
+Open:
+
+```text
+https://gov.cabnet.app/ops/edxeix-submit-capture.php
+```
+
+Save a real sanitized capture using actual EDXEIX field names only.
+Do not save placeholders.
+Do not paste token values, cookies, sessions, passwords, credentials, or passenger data.
+
+Then open:
 
 ```text
 https://gov.cabnet.app/ops/mobile-submit-qa-dashboard.php
@@ -65,22 +99,35 @@ https://gov.cabnet.app/ops/mobile-submit-qa-dashboard.php
 
 ## Expected result
 
-- Page loads behind `/ops/login.php`.
-- The page is read-only.
-- No Bolt, EDXEIX, AADE, or external API calls occur.
-- No database writes occur.
-- Production tool `/ops/pre-ride-email-tool.php` remains untouched.
-- Gate matrix clearly shows what is ready and what still needs review.
-- Live server-side EDXEIX submit remains blocked.
+After a real sanitized capture is saved:
+
+```text
+QA summary: 6/6
+CAPTURE READY
+LIVE SUBMIT BLOCKED
+```
+
+## Safety contract
+
+This patch does not:
+
+- call EDXEIX
+- call Bolt
+- call AADE
+- submit anything
+- modify the production pre-ride tool
+- store cookies, session values, CSRF token values, passwords, credentials, or private config values
+
+Live EDXEIX submit remains blocked.
 
 ## Git commit title
 
 ```text
-Add mobile submit QA dashboard
+Add EDXEIX capture compatibility aliases
 ```
 
 ## Git commit description
 
 ```text
-Adds a read-only Phase 62 mobile submit QA dashboard for the future server-side EDXEIX submit workflow. The dashboard summarizes mapping readiness, WHITEBLUE starting point override status, submit capture readiness, dry-run support, evidence log readiness, and the live-submit blocked state. No production pre-ride workflow changes, no external calls, and no live submit behavior are introduced.
+Adds an additive Phase 63 SQL migration for sanitized EDXEIX submit capture compatibility columns and triggers. The migration keeps legacy/readiness capture readers aligned with the canonical capture writer columns without enabling live submit. Also adds a field-name extraction guide for safely collecting EDXEIX form metadata without token values, cookies, credentials, or private data.
 ```
