@@ -1,28 +1,50 @@
-# Phase 53 — EDXEIX Submit Payload Validator
+# gov.cabnet.app — Phase 54 Mobile Submit Center
 
-Upload paths:
+## What changed
+
+Adds a read-only mobile submit development hub:
 
 ```text
-gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPayloadValidator.php
-→ /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPayloadValidator.php
-
-public_html/gov.cabnet.app/ops/edxeix-submit-payload-validator.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-payload-validator.php
+/ops/mobile-submit-center.php
 ```
 
-SQL: none.
+It centralizes status for:
 
-Verification:
+- mobile submit dev route
+- mobile submit readiness route
+- EDXEIX submit capture
+- EDXEIX dry-run builder
+- EDXEIX preflight gate
+- EDXEIX session readiness
+- EDXEIX disabled connector dev
+- EDXEIX payload validator
+- mapping resolver/exceptions
+- private support classes
+- relevant DB tables
+
+## Upload path
+
+```text
+public_html/gov.cabnet.app/ops/mobile-submit-center.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-center.php
+```
+
+## SQL
+
+None.
+
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Edxeix/EdxeixSubmitPayloadValidator.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-payload-validator.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-center.php
 ```
 
-URL:
+Then open:
 
 ```text
-https://gov.cabnet.app/ops/edxeix-submit-payload-validator.php
+https://gov.cabnet.app/ops/mobile-submit-center.php
 ```
 
-Production pre-ride tool remains unchanged.
+## Safety
+
+No Bolt calls, EDXEIX calls, AADE calls, workflow writes, queue staging, live submission behavior, or production pre-ride tool changes are included.
