@@ -1,33 +1,9 @@
-# gov.cabnet.app — Phase 54 Mobile Submit Center
-
-## What changed
-
-Adds a read-only mobile submit development hub:
-
-```text
-/ops/mobile-submit-center.php
-```
-
-It centralizes status for:
-
-- mobile submit dev route
-- mobile submit readiness route
-- EDXEIX submit capture
-- EDXEIX dry-run builder
-- EDXEIX preflight gate
-- EDXEIX session readiness
-- EDXEIX disabled connector dev
-- EDXEIX payload validator
-- mapping resolver/exceptions
-- private support classes
-- relevant DB tables
+# Phase 55 — Mobile Submit Gates
 
 ## Upload path
 
-```text
-public_html/gov.cabnet.app/ops/mobile-submit-center.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-center.php
-```
+`public_html/gov.cabnet.app/ops/mobile-submit-gates.php`
+→ `/home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-gates.php`
 
 ## SQL
 
@@ -36,15 +12,20 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-center.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-gates.php
 ```
 
-Then open:
+Open:
 
 ```text
-https://gov.cabnet.app/ops/mobile-submit-center.php
+https://gov.cabnet.app/ops/mobile-submit-gates.php
 ```
 
-## Safety
+Expected:
 
-No Bolt calls, EDXEIX calls, AADE calls, workflow writes, queue staging, live submission behavior, or production pre-ride tool changes are included.
+- Login required.
+- Shared ops shell loads.
+- Gate matrix displays.
+- Latest sanitized submit capture status displays if available.
+- Live submit remains blocked.
+- Production pre-ride tool remains unchanged.
