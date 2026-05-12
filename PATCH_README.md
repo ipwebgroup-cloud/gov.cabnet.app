@@ -1,41 +1,57 @@
-# Phase 46 — Handoff Package Tools
+# gov.cabnet.app — Phase 47 Safe Handoff Builder Permission Hotfix
 
-## Upload
+## Purpose
 
-Upload:
+Fixes the CLI Safe Handoff Package Builder when it is run as the `cabnet` user and encounters unreadable runtime artifact directories, for example:
 
 ```text
-public_html/gov.cabnet.app/ops/handoff-package-tools.php
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/edxeix
 ```
 
-to:
+## What changed
+
+Updated:
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-tools.php
+gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+```
+
+The builder now:
+
+- uses a defensive recursive directory scanner instead of `RecursiveDirectoryIterator` for project packaging;
+- skips unreadable directories instead of failing the whole build;
+- excludes runtime/private generated paths such as `storage/artifacts`, `storage/logs`, `storage/tmp`, `var`, and `handoff-packages`;
+- continues to generate sanitized config examples instead of copying real config values.
+
+## Upload path
+
+```text
+gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+→ /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
 ```
 
 ## SQL
 
 None.
 
-## Verify
+## Verification
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-tools.php
-```
+php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
 
-Open:
+su -s /bin/bash cabnet -c 'php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json'
 
-```text
-https://gov.cabnet.app/ops/handoff-package-tools.php
+su -s /bin/bash cabnet -c 'php /home/cabnet/gov.cabnet.app_app/cli/validate_safe_handoff_package.php --latest'
 ```
 
 Expected:
 
-- login required
-- admin-only page opens inside shared ops shell
-- tool shortcuts display
-- private package directory status displays
-- recent package list displays if packages exist
-- no package is built by opening the page
-- production pre-ride tool remains unchanged
+```text
+No syntax errors detected
+ok=true from the builder JSON
+Status: OK from the validator
+```
+
+## Safety
+
+This patch does not call Bolt, EDXEIX, or AADE. It does not enable live submission. It does not modify the production pre-ride tool.

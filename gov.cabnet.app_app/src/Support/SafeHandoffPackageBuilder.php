@@ -126,35 +126,54 @@ MD;
     private function addDirectory(ZipArchive $zip, string $source, string $zipPrefix): void
     {
         $sourceReal = realpath($source);
-        if ($sourceReal === false || !is_dir($sourceReal)) {
+        if ($sourceReal === false || !is_dir($sourceReal) || !is_readable($sourceReal)) {
             return;
         }
 
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($sourceReal, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
+        $this->addDirectoryRecursive($zip, $sourceReal, $zipPrefix, '');
+    }
 
-        foreach ($iterator as $item) {
-            $path = $item->getPathname();
-            if ($item->isLink()) {
+    private function addDirectoryRecursive(ZipArchive $zip, string $sourceReal, string $zipPrefix, string $relativeDir): void
+    {
+        $dir = $relativeDir === '' ? $sourceReal : $sourceReal . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
+        if (!is_dir($dir) || !is_readable($dir)) {
+            return;
+        }
+
+        $items = @scandir($dir);
+        if (!is_array($items)) {
+            return;
+        }
+
+        foreach ($items as $name) {
+            if ($name === '.' || $name === '..') {
                 continue;
             }
-            $relative = ltrim(str_replace('\\', '/', substr($path, strlen($sourceReal))), '/');
-            if ($relative === '') {
+
+            $relative = ltrim($relativeDir . '/' . $name, '/');
+            $path = $dir . DIRECTORY_SEPARATOR . $name;
+
+            if (is_link($path)) {
                 continue;
             }
-            if ($this->shouldExclude($relative, $item->isDir())) {
+
+            $isDir = is_dir($path);
+            if ($this->shouldExclude($relative, $isDir)) {
                 continue;
             }
 
             $zipName = trim($zipPrefix . '/' . $relative, '/');
-            if ($item->isDir()) {
+
+            if ($isDir) {
+                if (!is_readable($path)) {
+                    continue;
+                }
                 $zip->addEmptyDir($zipName);
+                $this->addDirectoryRecursive($zip, $sourceReal, $zipPrefix, $relative);
                 continue;
             }
 
-            if (!$item->isFile() || !$item->isReadable()) {
+            if (!is_file($path) || !is_readable($path)) {
                 continue;
             }
 
@@ -171,7 +190,8 @@ MD;
         $excludedSegments = [
             '/.git/', '/.svn/', '/.hg/', '/node_modules/', '/vendor/', '/cache/', '/tmp/', '/temp/',
             '/sessions/', '/session/', '/mail/', '/maildir/', '/logs/', '/log/', '/backup/', '/backups/',
-            '/wordpress-backups/', '/.cpanel/', '/.trash/', '/access-logs/', '/storage/cache/',
+            '/wordpress-backups/', '/.cpanel/', '/.trash/', '/access-logs/', '/storage/artifacts/', '/storage/cache/',
+            '/storage/logs/', '/storage/tmp/', '/storage/temp/', '/var/', '/handoff-packages/',
         ];
         foreach ($excludedSegments as $segment) {
             if (str_contains($path . ($isDir ? '/' : ''), $segment)) {
