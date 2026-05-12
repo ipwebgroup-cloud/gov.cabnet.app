@@ -1,82 +1,101 @@
-# gov.cabnet.app Patch — Phase 65 Capture Field Alias Fix
+# gov.cabnet.app Patch — Phase 66 Lessor 2307 Starting Point Override
 
 ## What changed
 
-Adds an additive SQL migration to fix EDXEIX sanitized capture compatibility metadata.
-
-The previous compatibility trigger stripped square brackets from field names such as:
+Adds an idempotent SQL migration documenting and applying a lessor-specific starting point override:
 
 ```text
-lessee[type]
-lessee[name]
-lessee[vat_number]
-lessee[legal_representative]
+EDXEIX lessor 2307 → EDXEIX starting point 6467495
 ```
 
-The SQL recreates the triggers so bracketed field names are preserved, adds a `select_field_names` compatibility alias, and normalizes the latest sanitized `/dashboard/lease-agreement` capture so optional fields do not block dry-run validation.
+This resolves the dry-run blocker:
+
+```text
+lessor_specific_starting_point_not_verified
+```
+
+for rides mapped to lessor `2307` when the resolver returns starting point `6467495`.
 
 ## Files included
 
 ```text
-gov.cabnet.app_sql/2026_05_12_phase65_capture_field_alias_fix.sql
-docs/EDXEIX_CAPTURE_FIELD_ALIAS_FIX.md
+gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
+docs/PHASE66_LESSOR_2307_STARTING_POINT_OVERRIDE.md
 PATCH_README.md
 ```
 
 ## Exact upload paths
 
 ```text
-gov.cabnet.app_sql/2026_05_12_phase65_capture_field_alias_fix.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase65_capture_field_alias_fix.sql
+gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
 ```
 
-Keep these in the local GitHub Desktop repo:
+Keep docs in the local GitHub Desktop repo:
 
 ```text
-docs/EDXEIX_CAPTURE_FIELD_ALIAS_FIX.md
+docs/PHASE66_LESSOR_2307_STARTING_POINT_OVERRIDE.md
 PATCH_README.md
 ```
 
 ## SQL to run
 
+The live SQL was already applied manually via phpMyAdmin and inserted row ID `4`.
+
+For reproducible deployment/history, the included SQL is idempotent and can be run safely; it will not duplicate an active matching override:
+
 ```bash
-mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase65_capture_field_alias_fix.sql
+mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
 ```
 
 ## Verification commands
 
 ```bash
-mysql -u cabnet_gov -p cabnet_gov -e "SHOW COLUMNS FROM ops_edxeix_submit_captures LIKE 'select_field_names';"
-
-mysql -u cabnet_gov -p cabnet_gov -e "SELECT id, required_field_names, select_field_names, coordinate_field_names, updated_at FROM ops_edxeix_submit_captures ORDER BY id DESC LIMIT 1\G"
+mysql -u cabnet_gov -p cabnet_gov -e "SELECT id, edxeix_lessor_id, internal_key, label, edxeix_starting_point_id, is_active, updated_at FROM mapping_lessor_starting_points WHERE edxeix_lessor_id = '2307' ORDER BY id ASC;"
 ```
 
-Expected: `required_field_names` preserves `lessee[type]` and `lessee[name]`; `select_field_names` contains `lessor`, `lessee[type]`, `driver`, `vehicle`, `starting_point_id`.
+Expected:
 
-Then re-run:
+```text
+edxeix_lessor_id: 2307
+internal_key: edra_mas
+edxeix_starting_point_id: 6467495
+is_active: 1
+```
+
+## Verification URL
 
 ```text
 https://gov.cabnet.app/ops/mobile-submit-trial-run.php
 ```
 
-Use the same old Bolt ride-details email. Expected result remains blocked because the ride is old and lessor `2307` still needs lessor-specific starting-point verification, but the incorrect missing bracketed-field blockers should disappear.
+Paste the same old Bolt ride-details email and run the trial.
+
+Expected remaining blockers:
+
+```text
+pickup_not_future
+preflight_pickup_not_future
+```
+
+Expected removed blocker:
+
+```text
+lessor_specific_starting_point_not_verified
+```
 
 ## Expected result
 
-- Capture metadata preserves bracketed EDXEIX field names.
-- Select/dropdown field metadata is visible to dry-run validation.
-- Live submit remains blocked.
-- Production pre-ride tool remains unchanged.
-- Lessor `2307` starting-point override remains a separate governance task and is not added by this patch.
+The old ride remains blocked, live submit remains blocked, and the lessor-specific starting point risk for lessor `2307` is resolved.
 
 ## Git commit title
 
 ```text
-Fix EDXEIX capture field aliases
+Add lessor 2307 starting point override
 ```
 
 ## Git commit description
 
 ```text
-Adds Phase 65 SQL to preserve bracketed EDXEIX field names in sanitized capture compatibility aliases, expose select/dropdown field names, and normalize the latest lease-agreement capture metadata so optional fields do not incorrectly block dry-run validation. This is metadata-only and does not enable live EDXEIX submission or modify the production pre-ride tool.
+Adds Phase 66 SQL and documentation for the lessor-specific EDXEIX starting point override mapping lessor 2307 to starting point 6467495. The change resolves the mobile submit dry-run starting-point governance blocker while keeping live EDXEIX submission disabled and leaving the production pre-ride tool unchanged.
 ```
