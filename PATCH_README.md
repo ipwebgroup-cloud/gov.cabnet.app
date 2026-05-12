@@ -1,79 +1,38 @@
-# Phase 49 — Handoff Center Current-State Refresh
+# gov.cabnet.app patch — Phase 50 Mobile Submit Readiness
 
 ## What changed
 
-Updates:
+Adds:
 
 ```text
-public_html/gov.cabnet.app/ops/handoff-center.php
+public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
 ```
 
-The generated handoff prompt now reflects the current project state:
-
-```text
-- mapping governance subsystem
-- WHITEBLUE / 1756 verified mapping and starting point 612164
-- mobile submit dev direction
-- EDXEIX submit research/dry-run/preflight pages
-- Safe Handoff Package tools
-- GUI Archive Package Builder
-- CLI builder and validator commands
-- database export privacy warning
-```
-
-Also adds Handoff Center quick links to:
-
-```text
-/ops/handoff-package-tools.php
-/ops/handoff-package-archive.php
-/ops/handoff-package-validator.php
-```
-
-## Production safety
-
-This patch does not modify:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-It also does not call Bolt, EDXEIX, AADE, write workflow data, stage jobs, enable live submission, or expose real config values.
+This is a read-only integration page for the future mobile/server-side EDXEIX submit workflow.
 
 ## Upload path
 
 ```text
-public_html/gov.cabnet.app/ops/handoff-center.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
 ```
 
-## SQL to run
+## SQL
 
 None.
 
 ## Verification
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
-```
-
-Expected:
-
-```text
-No syntax errors detected
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mobile-submit-readiness.php
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/handoff-center.php
-https://gov.cabnet.app/ops/handoff-center.php?format=text
+https://gov.cabnet.app/ops/mobile-submit-readiness.php
 ```
 
-Expected:
+## Safety
 
-```text
-login required
-handoff prompt includes current mapping, mobile, and package-tool state
-package tool links display
-production pre-ride tool remains unchanged
-```
+This patch does not modify the production pre-ride tool and does not call Bolt, EDXEIX, or AADE. It does not write workflow data, stage jobs, or enable live submission.
