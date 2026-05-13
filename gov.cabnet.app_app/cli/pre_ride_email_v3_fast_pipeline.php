@@ -18,7 +18,7 @@
 
 declare(strict_types=1);
 
-const PRV3_FAST_PIPELINE_VERSION = 'v3.0.35-fast-pipeline-runner';
+const PRV3_FAST_PIPELINE_VERSION = 'v3.0.36-fast-pipeline-exitcode-fix';
 
 date_default_timezone_set('Europe/Athens');
 
@@ -107,6 +107,7 @@ function prv3fp_run_command(array $args, int $timeoutSeconds = 120): array
     $stdout = '';
     $stderr = '';
     $timedOut = false;
+    $observedExitCode = null;
 
     while (true) {
         $status = proc_get_status($process);
@@ -114,6 +115,12 @@ function prv3fp_run_command(array $args, int $timeoutSeconds = 120): array
         $stderr .= stream_get_contents($pipes[2]);
 
         if (!$status['running']) {
+            // PHP can return -1 from proc_close() after proc_get_status()
+            // has already observed the child process exit code. Preserve it
+            // so successful/no-op V3 stages do not appear as pipeline failures.
+            if (isset($status['exitcode']) && (int)$status['exitcode'] >= 0) {
+                $observedExitCode = (int)$status['exitcode'];
+            }
             break;
         }
         if ((microtime(true) - $start) > $timeoutSeconds) {
@@ -134,6 +141,9 @@ function prv3fp_run_command(array $args, int $timeoutSeconds = 120): array
     fclose($pipes[1]);
     fclose($pipes[2]);
     $exitCode = proc_close($process);
+    if ($exitCode === -1 && $observedExitCode !== null) {
+        $exitCode = $observedExitCode;
+    }
 
     if ($timedOut) {
         $exitCode = 124;

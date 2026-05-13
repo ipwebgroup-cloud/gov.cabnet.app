@@ -6,7 +6,7 @@
 
 declare(strict_types=1);
 
-const V3_FAST_PIPELINE_PAGE_VERSION = 'v3.0.35-fast-pipeline-dashboard';
+const V3_FAST_PIPELINE_PAGE_VERSION = 'v3.0.36-fast-pipeline-exitcode-fix-dashboard';
 
 date_default_timezone_set('Europe/Athens');
 
@@ -76,7 +76,7 @@ body{font-family:Arial,sans-serif;background:#f4f7fb;color:#06183d;margin:0}.top
   <div class="card">
     <h1>V3 Fast Pipeline</h1>
     <p>Read-only visibility for the ordered V3 automation pipeline. This page does not run the pipeline, write to the database, or call EDXEIX/AADE.</p>
-    <span class="pill ok">READ ONLY</span><span class="pill ok">NO EDXEIX CALL</span><span class="pill ok">NO AADE CALL</span><span class="pill warn">v3.0.35-fast-pipeline-dashboard</span>
+    <span class="pill ok">READ ONLY</span><span class="pill ok">NO EDXEIX CALL</span><span class="pill ok">NO AADE CALL</span><span class="pill warn">v3.0.36-fast-pipeline-exitcode-fix-dashboard</span>
   </div>
   <?php if ($error !== ''): ?><div class="card"><span class="pill bad">Error</span> <?=h($error)?></div><?php endif; ?>
   <div class="card">

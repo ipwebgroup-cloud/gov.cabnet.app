@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-const PRV3_FAST_PIPELINE_CRON_VERSION = 'v3.0.35-fast-pipeline-cron-worker';
+const PRV3_FAST_PIPELINE_CRON_VERSION = 'v3.0.36-fast-pipeline-exitcode-fix-cron';
 
 date_default_timezone_set('Europe/Athens');
 

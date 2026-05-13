@@ -1,27 +1,21 @@
-# gov.cabnet.app Patch — V3 Fast Pipeline Runner
+# gov.cabnet.app — V3 Fast Pipeline Exit-Code Fix
+
+## What changed
+
+Fixes the V3 fast pipeline runner so successful/no-op child scripts are not incorrectly reported as `FAIL` because of PHP `proc_close()` returning `-1` after `proc_get_status()`.
 
 ## Files included
 
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_FAST_PIPELINE.md
-PATCH_README.md
-```
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php`
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline.php`
+- `docs/PRE_RIDE_EMAIL_TOOL_V3_FAST_PIPELINE_EXITCODE_FIX.md`
 
 ## Upload paths
 
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php
-
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline.php
-```
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php` → `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php`
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php` → `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline.php`
 
 ## Verify
 
@@ -34,16 +28,13 @@ php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php --li
 php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline.php --limit=50 --commit
 ```
 
-## Cron
+## Expected result
 
-```bash
-* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline.log 2>&1
-```
+With no future-safe rows, no-op stages should report `OK`, not `FAIL`. Intake may still show zero inserted if all current Maildir candidates are already past/blocked.
 
 ## Safety
 
-- Production `public_html/gov.cabnet.app/ops/pre-ride-email-tool.php` is untouched.
 - No EDXEIX call.
 - No AADE call.
 - No production submission table writes.
-- Existing V3 workers remain responsible for V3-only writes.
+- Production `pre-ride-email-tool.php` untouched.
