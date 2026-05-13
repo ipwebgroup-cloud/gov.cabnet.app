@@ -1,101 +1,87 @@
-# gov.cabnet.app Patch — Phase 66 Lessor 2307 Starting Point Override
+# Patch README — Pre-Ride Email Tool V3 Isolated
 
-## What changed
+## What this patch does
 
-Adds an idempotent SQL migration documenting and applying a lessor-specific starting point override:
-
-```text
-EDXEIX lessor 2307 → EDXEIX starting point 6467495
-```
-
-This resolves the dry-run blocker:
-
-```text
-lessor_specific_starting_point_not_verified
-```
-
-for rides mapped to lessor `2307` when the resolver returns starting point `6467495`.
+Adds a new isolated V3 pre-ride email tool without touching the existing production tool.
 
 ## Files included
 
 ```text
-gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
-docs/PHASE66_LESSOR_2307_STARTING_POINT_OVERRIDE.md
+public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+gov.cabnet.app_app/src/BoltMailV3/BoltPreRideEmailParserV3.php
+gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
+gov.cabnet.app_app/src/BoltMailV3/EdxeixMappingLookupV3.php
+tools/firefox-edxeix-autofill-helper-v3/manifest.json
+tools/firefox-edxeix-autofill-helper-v3/gov-capture-v3.js
+tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
+docs/PRE_RIDE_EMAIL_TOOL_V3_ISOLATED.md
 PATCH_README.md
 ```
 
-## Exact upload paths
+## Files deliberately not included / not touched
 
 ```text
-gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+gov.cabnet.app_app/src/BoltMail/BoltPreRideEmailParser.php
+gov.cabnet.app_app/src/BoltMail/MaildirPreRideEmailLoader.php
+gov.cabnet.app_app/src/BoltMail/EdxeixMappingLookup.php
 ```
 
-Keep docs in the local GitHub Desktop repo:
+## Upload paths
 
 ```text
-docs/PHASE66_LESSOR_2307_STARTING_POINT_OVERRIDE.md
-PATCH_README.md
+public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+
+gov.cabnet.app_app/src/BoltMailV3/BoltPreRideEmailParserV3.php
+→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/BoltPreRideEmailParserV3.php
+
+gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
+→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
+
+gov.cabnet.app_app/src/BoltMailV3/EdxeixMappingLookupV3.php
+→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/EdxeixMappingLookupV3.php
 ```
 
-## SQL to run
+Optional local Firefox helper only:
 
-The live SQL was already applied manually via phpMyAdmin and inserted row ID `4`.
-
-For reproducible deployment/history, the included SQL is idempotent and can be run safely; it will not duplicate an active matching override:
-
-```bash
-mysql -u cabnet_gov -p cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_12_phase66_lessor_2307_starting_point_override.sql
+```text
+tools/firefox-edxeix-autofill-helper-v3/
 ```
+
+## SQL
+
+No SQL required.
 
 ## Verification commands
 
 ```bash
-mysql -u cabnet_gov -p cabnet_gov -e "SELECT id, edxeix_lessor_id, internal_key, label, edxeix_starting_point_id, is_active, updated_at FROM mapping_lessor_starting_points WHERE edxeix_lessor_id = '2307' ORDER BY id ASC;"
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/BoltPreRideEmailParserV3.php
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/EdxeixMappingLookupV3.php
 ```
 
-Expected:
+## Verification URLs
 
 ```text
-edxeix_lessor_id: 2307
-internal_key: edra_mas
-edxeix_starting_point_id: 6467495
-is_active: 1
-```
-
-## Verification URL
-
-```text
-https://gov.cabnet.app/ops/mobile-submit-trial-run.php
-```
-
-Paste the same old Bolt ride-details email and run the trial.
-
-Expected remaining blockers:
-
-```text
-pickup_not_future
-preflight_pickup_not_future
-```
-
-Expected removed blocker:
-
-```text
-lessor_specific_starting_point_not_verified
+https://gov.cabnet.app/ops/pre-ride-email-toolv3.php
+https://gov.cabnet.app/ops/pre-ride-email-toolv3.php?manual=1
+https://gov.cabnet.app/ops/pre-ride-email-toolv3.php?watch=1
+https://gov.cabnet.app/ops/pre-ride-email-toolv3.php?format=json
 ```
 
 ## Expected result
 
-The old ride remains blocked, live submit remains blocked, and the lessor-specific starting point risk for lessor `2307` is resolved.
-
-## Git commit title
+The original production page continues working unchanged at:
 
 ```text
-Add lessor 2307 starting point override
+https://gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
-## Git commit description
+The new V3 test page works independently at:
 
 ```text
-Adds Phase 66 SQL and documentation for the lessor-specific EDXEIX starting point override mapping lessor 2307 to starting point 6467495. The change resolves the mobile submit dry-run starting-point governance blocker while keeping live EDXEIX submission disabled and leaving the production pre-ride tool unchanged.
+https://gov.cabnet.app/ops/pre-ride-email-toolv3.php
 ```
+

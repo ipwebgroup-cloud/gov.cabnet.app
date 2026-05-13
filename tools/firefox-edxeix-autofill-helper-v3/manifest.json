@@ -1,0 +1,37 @@
+{
+  "manifest_version": 2,
+  "name": "Gov Cabnet EDXEIX Autofill Helper V3 Isolated",
+  "version": "3.0.0",
+  "description": "Isolated V3 fill-only helper for transferring reviewed Bolt pre-ride email fields from pre-ride-email-toolv3.php into EDXEIX. No POST button.",
+  "permissions": [
+    "storage",
+    "https://gov.cabnet.app/*",
+    "https://edxeix.yme.gov.gr/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gov.cabnet.app/ops/pre-ride-email-toolv3.php*"
+      ],
+      "js": [
+        "gov-capture-v3.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://edxeix.yme.gov.gr/*"
+      ],
+      "js": [
+        "edxeix-fill-v3.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gov-cabnet-edxeix-autofill-helper-v3@cabnet.app",
+      "strict_min_version": "109.0"
+    }
+  }
+}
