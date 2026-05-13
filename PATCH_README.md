@@ -1,29 +1,31 @@
-# gov.cabnet.app — V3 Submit Dry-Run Cron Worker Patch
+# gov.cabnet.app — V3 Cron Health Page Patch
 
 ## What changed
 
-Adds a private V3-only cron worker:
+Adds a new read-only V3 cron health page:
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
 ```
 
-It automatically runs the existing V3 submit dry-run worker and can mark queued V3 rows as `submit_dry_run_ready` when strict preflight checks pass.
+The page reads V3 queue tables and V3 cron logs to show intake/submit-dry-run automation health.
 
-## Production file not touched
-
-This patch does not include or modify:
+## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_CRON_HEALTH_PAGE.md
+PATCH_README.md
 ```
 
 ## Upload path
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
 ```
+
+Docs stay in the local GitHub Desktop repo.
 
 ## SQL
 
@@ -32,23 +34,20 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
-mkdir -p /home/cabnet/gov.cabnet.app_app/logs
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php --dry-run
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log 2>&1
-tail -n 80 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
 ```
 
-## Suggested cron
+Open:
 
-```bash
-* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log 2>&1
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
 ```
 
 ## Safety
 
+- Production `/ops/pre-ride-email-tool.php` is not included.
+- Read-only page.
+- No DB writes.
 - No EDXEIX calls.
 - No AADE calls.
-- No production submission_jobs writes.
-- No production submission_attempts writes.
-- V3-only queue/status/events writes through the child dry-run worker.
+- No production queue writes.
