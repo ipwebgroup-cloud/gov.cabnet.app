@@ -1,69 +1,62 @@
-# gov.cabnet.app patch — V3 automation readiness report
+# gov.cabnet.app patch — V3 start options alias fix
 
-## What changed
+## Purpose
 
-Adds a consolidated read-only V3 automation readiness report for the Bolt pre-ride email automation chain.
+Fix the V3 submit dry-run/preflight error:
+
+```text
+Unknown column 'lessor_id' in 'SELECT'
+```
+
+The verified starting-point options table uses `edxeix_lessor_id` and `edxeix_starting_point_id`, while the V3 dry-run/preflight workers were querying `lessor_id` and `starting_point_id` directly.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_AUTOMATION_READINESS.md
+gov.cabnet.app_app/cli/fix_v3_start_options_aliases.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_START_OPTIONS_ALIAS_FIX.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
-gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
-→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
-
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
+gov.cabnet.app_app/cli/fix_v3_start_options_aliases.php
+→ /home/cabnet/gov.cabnet.app_app/cli/fix_v3_start_options_aliases.php
 ```
 
-## SQL
-
-None.
-
-## Verify
+## Run
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/fix_v3_start_options_aliases.php
+php /home/cabnet/gov.cabnet.app_app/cli/fix_v3_start_options_aliases.php --dry-run
+php /home/cabnet/gov.cabnet.app_app/cli/fix_v3_start_options_aliases.php --apply
 
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php --json
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php --status=queued --limit=20
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php --status=queued --limit=20
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php --status=queued --limit=20 --commit
 ```
 
-Open:
+## Expected
+
+The active queued row should pass the starting-point guard:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
+Starting-point guard: verified
 ```
 
-## Expected result
+If the pickup is still future-safe and all required data is present, commit mode marks it:
 
-The page should show the full V3 chain status in one place:
-
-- Schema status.
-- Queue counts.
-- Cron freshness.
-- Disabled live-submit config state.
-- Safety state.
-- Next recommended action.
+```text
+queue_status = submit_dry_run_ready
+```
 
 ## Safety
 
-- Production `pre-ride-email-tool.php` is untouched.
-- No EDXEIX calls.
-- No AADE calls.
-- No database writes.
-- No production `submission_jobs` writes.
-- No production `submission_attempts` writes.
+- No EDXEIX call.
+- No AADE call.
+- No production submission table writes.
+- Production pre-ride-email-tool.php untouched.
