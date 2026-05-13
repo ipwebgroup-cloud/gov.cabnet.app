@@ -1,28 +1,84 @@
-# gov.cabnet.app V3 helper starting-point retry patch
+# gov.cabnet.app — V3 Starting-Point Guard Patch
 
-## Upload / replace locally
+## What changed
 
-Replace these files in the local GitHub Desktop repo and reload the temporary Firefox extension:
+Adds V3-only verified EDXEIX starting-point options and a guard worker that blocks active V3 queue rows when their `starting_point_id` is known-invalid for the selected lessor.
+
+## Files included
 
 ```text
-tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
-tools/firefox-edxeix-autofill-helper-v3/manifest.json
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
+gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
+docs/PRE_RIDE_EMAIL_TOOL_V3_STARTING_POINT_GUARD.md
+PATCH_README.md
 ```
 
-## Server files
-
-None.
-
-## Production safety
-
-This patch does not include or modify:
+## Production file not touched
 
 ```text
 public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
-## What changed
+## Upload paths
 
-The V3 helper now retries the EDXEIX starting-point dropdown more aggressively and can detect it by multiple field names or by the Greek label `Σημείο έναρξης`.
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
 
-It remains fill-only and does not submit to EDXEIX.
+gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
+
+gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
+
+gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
+```
+
+## SQL
+
+```bash
+mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
+```
+
+## Verify
+
+```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
+```
+
+## Dry-run
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php --limit=50
+```
+
+## Commit guard action
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php --limit=50 --commit
+```
+
+## Suggested cron
+
+```cron
+* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_starting_point_guard_cron.log 2>&1
+```
+
+## Page
+
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
+```
+
+## Safety
+
+- No EDXEIX calls.
+- No AADE calls.
+- No production route changes.
+- No production queue writes.
+- Guard commit writes only to V3 queue/status/events.
