@@ -1,77 +1,38 @@
-# Patch: V3 Fast Queue Intake Gate
-
-## What changed
-
-This patch lowers the isolated V3 queue-intake future gate from 20 minutes to 1 minute so real Bolt pre-ride emails that arrive only a few minutes before pickup can be queued automatically.
-
-It keeps EDXEIX live submission disabled.
-
-## Files included
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_FAST_INTAKE_GATE.md
-PATCH_README.md
-```
-
-## Production file not included
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
+# gov.cabnet.app — V3 Queue Helper Handoff Patch
 
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
 ```
 
-## SQL
+Local Firefox helper file:
 
-None.
+```text
+tools/firefox-edxeix-autofill-helper-v3/manifest.json
+→ reload this helper locally in Firefox from the repo/tools folder
+```
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
 ```
 
-Run cron worker once and write to the same log path cron uses:
+Open:
 
-```bash
-mkdir -p /home/cabnet/gov.cabnet.app_app/logs
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log 2>&1
-tail -n 80 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-queue.php
 ```
 
-Check V3 queue rows:
+Select a queue row. If it is still future-safe, use:
 
-```bash
-mysql cabnet_gov -e "SELECT id, dedupe_key, queue_status, customer_name, pickup_datetime, driver_name, vehicle_plate, created_at FROM pre_ride_email_v3_queue ORDER BY id DESC LIMIT 10;"
+```text
+Save selected row to V3 helper
+Save + open EDXEIX company form
 ```
-
-## Expected result
-
-A real Bolt pre-ride email that arrives at least 1 minute before pickup can be inserted into the V3-only queue automatically by cron.
-
-Past rides remain blocked.
 
 ## Safety
 
-- No production pre-ride tool changes.
-- No production `submission_jobs` writes.
-- No production `submission_attempts` writes.
-- No EDXEIX server-side call.
-- No AADE call.
-- No email delete/move/mark-read.
+No production `pre-ride-email-tool.php` change. No DB writes from dashboard. No EDXEIX submit. No AADE.
