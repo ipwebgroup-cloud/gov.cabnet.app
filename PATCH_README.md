@@ -1,51 +1,34 @@
-# gov.cabnet.app — V3 Live Readiness Page Fix
+# gov.cabnet.app V3 live-submit disabled scaffold patch
 
-## What changed
-
-Fixes the V3 Live-Submit Readiness dashboard display query so it reads verified starting-point options using the actual table columns.
-
-## Files included
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_READINESS_PAGE_FIX.md
-PATCH_README.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php
+
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php
+
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php
 ```
-
-## Upload path
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
-```
-
-## SQL
-
-None.
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php
+
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php --limit=20
 ```
 
-Open:
+## Suggested cron
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
-```
-
-Expected:
-
-```text
-No Unknown column lessor_id error.
-Verified start options shows 2 for lessor 2307.
+```bash
+* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_live_submit_cron.log 2>&1
 ```
 
 ## Safety
 
-- Production pre-ride-email-tool.php untouched.
-- No DB writes.
-- No EDXEIX calls.
-- No AADE calls.
-- No production submission_jobs/submission_attempts access.
+This patch does not submit to EDXEIX. It is a hard-disabled scaffold only.
