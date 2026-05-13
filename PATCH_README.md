@@ -1,8 +1,21 @@
-# gov.cabnet.app — V3 Candidate Scanner Patch
+# gov.cabnet.app — V3 Dry-Run Queue Preview Patch
 
-## Purpose
+## Files included
 
-V3 currently blocks correctly when the latest Maildir pre-ride email is historical. This patch makes V3 inspect recent Maildir candidates and automatically select the first future-ready candidate when available.
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_QUEUE_PREVIEW.md
+PATCH_README.md
+```
+
+## Upload path
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+```
+
+Docs remain in the local GitHub Desktop repo.
 
 ## Production isolation
 
@@ -10,25 +23,6 @@ This patch does not include or modify:
 
 ```text
 public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-## Files included
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_CANDIDATE_SCANNER.md
-PATCH_README.md
-```
-
-## Upload paths
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-
-gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
-→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
 ```
 
 ## SQL
@@ -39,7 +33,6 @@ None.
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/MaildirPreRideEmailLoaderV3.php
 ```
 
 Open:
@@ -48,8 +41,4 @@ Open:
 https://gov.cabnet.app/ops/pre-ride-email-toolv3.php
 ```
 
-Expected result:
-
-- A recent Maildir candidates table appears when server messages are available.
-- V3 auto-selects the first future-ready candidate.
-- If all candidates are past/blocked, active helper payload remains empty and diagnostic preview remains available.
+Expected result: a V3 dry-run queue preview appears under recent Maildir candidates. It shows which emails would queue later, but no queue rows are created.

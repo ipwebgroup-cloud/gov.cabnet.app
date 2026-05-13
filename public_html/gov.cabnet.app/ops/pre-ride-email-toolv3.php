@@ -21,7 +21,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const PE3_TOOL_VERSION = 'v3.0.2-isolated-candidate-scanner';
+const PE3_TOOL_VERSION = 'v3.0.4-isolated-queue-preview';
 const PE3_MIN_FUTURE_MINUTES = 20;
 const PE3_EDXEIX_CREATE_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
 
@@ -275,6 +275,40 @@ function pe3_helper_payload(array $fields, array $mapping): array
     ];
 }
 
+
+function pe3_norm_key_value($value): string
+{
+    $value = html_entity_decode(strip_tags((string)$value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = trim($value);
+    if (function_exists('mb_strtolower')) {
+        $value = mb_strtolower($value, 'UTF-8');
+    } else {
+        $value = strtolower($value);
+    }
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    return trim($value);
+}
+
+/** @param array<string,mixed> $fields @param array<string,mixed> $mapping @param array<string,mixed> $candidate */
+function pe3_candidate_dedupe_key(array $fields, array $mapping, array $candidate): string
+{
+    $parts = [
+        $fields['order_reference'] ?? '',
+        $fields['pickup_datetime_local'] ?? '',
+        $fields['customer_phone'] ?? '',
+        $fields['vehicle_plate'] ?? '',
+        $fields['driver_name'] ?? '',
+        $fields['pickup_address'] ?? '',
+        $fields['dropoff_address'] ?? '',
+        $mapping['lessor_id'] ?? '',
+    ];
+    $base = implode('|', array_map('pe3_norm_key_value', $parts));
+    if (trim(str_replace('|', '', $base)) === '') {
+        $base = pe3_norm_key_value(($candidate['source'] ?? '') . '|' . ($candidate['source_mtime'] ?? ''));
+    }
+    return 'pe3_' . substr(hash('sha256', $base), 0, 24);
+}
+
 /** @return array<string,mixed> */
 function pe3_analyze_candidate(array $candidate, int $index): array
 {
@@ -293,6 +327,15 @@ function pe3_analyze_candidate(array $candidate, int $index): array
         'ready' => false,
         'mapping_warnings' => [],
         'parser_warnings' => [],
+        'missing_count' => null,
+        'lessor_id' => '',
+        'driver_id' => '',
+        'vehicle_id' => '',
+        'starting_point_id' => '',
+        'order_reference' => '',
+        'dedupe_key' => '',
+        'queue_status' => 'blocked',
+        'block_reasons' => [],
         'error' => '',
     ];
 
@@ -306,6 +349,8 @@ function pe3_analyze_candidate(array $candidate, int $index): array
         $row['driver'] = (string)($fields['driver_name'] ?? '');
         $row['vehicle'] = (string)($fields['vehicle_plate'] ?? '');
         $row['pickup_datetime'] = (string)($fields['pickup_datetime_local'] ?? '');
+        $row['order_reference'] = (string)($fields['order_reference'] ?? '');
+        $row['missing_count'] = is_array($missing) ? count($missing) : null;
         $row['parser_warnings'] = is_array($parsed) ? ($parsed['warnings'] ?? []) : [];
 
         $lookupError = null;
@@ -314,13 +359,32 @@ function pe3_analyze_candidate(array $candidate, int $index): array
         $row['mapping_ok'] = !empty($mapping['ok']);
         $row['future_ok'] = !empty($future['ok']);
         $row['minutes_until'] = $future['minutes_until'] ?? null;
+        $row['lessor_id'] = (string)($mapping['lessor_id'] ?? '');
+        $row['driver_id'] = (string)($mapping['driver_id'] ?? '');
+        $row['vehicle_id'] = (string)($mapping['vehicle_id'] ?? '');
+        $row['starting_point_id'] = (string)($mapping['starting_point_id'] ?? '');
+        $row['dedupe_key'] = pe3_candidate_dedupe_key(is_array($fields) ? $fields : [], $mapping, $candidate);
         $row['ready'] = !empty($row['parser_ok']) && !empty($row['mapping_ok']) && !empty($row['future_ok']);
+        $row['queue_status'] = !empty($row['ready']) ? 'would_queue' : 'blocked';
         $row['mapping_warnings'] = $mapping['warnings'] ?? [];
         if ($lookupError) {
             $row['mapping_warnings'][] = $lookupError;
         }
+
+        $blockReasons = [];
+        if (empty($row['parser_ok'])) {
+            $blockReasons[] = 'Parser is not complete' . (!empty($missing) ? ': ' . implode(', ', array_map('strval', $missing)) : '.');
+        }
+        if (empty($row['mapping_ok'])) {
+            $blockReasons[] = 'EDXEIX IDs are not fully mapped.';
+        }
+        if (empty($row['future_ok'])) {
+            $blockReasons[] = (string)($future['message'] ?? 'Future-time gate failed.');
+        }
+        $row['block_reasons'] = $blockReasons;
     } catch (Throwable $e) {
         $row['error'] = $e->getMessage();
+        $row['block_reasons'] = ['Candidate analysis error: ' . $e->getMessage()];
     }
 
     return $row;
@@ -337,6 +401,8 @@ $mailLoadError = null;
 $dbLookupError = null;
 $candidateLoad = null;
 $candidateRows = [];
+$queuePlan = [];
+$queuePreviewJson = '{}';
 $selectedCandidateIndex = null;
 $autoSelectionReason = '';
 $mapping = [
@@ -449,6 +515,50 @@ $previewPayloadEnvelope = [
 $previewPayloadJson = json_encode($previewPayloadEnvelope, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
 $edxeixUrl = PE3_EDXEIX_CREATE_URL . (!empty($mapping['lessor_id']) ? ('?lessor=' . rawurlencode((string)$mapping['lessor_id'])) : '');
 
+$queuePlan = [
+    'tool_version' => PE3_TOOL_VERSION,
+    'mode' => 'dry_run_queue_preview',
+    'dry_run_only' => true,
+    'db_write' => false,
+    'edxeix_server_call' => false,
+    'aade_call' => false,
+    'ready_count' => 0,
+    'blocked_count' => 0,
+    'selected_candidate_index' => $selectedCandidateIndex,
+    'rows' => [],
+];
+foreach ($candidateRows as $row) {
+    $readyRow = !empty($row['ready']);
+    if ($readyRow) {
+        $queuePlan['ready_count']++;
+    } else {
+        $queuePlan['blocked_count']++;
+    }
+    $queuePlan['rows'][] = [
+        'candidate_number' => ((int)($row['index'] ?? 0)) + 1,
+        'selected' => ((int)($row['index'] ?? -1) === (int)$selectedCandidateIndex),
+        'queue_status' => (string)($row['queue_status'] ?? ($readyRow ? 'would_queue' : 'blocked')),
+        'dedupe_key' => (string)($row['dedupe_key'] ?? ''),
+        'source' => (string)($row['source'] ?? ''),
+        'source_mtime' => (string)($row['source_mtime'] ?? ''),
+        'customer' => (string)($row['customer'] ?? ''),
+        'driver' => (string)($row['driver'] ?? ''),
+        'vehicle' => (string)($row['vehicle'] ?? ''),
+        'pickup_datetime' => (string)($row['pickup_datetime'] ?? ''),
+        'minutes_until' => $row['minutes_until'] ?? null,
+        'lessor_id' => (string)($row['lessor_id'] ?? ''),
+        'driver_id' => (string)($row['driver_id'] ?? ''),
+        'vehicle_id' => (string)($row['vehicle_id'] ?? ''),
+        'starting_point_id' => (string)($row['starting_point_id'] ?? ''),
+        'parser_ok' => !empty($row['parser_ok']),
+        'mapping_ok' => !empty($row['mapping_ok']),
+        'future_ok' => !empty($row['future_ok']),
+        'block_reasons' => $row['block_reasons'] ?? [],
+    ];
+}
+$queuePreviewJson = json_encode($queuePlan, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
+
+
 if ($jsonMode) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
@@ -459,6 +569,7 @@ if ($jsonMode) {
         'selected_candidate_index' => $selectedCandidateIndex,
         'auto_selection_reason' => $autoSelectionReason,
         'candidate_rows' => $candidateRows,
+        'queue_plan' => $queuePlan,
         'parser_ok' => is_array($result) && empty($missing),
         'mapping_ok' => !empty($mapping['ok']),
         'future_ok' => !empty($futureGate['ok']),
@@ -487,7 +598,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <?php if ($watch): ?><meta http-equiv="refresh" content="20"><?php endif; ?>
+    <?php if ($watch && !$ready): ?><meta http-equiv="refresh" content="20"><?php endif; ?>
     <title>Bolt Pre-Ride Email Tool V3 | gov.cabnet.app</title>
     <style>
         :root{--bg:#f3f6fb;--panel:#fff;--ink:#07152f;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff;--gold:#d4922d;--purple:#6d28d9}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:18px 0 10px}p{color:var(--muted);line-height:1.45}.safety{border-left:7px solid var(--green);background:#ecfdf3}.hero{border-left:7px solid var(--purple)}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1 / -1}label{font-weight:700;font-size:13px;color:#27385f}input,textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:var(--ink)}textarea{min-height:240px;resize:vertical}.raw textarea{min-height:420px}.output textarea{min-height:150px;background:#fbfdff}.btn{display:inline-block;border:0;padding:11px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;cursor:pointer}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.dark{background:var(--slate)}.btn.gold{background:var(--gold)}.btn.purple{background:var(--purple)}.btn.light{background:#eaf1ff;color:#1e40af}.btn:disabled,.btn.disabled{opacity:.48;cursor:not-allowed}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.badge-purple{background:#ede9fe;color:#5b21b6}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:86px}.metric strong{display:block;font-size:27px;line-height:1.08;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.warnline{color:#b45309}.badline{color:#991b1b}.goodline{color:#166534}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.form-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;color:#9a3412}.stepbox{background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;color:#1e3a8a}.okbox{background:#ecfdf3;border:1px solid #bbf7d0;border-radius:10px;padding:12px;color:#14532d}.badbox{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;color:#991b1b}.code-box{font-family:Consolas,Menlo,Monaco,monospace;font-size:13px;line-height:1.35;min-height:280px;background:#0b1220;color:#dbeafe}.helper-status{display:inline-block;margin-left:8px;font-weight:700}.helper-status.ok{color:#166534}.helper-status.warn{color:#b45309}.helper-status.bad{color:#991b1b}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.candidate-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}.candidate-table th,.candidate-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.candidate-table th{background:#f8fbff;color:#27385f;white-space:nowrap}.candidate-table tr.selected{background:#eef6ff}.candidate-table tr.ready{background:#ecfdf3}.candidate-table tr.blocked{background:#fff7ed}.mini{font-size:12px;color:var(--muted)}@media(max-width:980px){.two,.three,.field-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}.raw textarea{min-height:280px}}
@@ -518,9 +629,27 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
             <?= pe3_badge('NO DB WRITE', 'good') ?>
             <?= pe3_badge('NO EDXEIX SERVER CALL', 'good') ?>
             <?= pe3_badge('NO AADE CALL', 'good') ?>
-            <?= $watch ? pe3_badge('WATCH MODE 20s', 'warn') : '' ?>
+            <?= pe3_badge('DRY-RUN QUEUE PREVIEW', 'neutral') ?>
+            <?= $watch && !$ready ? pe3_badge('WATCH MODE 20s', 'warn') : '' ?>
+            <?= $watch && $ready ? pe3_badge('WATCH READY - REFRESH STOPPED', 'good') : '' ?>
         </div>
     </section>
+
+    <?php if ($watch): ?>
+    <section class="card <?= $ready ? 'okbox' : 'stepbox' ?>" id="watchPanel">
+        <strong>V3 Watch mode:</strong>
+        <?php if ($ready): ?>
+            future-ready candidate found. Auto-refresh has stopped. Review the selected email, then use the V3 helper buttons only after visual verification.
+        <?php else: ?>
+            no future-ready candidate yet. This page refreshes every 20 seconds and will stop automatically when a future-ready candidate appears.
+        <?php endif; ?>
+        <div class="actions" style="margin-top:10px;">
+            <button class="btn light" type="button" onclick="enableWatchNotifications()">Enable browser notification</button>
+            <button class="btn dark" type="button" onclick="testWatchBeep()">Test beep</button>
+            <span id="watchNotifyStatus" class="helper-status warn">Notifications optional</span>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <section class="two">
         <form class="card raw" method="post" action="/ops/pre-ride-email-toolv3.php<?= $watch ? '?watch=1' : '' ?>" autocomplete="off">
@@ -573,6 +702,50 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
                         </tbody>
                     </table>
                 </div>
+                <h3>V3 dry-run queue preview</h3>
+                <p class="small"><strong>DRY RUN ONLY — NO DB WRITE.</strong> This previews which recent emails would become queue records later. It does not insert into any queue table and does not call EDXEIX.</p>
+                <div class="actions">
+                    <button class="btn light" type="button" onclick="copyQueuePreview()">Copy queue preview JSON</button>
+                    <span id="queuePreviewStatus" class="helper-status warn">Dry-run preview only</span>
+                </div>
+                <div class="table-wrap" style="margin-top:10px;">
+                    <table class="candidate-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Queue status</th>
+                                <th>Dedupe key</th>
+                                <th>IDs</th>
+                                <th>Block reasons</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($candidateRows as $row): ?>
+                                <tr class="<?= !empty($row['ready']) ? 'ready' : 'blocked' ?>">
+                                    <td><strong><?= pe3_h((string)((int)$row['index'] + 1)) ?></strong></td>
+                                    <td><?= !empty($row['ready']) ? pe3_badge('would queue', 'good') : pe3_badge('blocked', 'bad') ?></td>
+                                    <td><code><?= pe3_h($row['dedupe_key'] ?? '') ?></code></td>
+                                    <td class="mini">
+                                        Lessor: <?= pe3_h($row['lessor_id'] ?? '') ?><br>
+                                        Driver: <?= pe3_h($row['driver_id'] ?? '') ?><br>
+                                        Vehicle: <?= pe3_h($row['vehicle_id'] ?? '') ?><br>
+                                        Start: <?= pe3_h($row['starting_point_id'] ?? '') ?>
+                                    </td>
+                                    <td class="mini">
+                                        <?php if (!empty($row['block_reasons'])): ?>
+                                            <?php foreach ((array)$row['block_reasons'] as $reason): ?>
+                                                <div>• <?= pe3_h($reason) ?></div>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            Ready for future V3 queue insertion after explicit approval.
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <textarea id="queuePreviewJson" class="code-box" style="min-height:180px;margin-top:10px;" readonly><?= pe3_h($queuePreviewJson) ?></textarea>
             <?php endif; ?>
         </form>
 
@@ -694,6 +867,53 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
 const SAFE_SAMPLE = <?= json_encode($sample, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const V3_PAYLOAD = <?= $payloadJson ?>;
 const EDXEIX_URL = <?= json_encode($edxeixUrl, JSON_UNESCAPED_SLASHES) ?>;
+const V3_WATCH_MODE = <?= $watch ? 'true' : 'false' ?>;
+const V3_READY = <?= $ready ? 'true' : 'false' ?>;
+const V3_WATCH_MESSAGE = <?= json_encode($ready ? 'V3 future-ready Bolt pre-ride email found. Review before EDXEIX fill.' : 'V3 watch mode active. No future-ready candidate yet.', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+function watchStatus(text, cls){ const el=document.getElementById('watchNotifyStatus'); if(!el){return;} el.textContent=text; el.className='helper-status '+cls; }
+function playWatchBeep(){
+    try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) { return false; }
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.55);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.6);
+        return true;
+    } catch(e) { return false; }
+}
+function testWatchBeep(){ if (playWatchBeep()) { watchStatus('Beep tested', 'ok'); } else { watchStatus('Browser blocked sound', 'warn'); } }
+async function enableWatchNotifications(){
+    try {
+        localStorage.setItem('govCabnetV3WatchNotify', '1');
+        if (!('Notification' in window)) { watchStatus('Browser notifications unavailable; visual alert only', 'warn'); return; }
+        if (Notification.permission === 'default') { await Notification.requestPermission(); }
+        if (Notification.permission === 'granted') { watchStatus('Notifications enabled', 'ok'); }
+        else { watchStatus('Notifications not allowed; visual alert only', 'warn'); }
+    } catch(e) { watchStatus('Notification setup failed', 'bad'); }
+}
+function fireWatchReadyAlert(){
+    if (!V3_WATCH_MODE || !V3_READY) { return; }
+    document.title = 'READY - V3 Pre-Ride Email';
+    const key = 'govCabnetV3WatchReadyShown:' + (V3_PAYLOAD && V3_PAYLOAD.pickupDateTime ? V3_PAYLOAD.pickupDateTime : location.href);
+    if (sessionStorage.getItem(key)) { return; }
+    sessionStorage.setItem(key, '1');
+    const panel = document.getElementById('watchPanel');
+    if (panel) { panel.scrollIntoView({ behavior:'smooth', block:'center' }); }
+    playWatchBeep();
+    try {
+        if (localStorage.getItem('govCabnetV3WatchNotify') === '1' && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('Gov Cabnet V3 ready', { body: V3_WATCH_MESSAGE });
+        }
+    } catch(e) {}
+    watchStatus('Ready alert fired', 'ok');
+}
 function loadSample(){ document.getElementById('email_text').value = SAFE_SAMPLE; }
 function clearInput(){ document.getElementById('email_text').value = ''; }
 function setHelperStatus(text, cls){ const el=document.getElementById('helperStatus'); if(!el){return;} el.textContent=text; el.className='helper-status '+cls; }
@@ -701,6 +921,13 @@ async function copyPayload(){
     const text = document.getElementById('payloadJson').value;
     try { await navigator.clipboard.writeText(text); setHelperStatus('Payload copied', 'ok'); }
     catch(e){ setHelperStatus('Copy failed; select JSON manually', 'bad'); }
+}
+async function copyQueuePreview(){
+    const box = document.getElementById('queuePreviewJson');
+    const status = document.getElementById('queuePreviewStatus');
+    if (!box) { return; }
+    try { await navigator.clipboard.writeText(box.value); if(status){ status.textContent='Queue preview copied'; status.className='helper-status ok'; } }
+    catch(e){ if(status){ status.textContent='Copy failed; select JSON manually'; status.className='helper-status bad'; } }
 }
 async function copyPreviewPayload(){
     const box = document.getElementById('previewPayloadJson');
@@ -718,6 +945,7 @@ function saveV3PayloadAndOpen(){
     saveV3PayloadOnly();
     setTimeout(function(){ window.open(EDXEIX_URL, '_blank', 'noopener'); }, 650);
 }
+fireWatchReadyAlert();
 window.addEventListener('message', function(event){
     if (event.source !== window) { return; }
     const msg = event.data || {};
