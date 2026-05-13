@@ -1,0 +1,68 @@
+-- gov.cabnet.app — V3 pre-ride email queue foundation
+-- Additive migration only. Safe to run repeatedly.
+-- This creates V3-only queue tables. It does NOT touch production submission_jobs/submission_attempts.
+-- No EDXEIX or AADE automation is enabled by this SQL.
+
+CREATE TABLE IF NOT EXISTS pre_ride_email_v3_queue (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  dedupe_key VARCHAR(80) NOT NULL,
+  source_mailbox VARCHAR(255) NULL,
+  source_mtime DATETIME NULL,
+  source_hash CHAR(64) NULL,
+  email_hash CHAR(64) NULL,
+  order_reference VARCHAR(128) NULL,
+  queue_status VARCHAR(40) NOT NULL DEFAULT 'queued',
+  parser_ok TINYINT(1) NOT NULL DEFAULT 0,
+  mapping_ok TINYINT(1) NOT NULL DEFAULT 0,
+  future_ok TINYINT(1) NOT NULL DEFAULT 0,
+  lessor_id VARCHAR(64) NULL,
+  lessor_source VARCHAR(120) NULL,
+  driver_id VARCHAR(64) NULL,
+  vehicle_id VARCHAR(64) NULL,
+  starting_point_id VARCHAR(64) NULL,
+  customer_name VARCHAR(190) NULL,
+  customer_phone VARCHAR(64) NULL,
+  driver_name VARCHAR(190) NULL,
+  vehicle_plate VARCHAR(64) NULL,
+  pickup_datetime DATETIME NULL,
+  estimated_end_datetime DATETIME NULL,
+  minutes_until_at_intake INT NULL,
+  pickup_address TEXT NULL,
+  dropoff_address TEXT NULL,
+  price_text VARCHAR(120) NULL,
+  price_amount DECIMAL(10,2) NULL,
+  block_reasons_json LONGTEXT NULL,
+  parsed_fields_json LONGTEXT NULL,
+  payload_json LONGTEXT NULL,
+  raw_email_preview MEDIUMTEXT NULL,
+  operator_note TEXT NULL,
+  queued_at DATETIME NULL,
+  locked_at DATETIME NULL,
+  submitted_at DATETIME NULL,
+  failed_at DATETIME NULL,
+  last_error TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pre_ride_email_v3_queue_dedupe_key (dedupe_key),
+  KEY idx_pre_ride_email_v3_queue_status_pickup (queue_status, pickup_datetime),
+  KEY idx_pre_ride_email_v3_queue_pickup (pickup_datetime),
+  KEY idx_pre_ride_email_v3_queue_lessor (lessor_id),
+  KEY idx_pre_ride_email_v3_queue_driver (driver_id),
+  KEY idx_pre_ride_email_v3_queue_vehicle (vehicle_id),
+  KEY idx_pre_ride_email_v3_queue_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pre_ride_email_v3_queue_events (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  queue_id BIGINT UNSIGNED NULL,
+  dedupe_key VARCHAR(80) NULL,
+  event_type VARCHAR(60) NOT NULL,
+  event_message TEXT NULL,
+  event_payload_json LONGTEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_pre_ride_email_v3_queue_events_queue_id (queue_id),
+  KEY idx_pre_ride_email_v3_queue_events_dedupe (dedupe_key),
+  KEY idx_pre_ride_email_v3_queue_events_type_created (event_type, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

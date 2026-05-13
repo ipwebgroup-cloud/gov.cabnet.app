@@ -6,8 +6,9 @@
  * Uses v3-specific private classes under gov.cabnet.app_app/src/BoltMailV3/.
  *
  * Safety:
- * - No DB writes.
- * - No submission_jobs/submission_attempts creation.
+ * - No automatic DB writes.
+ * - Manual V3-only queue insertion is allowed only after an explicit operator click.
+ * - No production submission_jobs/submission_attempts creation.
  * - No server-side EDXEIX call.
  * - No AADE call.
  * - No raw email persistence.
@@ -21,7 +22,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const PE3_TOOL_VERSION = 'v3.0.4-isolated-queue-preview';
+const PE3_TOOL_VERSION = 'v3.0.6-isolated-manual-queue-intake';
 const PE3_MIN_FUTURE_MINUTES = 20;
 const PE3_EDXEIX_CREATE_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
 
@@ -390,6 +391,337 @@ function pe3_analyze_candidate(array $candidate, int $index): array
     return $row;
 }
 
+
+/** @return array<string,mixed> */
+function pe3_queue_schema_status(): array
+{
+    $status = [
+        'ok' => false,
+        'db_available' => false,
+        'tables' => [
+            'pre_ride_email_v3_queue' => false,
+            'pre_ride_email_v3_queue_events' => false,
+        ],
+        'message' => 'V3 queue schema has not been checked yet.',
+        'sql_file' => 'gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_queue_tables.sql',
+        'write_enabled' => false,
+    ];
+
+    $ctxError = null;
+    $ctx = pe3_app_context($ctxError);
+    if (!$ctx || !isset($ctx['db']) || !method_exists($ctx['db'], 'connection')) {
+        $status['message'] = 'DB context unavailable; V3 queue schema status cannot be checked.';
+        return $status;
+    }
+
+    try {
+        $db = $ctx['db']->connection();
+        $status['db_available'] = true;
+        $res = $db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('pre_ride_email_v3_queue','pre_ride_email_v3_queue_events')");
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $name = (string)($row['TABLE_NAME'] ?? '');
+                if (array_key_exists($name, $status['tables'])) {
+                    $status['tables'][$name] = true;
+                }
+            }
+        }
+        $status['ok'] = !in_array(false, $status['tables'], true);
+        $status['message'] = $status['ok']
+            ? 'V3 queue schema exists. This patch still keeps queue writes disabled.'
+            : 'V3 queue schema is not installed yet. Run the optional additive SQL only when approved.';
+        return $status;
+    } catch (Throwable $e) {
+        $status['message'] = 'V3 queue schema check failed: ' . $e->getMessage();
+        return $status;
+    }
+}
+
+
+/** @param array<int,mixed> $values */
+function pe3_bind_values(mysqli_stmt $stmt, array &$values): bool
+{
+    $types = str_repeat('s', count($values));
+    $refs = [];
+    $refs[] = &$types;
+    foreach ($values as $i => &$value) {
+        $refs[] = &$value;
+    }
+    return $stmt->bind_param(...$refs);
+}
+
+function pe3_nullable_string($value): ?string
+{
+    $value = trim((string)$value);
+    return $value === '' ? null : $value;
+}
+
+function pe3_decimal_or_null($value): ?string
+{
+    $value = trim((string)$value);
+    if ($value === '' || !is_numeric($value)) {
+        return null;
+    }
+    return number_format((float)$value, 2, '.', '');
+}
+
+function pe3_email_preview(string $email): string
+{
+    $text = str_replace(["\r\n", "\r"], "\n", $email);
+    $text = preg_replace('/\n{3,}/', "\n\n", $text) ?? $text;
+    $text = trim($text);
+    if (function_exists('mb_substr')) {
+        return mb_substr($text, 0, 6000, 'UTF-8');
+    }
+    return substr($text, 0, 6000);
+}
+
+/**
+ * Build a complete V3 queue record from one Maildir candidate.
+ *
+ * @param array<string,mixed> $candidate
+ * @return array<string,mixed>
+ */
+function pe3_build_queue_record_from_candidate(array $candidate, int $index): array
+{
+    $parser = new BoltPreRideEmailParserV3();
+    $emailText = (string)($candidate['email_text'] ?? '');
+    $parsed = $parser->parse($emailText);
+    $fields = is_array($parsed) ? ($parsed['fields'] ?? []) : [];
+    $missing = is_array($parsed) ? ($parsed['missing_required'] ?? []) : ['parse_failed'];
+
+    $lookupError = null;
+    $mapping = pe3_lookup_edxeix_ids(is_array($fields) ? $fields : [], $lookupError);
+    $future = pe3_future_gate(is_array($fields) ? $fields : []);
+    $parserOk = is_array($parsed) && empty($missing);
+    $mappingOk = !empty($mapping['ok']);
+    $futureOk = !empty($future['ok']);
+
+    $blockReasons = [];
+    if (!$parserOk) {
+        $blockReasons[] = 'Parser is not complete' . (!empty($missing) ? ': ' . implode(', ', array_map('strval', (array)$missing)) : '.');
+    }
+    if (!$mappingOk) {
+        $blockReasons[] = 'EDXEIX IDs are not fully mapped.';
+    }
+    if (!$futureOk) {
+        $blockReasons[] = (string)($future['message'] ?? 'Future-time gate failed.');
+    }
+    if ($lookupError) {
+        $blockReasons[] = 'DB lookup error: ' . $lookupError;
+    }
+
+    $dedupeKey = pe3_candidate_dedupe_key(is_array($fields) ? $fields : [], $mapping, $candidate);
+    $payload = pe3_helper_payload(is_array($fields) ? $fields : [], $mapping);
+
+    return [
+        'ready' => $parserOk && $mappingOk && $futureOk,
+        'dedupe_key' => $dedupeKey,
+        'source_mailbox' => (string)($candidate['source'] ?? ''),
+        'source_mtime' => pe3_nullable_string((string)($candidate['source_mtime'] ?? '')),
+        'source_hash' => hash('sha256', (string)($candidate['source'] ?? '') . '|' . (string)($candidate['source_mtime'] ?? '')),
+        'email_hash' => hash('sha256', $emailText),
+        'order_reference' => pe3_nullable_string($fields['order_reference'] ?? ''),
+        'queue_status' => 'queued',
+        'parser_ok' => $parserOk ? '1' : '0',
+        'mapping_ok' => $mappingOk ? '1' : '0',
+        'future_ok' => $futureOk ? '1' : '0',
+        'lessor_id' => pe3_nullable_string($mapping['lessor_id'] ?? ''),
+        'lessor_source' => pe3_nullable_string($mapping['lessor_source'] ?? ''),
+        'driver_id' => pe3_nullable_string($mapping['driver_id'] ?? ''),
+        'vehicle_id' => pe3_nullable_string($mapping['vehicle_id'] ?? ''),
+        'starting_point_id' => pe3_nullable_string($mapping['starting_point_id'] ?? ''),
+        'customer_name' => pe3_nullable_string($fields['customer_name'] ?? ''),
+        'customer_phone' => pe3_nullable_string($fields['customer_phone'] ?? ''),
+        'driver_name' => pe3_nullable_string($fields['driver_name'] ?? ''),
+        'vehicle_plate' => pe3_nullable_string($fields['vehicle_plate'] ?? ''),
+        'pickup_datetime' => pe3_nullable_string($fields['pickup_datetime_local'] ?? ''),
+        'estimated_end_datetime' => pe3_nullable_string($fields['end_datetime_local'] ?? ''),
+        'minutes_until_at_intake' => isset($future['minutes_until']) && $future['minutes_until'] !== null ? (string)$future['minutes_until'] : null,
+        'pickup_address' => pe3_nullable_string($fields['pickup_address'] ?? ''),
+        'dropoff_address' => pe3_nullable_string($fields['dropoff_address'] ?? ''),
+        'price_text' => pe3_nullable_string($fields['estimated_price_text'] ?? ''),
+        'price_amount' => pe3_decimal_or_null($fields['estimated_price_amount'] ?? ''),
+        'block_reasons_json' => json_encode($blockReasons, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'parsed_fields_json' => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'raw_email_preview' => pe3_email_preview($emailText),
+        'operator_note' => null,
+        'queued_at' => date('Y-m-d H:i:s'),
+        'block_reasons' => $blockReasons,
+        'candidate_number' => $index + 1,
+    ];
+}
+
+/** @return array<string,mixed> */
+function pe3_insert_queue_event(mysqli $db, ?string $queueId, string $dedupeKey, string $type, string $status, string $message, array $context = []): array
+{
+    $sql = "INSERT INTO pre_ride_email_v3_queue_events (queue_id, dedupe_key, event_type, event_status, event_message, event_context_json, created_by) VALUES (?, ?, ?, ?, ?, ?, 'v3_tool')";
+    $stmt = $db->prepare($sql);
+    if (!$stmt) {
+        return ['ok' => false, 'error' => 'Event prepare failed: ' . $db->error];
+    }
+    $contextJson = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+    $values = [$queueId, $dedupeKey, $type, $status, $message, $contextJson];
+    if (!pe3_bind_values($stmt, $values)) {
+        return ['ok' => false, 'error' => 'Event bind failed: ' . $stmt->error];
+    }
+    if (!$stmt->execute()) {
+        return ['ok' => false, 'error' => 'Event execute failed: ' . $stmt->error];
+    }
+    return ['ok' => true, 'event_id' => (string)$db->insert_id];
+}
+
+/**
+ * Explicit operator action: insert only ready future candidates into V3-only queue table.
+ * Never writes to production submission_jobs/submission_attempts.
+ *
+ * @param array<int,mixed> $candidates
+ * @param array<int,mixed> $candidateRows
+ * @param array<string,mixed> $schemaStatus
+ * @return array<string,mixed>
+ */
+function pe3_queue_ready_candidates(array $candidates, array $candidateRows, array $schemaStatus): array
+{
+    $summary = [
+        'ok' => false,
+        'requested_at' => date(DATE_ATOM),
+        'inserted' => 0,
+        'duplicates' => 0,
+        'blocked_skipped' => 0,
+        'errors' => [],
+        'rows' => [],
+        'safety' => [
+            'v3_tables_only' => true,
+            'production_submission_jobs' => false,
+            'production_submission_attempts' => false,
+            'edxeix_server_call' => false,
+            'aade_call' => false,
+        ],
+    ];
+
+    if (empty($schemaStatus['ok'])) {
+        $summary['errors'][] = 'V3 queue schema is not installed; no queue rows were written.';
+        return $summary;
+    }
+
+    $ctxError = null;
+    $ctx = pe3_app_context($ctxError);
+    if (!$ctx || !isset($ctx['db']) || !method_exists($ctx['db'], 'connection')) {
+        $summary['errors'][] = 'DB context unavailable: ' . (string)$ctxError;
+        return $summary;
+    }
+
+    try {
+        $db = $ctx['db']->connection();
+        $readyIndexes = [];
+        foreach ($candidateRows as $row) {
+            if (!empty($row['ready']) && isset($row['index'])) {
+                $readyIndexes[] = (int)$row['index'];
+            } else {
+                $summary['blocked_skipped']++;
+            }
+        }
+
+        if (empty($readyIndexes)) {
+            $summary['ok'] = true;
+            $summary['rows'][] = ['status' => 'none_ready', 'message' => 'No future-ready candidates were found; nothing was queued.'];
+            return $summary;
+        }
+
+        $columns = [
+            'dedupe_key', 'source_mailbox', 'source_mtime', 'source_hash', 'email_hash', 'order_reference', 'queue_status',
+            'parser_ok', 'mapping_ok', 'future_ok', 'lessor_id', 'lessor_source', 'driver_id', 'vehicle_id', 'starting_point_id',
+            'customer_name', 'customer_phone', 'driver_name', 'vehicle_plate', 'pickup_datetime', 'estimated_end_datetime',
+            'minutes_until_at_intake', 'pickup_address', 'dropoff_address', 'price_text', 'price_amount', 'block_reasons_json',
+            'parsed_fields_json', 'payload_json', 'raw_email_preview', 'operator_note', 'queued_at'
+        ];
+        $placeholders = implode(',', array_fill(0, count($columns), '?'));
+        $sql = 'INSERT IGNORE INTO pre_ride_email_v3_queue (' . implode(',', $columns) . ') VALUES (' . $placeholders . ')';
+        $stmt = $db->prepare($sql);
+        if (!$stmt) {
+            $summary['errors'][] = 'Queue insert prepare failed: ' . $db->error;
+            return $summary;
+        }
+
+        foreach ($readyIndexes as $idx) {
+            if (!isset($candidates[$idx]) || !is_array($candidates[$idx])) {
+                $summary['errors'][] = 'Candidate #' . ($idx + 1) . ' was not available for queue insert.';
+                continue;
+            }
+
+            $record = pe3_build_queue_record_from_candidate($candidates[$idx], $idx);
+            if (empty($record['ready'])) {
+                $summary['blocked_skipped']++;
+                $summary['rows'][] = [
+                    'candidate_number' => $idx + 1,
+                    'status' => 'blocked_at_insert_time',
+                    'dedupe_key' => (string)($record['dedupe_key'] ?? ''),
+                    'block_reasons' => $record['block_reasons'] ?? [],
+                ];
+                continue;
+            }
+
+            $values = [];
+            foreach ($columns as $col) {
+                $values[] = $record[$col] ?? null;
+            }
+            if (!pe3_bind_values($stmt, $values)) {
+                $summary['errors'][] = 'Queue insert bind failed for ' . (string)$record['dedupe_key'] . ': ' . $stmt->error;
+                continue;
+            }
+            if (!$stmt->execute()) {
+                $summary['errors'][] = 'Queue insert failed for ' . (string)$record['dedupe_key'] . ': ' . $stmt->error;
+                continue;
+            }
+
+            $inserted = ($stmt->affected_rows === 1);
+            $queueId = null;
+            if ($inserted) {
+                $summary['inserted']++;
+                $queueId = (string)$db->insert_id;
+                pe3_insert_queue_event($db, $queueId, (string)$record['dedupe_key'], 'manual_queue_intake', 'queued', 'Candidate inserted into V3 queue by explicit operator action.', [
+                    'candidate_number' => $idx + 1,
+                    'source_mailbox' => $record['source_mailbox'],
+                    'pickup_datetime' => $record['pickup_datetime'],
+                ]);
+                $status = 'inserted';
+            } else {
+                $summary['duplicates']++;
+                $status = 'duplicate_existing';
+                $sel = $db->prepare('SELECT id FROM pre_ride_email_v3_queue WHERE dedupe_key = ? LIMIT 1');
+                if ($sel) {
+                    $dedupeKey = (string)$record['dedupe_key'];
+                    $sel->bind_param('s', $dedupeKey);
+                    $sel->execute();
+                    $existing = $sel->get_result()->fetch_assoc();
+                    if (is_array($existing) && isset($existing['id'])) {
+                        $queueId = (string)$existing['id'];
+                    }
+                }
+            }
+
+            $summary['rows'][] = [
+                'candidate_number' => $idx + 1,
+                'status' => $status,
+                'queue_id' => $queueId,
+                'dedupe_key' => (string)$record['dedupe_key'],
+                'pickup_datetime' => $record['pickup_datetime'],
+                'customer_name' => $record['customer_name'],
+                'driver_id' => $record['driver_id'],
+                'vehicle_id' => $record['vehicle_id'],
+                'lessor_id' => $record['lessor_id'],
+            ];
+        }
+
+        $summary['ok'] = empty($summary['errors']);
+        return $summary;
+    } catch (Throwable $e) {
+        $summary['errors'][] = 'V3 queue intake failed: ' . $e->getMessage();
+        return $summary;
+    }
+}
+
 $manual = isset($_GET['manual']);
 $watch = isset($_GET['watch']);
 $jsonMode = (($_GET['format'] ?? '') === 'json');
@@ -403,6 +735,8 @@ $candidateLoad = null;
 $candidateRows = [];
 $queuePlan = [];
 $queuePreviewJson = '{}';
+$queueIntakeResult = null;
+$queueIntakeJson = '{}';
 $selectedCandidateIndex = null;
 $autoSelectionReason = '';
 $mapping = [
@@ -419,7 +753,7 @@ $autoLoaded = false;
 $shouldLoadCandidates = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? 'parse_pasted');
-    if ($action === 'load_latest_server_email') {
+    if ($action === 'load_latest_server_email' || $action === 'queue_ready_candidates') {
         $shouldLoadCandidates = true;
     } else {
         $rawEmail = (string)($_POST['email_text'] ?? '');
@@ -557,6 +891,16 @@ foreach ($candidateRows as $row) {
     ];
 }
 $queuePreviewJson = json_encode($queuePlan, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
+$queueSchemaStatus = pe3_queue_schema_status();
+$queueIntakeRequested = ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'queue_ready_candidates');
+if ($queueIntakeRequested) {
+    $queueIntakeResult = pe3_queue_ready_candidates(
+        is_array($candidateLoad['candidates'] ?? null) ? $candidateLoad['candidates'] : [],
+        $candidateRows,
+        $queueSchemaStatus
+    );
+    $queueIntakeJson = json_encode($queueIntakeResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
+}
 
 
 if ($jsonMode) {
@@ -570,6 +914,8 @@ if ($jsonMode) {
         'auto_selection_reason' => $autoSelectionReason,
         'candidate_rows' => $candidateRows,
         'queue_plan' => $queuePlan,
+        'queue_schema_status' => $queueSchemaStatus,
+        'queue_intake_result' => $queueIntakeResult,
         'parser_ok' => is_array($result) && empty($missing),
         'mapping_ok' => !empty($mapping['ok']),
         'future_ok' => !empty($futureGate['ok']),
@@ -617,7 +963,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
 <main class="wrap">
     <section class="card safety">
         <strong>V3 isolated route.</strong>
-        This page is independent from <code>/ops/pre-ride-email-tool.php</code>. It uses <code>BoltMailV3</code> classes only, performs no DB writes, no server-side EDXEIX call, no AADE call, and creates no queue jobs.
+        This page is independent from <code>/ops/pre-ride-email-tool.php</code>. It uses <code>BoltMailV3</code> classes only, performs no automatic DB writes, no server-side EDXEIX call, no AADE call, and never writes production submission jobs. Manual queue intake writes only to V3-only tables after an explicit click.
     </section>
 
     <section class="card hero">
@@ -630,6 +976,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
             <?= pe3_badge('NO EDXEIX SERVER CALL', 'good') ?>
             <?= pe3_badge('NO AADE CALL', 'good') ?>
             <?= pe3_badge('DRY-RUN QUEUE PREVIEW', 'neutral') ?>
+            <?= !empty($queueSchemaStatus['ok']) ? pe3_badge('MANUAL V3 QUEUE READY', 'purple') : '' ?>
             <?= $watch && !$ready ? pe3_badge('WATCH MODE 20s', 'warn') : '' ?>
             <?= $watch && $ready ? pe3_badge('WATCH READY - REFRESH STOPPED', 'good') : '' ?>
         </div>
@@ -746,6 +1093,37 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
                     </table>
                 </div>
                 <textarea id="queuePreviewJson" class="code-box" style="min-height:180px;margin-top:10px;" readonly><?= pe3_h($queuePreviewJson) ?></textarea>
+                <h3>V3 queue foundation status</h3>
+                <div class="<?= !empty($queueSchemaStatus['ok']) ? 'okbox' : 'stepbox' ?>">
+                    <strong>Schema:</strong> <?= !empty($queueSchemaStatus['ok']) ? pe3_badge('installed', 'good') : pe3_badge('not installed', 'warn') ?>
+                    <?= pe3_badge('manual V3-only queue intake', !empty($queueSchemaStatus['ok']) ? 'purple' : 'neutral') ?>
+                    <p class="small" style="margin:8px 0 0;"><?= pe3_h($queueSchemaStatus['message'] ?? '') ?></p>
+                    <p class="small" style="margin:6px 0 0;"><strong>Optional SQL:</strong> <code><?= pe3_h($queueSchemaStatus['sql_file'] ?? 'gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_queue_tables.sql') ?></code></p>
+                    <ul class="list" style="margin-top:8px;">
+                        <?php foreach (($queueSchemaStatus['tables'] ?? []) as $tableName => $exists): ?>
+                            <li><?= $exists ? '✓' : '○' ?> <code><?= pe3_h((string)$tableName) ?></code> <?= $exists ? 'exists' : 'missing' ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php $readyCandidateCount = (int)($queuePlan['ready_count'] ?? 0); ?>
+                    <div class="actions" style="margin-top:12px;">
+                        <button class="btn purple" type="submit" name="action" value="queue_ready_candidates" <?= (!empty($queueSchemaStatus['ok']) && $readyCandidateCount > 0) ? '' : 'disabled' ?> onclick="return confirm('Queue future-ready V3 candidates only? This writes only to pre_ride_email_v3_queue and does not call EDXEIX.');">Queue ready candidates to V3 table</button>
+                        <span class="helper-status warn">Eligible now: <?= pe3_h((string)$readyCandidateCount) ?></span>
+                    </div>
+                    <p class="small"><strong>Safety:</strong> this button inserts only parser+mapping+future-ready candidates into <code>pre_ride_email_v3_queue</code>. It does not touch <code>submission_jobs</code>, <code>submission_attempts</code>, AADE, or EDXEIX.</p>
+                </div>
+                <?php if (is_array($queueIntakeResult)): ?>
+                    <h3>V3 manual queue intake result</h3>
+                    <div class="<?= !empty($queueIntakeResult['ok']) ? 'okbox' : 'badbox' ?>">
+                        <strong><?= !empty($queueIntakeResult['ok']) ? 'Queue intake completed.' : 'Queue intake had errors.' ?></strong>
+                        Inserted: <?= pe3_h((string)($queueIntakeResult['inserted'] ?? 0)) ?> ·
+                        Duplicates: <?= pe3_h((string)($queueIntakeResult['duplicates'] ?? 0)) ?> ·
+                        Blocked skipped: <?= pe3_h((string)($queueIntakeResult['blocked_skipped'] ?? 0)) ?>
+                        <?php if (!empty($queueIntakeResult['errors'])): ?>
+                            <ul class="list"><?php foreach ((array)$queueIntakeResult['errors'] as $err): ?><li class="badline"><?= pe3_h($err) ?></li><?php endforeach; ?></ul>
+                        <?php endif; ?>
+                    </div>
+                    <textarea class="code-box" style="min-height:160px;margin-top:10px;" readonly><?= pe3_h($queueIntakeJson) ?></textarea>
+                <?php endif; ?>
             <?php endif; ?>
         </form>
 

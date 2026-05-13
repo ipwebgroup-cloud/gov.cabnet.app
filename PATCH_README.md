@@ -1,10 +1,18 @@
-# gov.cabnet.app — V3 Dry-Run Queue Preview Patch
+# gov.cabnet.app — V3 Manual Queue Intake Patch
+
+## Production file not touched
+
+This patch does not include or modify:
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+```
 
 ## Files included
 
 ```text
 public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_QUEUE_PREVIEW.md
+docs/PRE_RIDE_EMAIL_TOOL_V3_MANUAL_QUEUE_INTAKE.md
 PATCH_README.md
 ```
 
@@ -15,19 +23,14 @@ public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
 ```
 
-Docs remain in the local GitHub Desktop repo.
-
-## Production isolation
-
-This patch does not include or modify:
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
 ## SQL
 
-None.
+No new SQL. Requires the V3 queue tables already created:
+
+```text
+pre_ride_email_v3_queue
+pre_ride_email_v3_queue_events
+```
 
 ## Verify
 
@@ -41,4 +44,8 @@ Open:
 https://gov.cabnet.app/ops/pre-ride-email-toolv3.php
 ```
 
-Expected result: a V3 dry-run queue preview appears under recent Maildir candidates. It shows which emails would queue later, but no queue rows are created.
+## Expected result
+
+If no future-ready candidate exists, the queue button is disabled and no rows are written.
+
+If a future-ready candidate exists, the operator can click **Queue ready candidates to V3 table**. The tool inserts only eligible candidates into `pre_ride_email_v3_queue`, using `INSERT IGNORE` for dedupe safety, and writes a V3 queue event. It does not call EDXEIX or AADE and does not touch production submission tables.
