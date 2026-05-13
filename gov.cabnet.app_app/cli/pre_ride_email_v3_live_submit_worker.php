@@ -1,11 +1,12 @@
 <?php
 /**
- * gov.cabnet.app — V3 live-submit worker scaffold.
+ * gov.cabnet.app — V3 live-submit worker scaffold with master gate + approval enforcement.
  *
  * Purpose:
  * - Final pre-live worker shape for the isolated V3 queue.
  * - Reads live_submit_ready rows and performs strict final checks.
- * - DOES NOT submit to EDXEIX. Live submit is hard-disabled in this scaffold.
+ * - Enforces the V3 master gate and V3 operator approval ledger.
+ * - DOES NOT submit to EDXEIX. Live submit remains hard-disabled in this scaffold.
  *
  * Safety:
  * - No EDXEIX calls.
@@ -18,10 +19,11 @@
 
 declare(strict_types=1);
 
-const PRV3_LIVE_SUBMIT_WORKER_VERSION = 'v3.0.23-live-submit-disabled-scaffold';
+const PRV3_LIVE_SUBMIT_WORKER_VERSION = 'v3.0.27-live-submit-gate-approval-scaffold';
 const PRV3_LIVE_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const PRV3_LIVE_EVENTS_TABLE = 'pre_ride_email_v3_queue_events';
 const PRV3_LIVE_START_OPTIONS_TABLE = 'pre_ride_email_v3_starting_point_options';
+const PRV3_LIVE_APPROVAL_TABLE = 'pre_ride_email_v3_live_submit_approvals';
 const PRV3_LIVE_SUBMIT_HARD_ENABLED = false;
 
 date_default_timezone_set('Europe/Athens');
@@ -67,19 +69,28 @@ function prv3ls_print_help(): void
     echo "  php pre_ride_email_v3_live_submit_worker.php [--limit=20] [--json] [--commit-disabled-event]\n\n";
     echo "Safety:\n";
     echo "  Live EDXEIX submit is hard-disabled in this scaffold.\n";
+    echo "  The worker now requires the master gate and a valid per-row approval before a row is considered final-live eligible.\n";
     echo "  --commit-disabled-event records throttled V3-only audit events; no queue status changes.\n";
 }
 
 /** @return array<string,mixed> */
 function prv3ls_bootstrap_context(): array
 {
-    $bootstrap = dirname(__DIR__) . '/src/bootstrap.php';
+    $appRoot = dirname(__DIR__);
+    $bootstrap = $appRoot . '/src/bootstrap.php';
     if (!is_file($bootstrap)) {
         $bootstrap = dirname(__DIR__, 2) . '/src/bootstrap.php';
+        $appRoot = dirname($bootstrap, 2);
     }
     if (!is_file($bootstrap)) {
         throw new RuntimeException('Private app bootstrap not found from CLI path.');
     }
+
+    $gateFile = $appRoot . '/src/BoltMailV3/LiveSubmitGateV3.php';
+    if (!is_file($gateFile)) {
+        throw new RuntimeException('V3 LiveSubmitGateV3.php is missing. Install the live-submit master gate patch first.');
+    }
+    require_once $gateFile;
 
     $ctx = require $bootstrap;
     if (!is_array($ctx) || !isset($ctx['db']) || !method_exists($ctx['db'], 'connection')) {
@@ -196,13 +207,123 @@ function prv3ls_start_option_check(mysqli $db, string $lessorId, string $startin
 }
 
 /** @return array<string,mixed> */
-function prv3ls_check_row(mysqli $db, array $row, int $minFutureMinutes): array
+function prv3ls_gate_status(): array
+{
+    if (!class_exists('Bridge\\BoltMailV3\\LiveSubmitGateV3')) {
+        return [
+            'ok_for_future_live_submit' => false,
+            'min_future_minutes' => 1,
+            'required_queue_status' => 'live_submit_ready',
+            'operator_approval_required' => true,
+            'allowed_lessors' => [],
+            'blocks' => ['LiveSubmitGateV3 class is not loaded.'],
+            'warnings' => [],
+            'version' => 'missing',
+        ];
+    }
+    return \Bridge\BoltMailV3\LiveSubmitGateV3::evaluate();
+}
+
+/** @return array<string,mixed> */
+function prv3ls_approval_status(mysqli $db, array $row, bool $approvalRequired): array
+{
+    $queueId = (int)($row['id'] ?? 0);
+    $dedupeKey = (string)($row['dedupe_key'] ?? '');
+    $out = [
+        'required' => $approvalRequired,
+        'table_ok' => prv3ls_table_exists($db, PRV3_LIVE_APPROVAL_TABLE),
+        'present' => false,
+        'valid' => false,
+        'status' => '',
+        'approved_by' => '',
+        'approved_at' => '',
+        'expires_at' => '',
+        'revoked_at' => '',
+        'blocks' => [],
+        'warnings' => [],
+    ];
+
+    if (!$out['table_ok']) {
+        if ($approvalRequired) {
+            $out['blocks'][] = 'V3 live-submit approval table is missing.';
+        } else {
+            $out['warnings'][] = 'V3 live-submit approval table is missing, but approval is not required by gate.';
+        }
+        return $out;
+    }
+
+    $stmt = $db->prepare('SELECT approval_status, approved_by, approved_at, expires_at, revoked_at, approval_note, dedupe_key FROM ' . PRV3_LIVE_APPROVAL_TABLE . ' WHERE queue_id = ? ORDER BY id DESC LIMIT 1');
+    if (!$stmt) {
+        $out['blocks'][] = 'Could not prepare approval lookup: ' . $db->error;
+        return $out;
+    }
+    $stmt->bind_param('i', $queueId);
+    $stmt->execute();
+    $approval = $stmt->get_result()->fetch_assoc();
+    if (!is_array($approval)) {
+        if ($approvalRequired) {
+            $out['blocks'][] = 'Operator approval is required but no V3 live-submit approval exists for this row.';
+        }
+        return $out;
+    }
+
+    $out['present'] = true;
+    $out['status'] = (string)($approval['approval_status'] ?? '');
+    $out['approved_by'] = (string)($approval['approved_by'] ?? '');
+    $out['approved_at'] = (string)($approval['approved_at'] ?? '');
+    $out['expires_at'] = (string)($approval['expires_at'] ?? '');
+    $out['revoked_at'] = (string)($approval['revoked_at'] ?? '');
+
+    if ((string)($approval['dedupe_key'] ?? '') !== $dedupeKey) {
+        $out['blocks'][] = 'Approval dedupe_key does not match current queue row.';
+    }
+    if ($out['status'] !== 'approved') {
+        $out['blocks'][] = 'Approval status is not approved.';
+    }
+    if (trim($out['revoked_at']) !== '') {
+        $out['blocks'][] = 'Approval was revoked.';
+    }
+    if (trim($out['expires_at']) === '') {
+        $out['blocks'][] = 'Approval expires_at is missing.';
+    } else {
+        $expiryTs = strtotime($out['expires_at']);
+        if ($expiryTs === false || $expiryTs <= time()) {
+            $out['blocks'][] = 'Approval is expired.';
+        }
+    }
+
+    $out['valid'] = count($out['blocks']) === 0;
+    return $out;
+}
+
+/** @return array<string,mixed> */
+function prv3ls_check_row(mysqli $db, array $row, int $minFutureMinutes, array $gate): array
 {
     $blocks = [];
     $warnings = [];
 
-    if ((string)($row['queue_status'] ?? '') !== 'live_submit_ready') {
-        $blocks[] = 'queue_status is not live_submit_ready.';
+    $gateOk = !empty($gate['ok_for_future_live_submit']);
+    $operatorApprovalRequired = filter_var($gate['operator_approval_required'] ?? true, FILTER_VALIDATE_BOOLEAN);
+    $requiredStatus = trim((string)($gate['required_queue_status'] ?? 'live_submit_ready'));
+    if ($requiredStatus === '') { $requiredStatus = 'live_submit_ready'; }
+
+    if (!$gateOk) {
+        foreach ((array)($gate['blocks'] ?? []) as $block) {
+            $blocks[] = 'Master gate: ' . (string)$block;
+        }
+    }
+    foreach ((array)($gate['warnings'] ?? []) as $warning) {
+        $warnings[] = 'Master gate: ' . (string)$warning;
+    }
+
+    $lessorId = (string)($row['lessor_id'] ?? '');
+    $allowedLessors = array_map('strval', (array)($gate['allowed_lessors'] ?? []));
+    if ($allowedLessors !== [] && !in_array($lessorId, $allowedLessors, true)) {
+        $blocks[] = 'Lessor ' . $lessorId . ' is not allowed by live-submit gate config.';
+    }
+
+    if ((string)($row['queue_status'] ?? '') !== $requiredStatus) {
+        $blocks[] = 'queue_status is not required gate status ' . $requiredStatus . '.';
     }
     if ((int)($row['parser_ok'] ?? 0) !== 1) { $blocks[] = 'parser_ok is not 1.'; }
     if ((int)($row['mapping_ok'] ?? 0) !== 1) { $blocks[] = 'mapping_ok is not 1.'; }
@@ -240,9 +361,15 @@ function prv3ls_check_row(mysqli $db, array $row, int $minFutureMinutes): array
     $start = prv3ls_start_option_check($db, (string)($row['lessor_id'] ?? ''), (string)($row['starting_point_id'] ?? ''));
     if (!$start['ok']) { $blocks[] = $start['message']; }
 
+    $approval = prv3ls_approval_status($db, $row, $operatorApprovalRequired);
+    foreach ((array)$approval['blocks'] as $block) { $blocks[] = (string)$block; }
+    foreach ((array)$approval['warnings'] as $warning) { $warnings[] = (string)$warning; }
+
     if (!PRV3_LIVE_SUBMIT_HARD_ENABLED) {
         $warnings[] = 'Live EDXEIX submit is hard-disabled in this scaffold.';
     }
+
+    $rowPassesAllPreLiveGates = count($blocks) === 0;
 
     return [
         'queue_id' => (int)($row['id'] ?? 0),
@@ -258,7 +385,12 @@ function prv3ls_check_row(mysqli $db, array $row, int $minFutureMinutes): array
             'vehicle_id' => (string)($row['vehicle_id'] ?? ''),
             'starting_point_id' => (string)($row['starting_point_id'] ?? ''),
         ],
-        'eligible_for_future_live_worker' => count($blocks) === 0,
+        'gate_ok' => $gateOk,
+        'operator_approval_required' => $operatorApprovalRequired,
+        'approval' => $approval,
+        'pre_live_gates_passed' => $rowPassesAllPreLiveGates,
+        'eligible_for_future_live_worker' => $rowPassesAllPreLiveGates && PRV3_LIVE_SUBMIT_HARD_ENABLED,
+        'eligible_but_hard_disabled' => $rowPassesAllPreLiveGates && !PRV3_LIVE_SUBMIT_HARD_ENABLED,
         'live_submit_hard_enabled' => PRV3_LIVE_SUBMIT_HARD_ENABLED,
         'blocked_from_submit' => true,
         'block_reasons' => array_values(array_unique($blocks)),
@@ -304,9 +436,19 @@ $summary = [
     'min_future_minutes' => (int)$opts['min_future_minutes'],
     'schema_ok' => false,
     'start_options_ok' => false,
+    'approval_table_ok' => false,
+    'gate_ok' => false,
+    'gate_version' => '',
+    'gate_mode' => '',
+    'gate_adapter' => '',
+    'gate_config_loaded' => false,
+    'operator_approval_required' => true,
     'rows_checked' => 0,
+    'pre_live_passed_count' => 0,
     'eligible_count' => 0,
+    'eligible_but_hard_disabled_count' => 0,
     'blocked_count' => 0,
+    'valid_approval_count' => 0,
     'warning_count' => 0,
     'events_inserted' => 0,
     'live_submit_hard_enabled' => PRV3_LIVE_SUBMIT_HARD_ENABLED,
@@ -321,6 +463,7 @@ $summary = [
     'error' => '',
 ];
 $results = [];
+$gate = [];
 
 try {
     $ctx = prv3ls_bootstrap_context();
@@ -329,17 +472,37 @@ try {
     $db->set_charset('utf8mb4');
     $summary['database'] = prv3ls_db_name($db);
 
+    $gate = prv3ls_gate_status();
+    $summary['gate_ok'] = !empty($gate['ok_for_future_live_submit']);
+    $summary['gate_version'] = (string)($gate['version'] ?? '');
+    $summary['gate_mode'] = (string)($gate['mode'] ?? '');
+    $summary['gate_adapter'] = (string)($gate['adapter'] ?? '');
+    $summary['gate_config_loaded'] = !empty($gate['config_loaded']);
+    $summary['operator_approval_required'] = filter_var($gate['operator_approval_required'] ?? true, FILTER_VALIDATE_BOOLEAN);
+
+    $gateMinFuture = max(0, (int)($gate['min_future_minutes'] ?? 1));
+    $summary['min_future_minutes'] = max((int)$opts['min_future_minutes'], $gateMinFuture);
+    $requiredStatus = trim((string)($gate['required_queue_status'] ?? 'live_submit_ready'));
+    if ($requiredStatus !== '' && (string)$opts['status'] === 'live_submit_ready') {
+        $opts['status'] = $requiredStatus;
+        $summary['status_filter'] = $requiredStatus;
+    }
+
     $summary['schema_ok'] = prv3ls_table_exists($db, PRV3_LIVE_QUEUE_TABLE) && prv3ls_table_exists($db, PRV3_LIVE_EVENTS_TABLE);
     $summary['start_options_ok'] = prv3ls_table_exists($db, PRV3_LIVE_START_OPTIONS_TABLE);
+    $summary['approval_table_ok'] = prv3ls_table_exists($db, PRV3_LIVE_APPROVAL_TABLE);
     if (!$summary['schema_ok']) { throw new RuntimeException('V3 queue schema is not installed.'); }
 
     $rows = prv3ls_fetch_rows($db, (string)$opts['status'], (int)$opts['limit']);
     $summary['rows_checked'] = count($rows);
     foreach ($rows as $row) {
-        $check = prv3ls_check_row($db, $row, (int)$opts['min_future_minutes']);
+        $check = prv3ls_check_row($db, $row, (int)$summary['min_future_minutes'], $gate);
         $results[] = $check;
+        if ($check['pre_live_gates_passed']) { $summary['pre_live_passed_count']++; }
         if ($check['eligible_for_future_live_worker']) { $summary['eligible_count']++; }
-        else { $summary['blocked_count']++; }
+        if ($check['eligible_but_hard_disabled']) { $summary['eligible_but_hard_disabled_count']++; }
+        if (!$check['pre_live_gates_passed']) { $summary['blocked_count']++; }
+        if (!empty($check['approval']['valid'])) { $summary['valid_approval_count']++; }
         $summary['warning_count'] += count($check['warnings']);
 
         if ($opts['commit_disabled_event'] && !prv3ls_recent_event_exists($db, (int)$check['queue_id'], 'live_submit_hard_disabled', 60)) {
@@ -349,8 +512,8 @@ try {
                 (string)$check['dedupe_key'],
                 'live_submit_hard_disabled',
                 'blocked',
-                'V3 live-submit scaffold reached this row, but live EDXEIX submit is hard-disabled. No EDXEIX call was made.',
-                $check
+                'V3 live-submit scaffold reached this row after gate/approval enforcement, but live EDXEIX submit is hard-disabled. No EDXEIX call was made.',
+                ['gate' => $gate, 'row' => $check]
             );
             $summary['events_inserted']++;
         }
@@ -363,16 +526,17 @@ try {
 $summary['finished_at'] = (new DateTimeImmutable('now', new DateTimeZone('Europe/Athens')))->format(DATE_ATOM);
 
 if ($opts['json']) {
-    echo json_encode(['summary' => $summary, 'rows' => $results], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n";
+    echo json_encode(['summary' => $summary, 'gate' => $gate, 'rows' => $results], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n";
     exit($summary['ok'] ? 0 : 1);
 }
 
 echo 'V3 live-submit worker scaffold ' . PRV3_LIVE_SUBMIT_WORKER_VERSION . "\n";
 echo 'Mode: ' . $summary['mode'] . "\n";
 echo 'Database: ' . ($summary['database'] ?: '-') . "\n";
-echo 'Schema OK: ' . ($summary['schema_ok'] ? 'yes' : 'no') . ' | Starting-point options: ' . ($summary['start_options_ok'] ? 'yes' : 'no') . "\n";
-echo 'Rows checked: ' . $summary['rows_checked'] . ' | Eligible for future live worker: ' . $summary['eligible_count'] . ' | Blocked: ' . $summary['blocked_count'] . ' | Warnings: ' . $summary['warning_count'] . "\n";
-echo 'Events inserted: ' . $summary['events_inserted'] . ' | Live submit hard-enabled: ' . ($summary['live_submit_hard_enabled'] ? 'yes' : 'no') . "\n";
+echo 'Schema OK: ' . ($summary['schema_ok'] ? 'yes' : 'no') . ' | Starting-point options: ' . ($summary['start_options_ok'] ? 'yes' : 'no') . ' | Approval table: ' . ($summary['approval_table_ok'] ? 'yes' : 'no') . "\n";
+echo 'Master gate OK: ' . ($summary['gate_ok'] ? 'yes' : 'no') . ' | config_loaded=' . ($summary['gate_config_loaded'] ? 'yes' : 'no') . ' | mode=' . ($summary['gate_mode'] ?: '-') . ' | adapter=' . ($summary['gate_adapter'] ?: '-') . "\n";
+echo 'Rows checked: ' . $summary['rows_checked'] . ' | Pre-live passed: ' . $summary['pre_live_passed_count'] . ' | Eligible hard-enabled: ' . $summary['eligible_count'] . ' | Eligible but disabled: ' . $summary['eligible_but_hard_disabled_count'] . ' | Blocked: ' . $summary['blocked_count'] . "\n";
+echo 'Valid approvals: ' . $summary['valid_approval_count'] . ' | Warnings: ' . $summary['warning_count'] . ' | Events inserted: ' . $summary['events_inserted'] . ' | Live submit hard-enabled: ' . ($summary['live_submit_hard_enabled'] ? 'yes' : 'no') . "\n";
 
 if ($summary['error'] !== '') {
     echo 'ERROR: ' . $summary['error'] . "\n";
@@ -390,10 +554,12 @@ if (empty($results)) {
 }
 
 foreach ($results as $i => $row) {
-    echo '#' . ($i + 1) . ' ' . ($row['eligible_for_future_live_worker'] ? 'ELIGIBLE-BUT-DISABLED ' : 'BLOCKED ') . $row['dedupe_key'] . "\n";
+    $state = $row['eligible_for_future_live_worker'] ? 'ELIGIBLE-HARD-ENABLED ' : ($row['eligible_but_hard_disabled'] ? 'ELIGIBLE-BUT-HARD-DISABLED ' : 'BLOCKED ');
+    echo '#' . ($i + 1) . ' ' . $state . $row['dedupe_key'] . "\n";
     echo '  Queue ID: ' . $row['queue_id'] . ' | Pickup: ' . $row['pickup_datetime'] . ' (' . ($row['minutes_until'] === null ? '-' : $row['minutes_until'] . ' min') . ")\n";
     echo '  Transfer: ' . $row['customer_name'] . ' | ' . $row['driver_name'] . ' | ' . $row['vehicle_plate'] . "\n";
     echo '  IDs: lessor=' . $row['ids']['lessor_id'] . ' driver=' . $row['ids']['driver_id'] . ' vehicle=' . $row['ids']['vehicle_id'] . ' start=' . $row['ids']['starting_point_id'] . "\n";
+    echo '  Approval: required=' . ($row['approval']['required'] ? 'yes' : 'no') . ' present=' . ($row['approval']['present'] ? 'yes' : 'no') . ' valid=' . ($row['approval']['valid'] ? 'yes' : 'no') . "\n";
     foreach ($row['block_reasons'] as $reason) { echo '  Block: ' . $reason . "\n"; }
     foreach ($row['warnings'] as $warning) { echo '  Warning: ' . $warning . "\n"; }
 }

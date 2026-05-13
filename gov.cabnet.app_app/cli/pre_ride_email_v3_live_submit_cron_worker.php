@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — V3 live-submit cron worker scaffold.
+ * gov.cabnet.app — V3 live-submit cron worker scaffold with gate + approval enforcement.
  *
  * Safety:
  * - Calls the disabled live-submit scaffold worker only.
@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-const PRV3_LIVE_SUBMIT_CRON_VERSION = 'v3.0.23-live-submit-disabled-cron-scaffold';
+const PRV3_LIVE_SUBMIT_CRON_VERSION = 'v3.0.27-live-submit-gate-approval-cron-scaffold';
 
 date_default_timezone_set('Europe/Athens');
 
@@ -65,7 +65,7 @@ try {
         throw new RuntimeException('Missing worker: ' . $worker);
     }
 
-    prv3lsc_log('V3 live-submit cron scaffold start ' . PRV3_LIVE_SUBMIT_CRON_VERSION . ' mode=dry_run_select_only status=live_submit_ready limit=20');
+    prv3lsc_log('V3 live-submit cron scaffold start ' . PRV3_LIVE_SUBMIT_CRON_VERSION . ' mode=dry_run_select_only status=live_submit_ready limit=20 gate=required approval=required-if-configured');
 
     $cmd = escapeshellcmd(PHP_BINARY) . ' ' . escapeshellarg($worker) . ' --limit=20 --status=live_submit_ready --json';
     $lines = [];
@@ -80,9 +80,15 @@ try {
             . ' db=' . ($summary['database'] ?? '-')
             . ' schema_ok=' . (!empty($summary['schema_ok']) ? 'yes' : 'no')
             . ' start_options=' . (!empty($summary['start_options_ok']) ? 'yes' : 'no')
+            . ' approvals=' . (!empty($summary['approval_table_ok']) ? 'yes' : 'no')
+            . ' gate_ok=' . (!empty($summary['gate_ok']) ? 'yes' : 'no')
+            . ' gate_loaded=' . (!empty($summary['gate_config_loaded']) ? 'yes' : 'no')
             . ' rows=' . (int)($summary['rows_checked'] ?? 0)
-            . ' eligible=' . (int)($summary['eligible_count'] ?? 0)
+            . ' pre_live_passed=' . (int)($summary['pre_live_passed_count'] ?? 0)
+            . ' hard_enabled_eligible=' . (int)($summary['eligible_count'] ?? 0)
+            . ' disabled_eligible=' . (int)($summary['eligible_but_hard_disabled_count'] ?? 0)
             . ' blocked=' . (int)($summary['blocked_count'] ?? 0)
+            . ' valid_approvals=' . (int)($summary['valid_approval_count'] ?? 0)
             . ' warnings=' . (int)($summary['warning_count'] ?? 0)
             . ' live_hard_enabled=' . (!empty($summary['live_submit_hard_enabled']) ? 'yes' : 'no')
         );

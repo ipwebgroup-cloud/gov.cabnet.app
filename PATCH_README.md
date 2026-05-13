@@ -1,58 +1,42 @@
-# gov.cabnet.app Patch — EMT8640 Existing V3 Queue Blocker
-
-## Purpose
-
-Blocks any already-existing active V3 queue rows for vehicle `EMT8640`, completing the permanent exemption that was added to future intake/notification/invoice/submission paths.
+# gov.cabnet.app patch — V3 live-submit gate + approval enforcement
 
 ## Files included
 
-```text
-gov.cabnet.app_app/cli/block_emt8640_existing_v3_queue_rows.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-emt8640-exemption-audit.php
-docs/PRE_RIDE_EMAIL_TOOL_EMT8640_EXISTING_V3_QUEUE_BLOCKER.md
-PATCH_README.md
-```
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php`
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php`
+- `gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql`
+- `docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_SUBMIT_GATE_APPROVAL_ENFORCEMENT.md`
 
 ## Upload paths
 
-```text
-gov.cabnet.app_app/cli/block_emt8640_existing_v3_queue_rows.php
-→ /home/cabnet/gov.cabnet.app_app/cli/block_emt8640_existing_v3_queue_rows.php
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php` → `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php`
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php` → `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php`
+- `gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql` → `/home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql`
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-emt8640-exemption-audit.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-emt8640-exemption-audit.php
+## SQL
+
+```bash
+mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql
 ```
+
+Safe/idempotent. Uses `CREATE TABLE IF NOT EXISTS`.
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/block_emt8640_existing_v3_queue_rows.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-emt8640-exemption-audit.php
-```
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_cron_worker.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit.php
 
-## Dry-run
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/block_emt8640_existing_v3_queue_rows.php --limit=500
-```
-
-## Commit blocker
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/block_emt8640_existing_v3_queue_rows.php --limit=500 --commit
-```
-
-## Ops URL
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-emt8640-exemption-audit.php
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_worker.php --limit=20
 ```
 
 ## Safety
 
-- No EDXEIX call.
-- No AADE call.
-- No production submission_jobs write.
-- No production submission_attempts write.
-- No production pre-ride-email-tool.php change.
-- Commit mode writes only to V3 queue/status/events.
+- Production `pre-ride-email-tool.php` is untouched.
+- No EDXEIX calls.
+- No AADE calls.
+- No production submission table writes.
+- Live submit remains hard-disabled by code.
