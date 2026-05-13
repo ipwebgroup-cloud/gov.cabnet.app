@@ -18,7 +18,7 @@
 
 declare(strict_types=1);
 
-const V3_SUBMIT_DRY_CRON_VERSION = 'v3.0.14-submit-dry-run-cron-worker';
+const V3_SUBMIT_DRY_CRON_VERSION = 'v3.0.15-app-owned-locks';
 const DEFAULT_LIMIT = 20;
 const DEFAULT_STATUS = 'queued';
 const DEFAULT_MIN_FUTURE_MINUTES = 0;
@@ -70,7 +70,12 @@ if ($minFutureMinutes < 0 || $minFutureMinutes > 1440) {
 }
 
 $dryRun = sd3_has_flag($argv, '--dry-run');
-$lockFile = sys_get_temp_dir() . '/gov_cabnet_pre_ride_email_v3_submit_dry_run_cron_worker.lock';
+$lockDir = dirname(__DIR__) . '/storage/locks';
+if (!is_dir($lockDir) && !mkdir($lockDir, 0755, true) && !is_dir($lockDir)) {
+    sd3_line('ERROR: could not create lock directory: ' . $lockDir);
+    exit(3);
+}
+$lockFile = $lockDir . '/pre_ride_email_v3_submit_dry_run_cron_worker.lock';
 $workerScript = __DIR__ . '/pre_ride_email_v3_submit_dry_run_worker.php';
 
 sd3_line(

@@ -1,53 +1,63 @@
-# gov.cabnet.app — V3 Cron Health Page Patch
-
-## What changed
-
-Adds a new read-only V3 cron health page:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
-```
-
-The page reads V3 queue tables and V3 cron logs to show intake/submit-dry-run automation health.
+# gov.cabnet.app — V3 Cron App-Owned Locks Patch
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_CRON_HEALTH_PAGE.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_APP_LOCKS.md
 PATCH_README.md
 ```
 
-## Upload path
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
 ```
 
-Docs stay in the local GitHub Desktop repo.
+## What changed
+
+The V3 cron workers now use app-owned lock files under:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/locks/
+```
+
+instead of `/tmp`.
+
+## After upload
+
+Run:
+
+```bash
+mkdir -p /home/cabnet/gov.cabnet.app_app/storage/locks
+chown -R cabnet:cabnet /home/cabnet/gov.cabnet.app_app/storage
+chmod 755 /home/cabnet/gov.cabnet.app_app/storage
+chmod 755 /home/cabnet/gov.cabnet.app_app/storage/locks
+rm -f /tmp/gov_cabnet_pre_ride_email_v3_cron_worker.lock
+rm -f /tmp/gov_cabnet_pre_ride_email_v3_submit_dry_run_cron_worker.lock
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+su -s /bin/bash -c '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log 2>&1' cabnet
+su -s /bin/bash -c '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log 2>&1' cabnet
+tail -n 40 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log
+tail -n 40 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log
+```
+
+Expected: no `/tmp` lock permission errors and both workers finish with `exit_code=0`.
 
 ## SQL
 
 None.
 
-## Verify
+## Production safety
 
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
-```
-
-Open:
+This patch does not include or modify:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-cron-health.php
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
-
-## Safety
-
-- Production `/ops/pre-ride-email-tool.php` is not included.
-- Read-only page.
-- No DB writes.
-- No EDXEIX calls.
-- No AADE calls.
-- No production queue writes.

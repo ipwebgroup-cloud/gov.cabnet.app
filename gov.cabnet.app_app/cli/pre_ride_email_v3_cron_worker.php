@@ -17,7 +17,7 @@
 
 declare(strict_types=1);
 
-const WORKER_VERSION = 'v3.0.9-fast-intake-cron-worker';
+const WORKER_VERSION = 'v3.0.15-app-owned-locks';
 const DEFAULT_LIMIT = 20;
 const DEFAULT_MIN_FUTURE_MINUTES = 1;
 
@@ -59,7 +59,12 @@ if ($minFutureMinutes < 1 || $minFutureMinutes > 1440) {
 }
 
 $dryRun = cw_has_flag($argv, '--dry-run');
-$lockFile = sys_get_temp_dir() . '/gov_cabnet_pre_ride_email_v3_cron_worker.lock';
+$lockDir = dirname(__DIR__) . '/storage/locks';
+if (!is_dir($lockDir) && !mkdir($lockDir, 0755, true) && !is_dir($lockDir)) {
+    cw_line('ERROR: could not create lock directory: ' . $lockDir);
+    exit(3);
+}
+$lockFile = $lockDir . '/pre_ride_email_v3_cron_worker.lock';
 $intakeScript = __DIR__ . '/pre_ride_email_v3_intake.php';
 
 cw_line('V3 cron worker start ' . WORKER_VERSION . ' mode=' . ($dryRun ? 'dry_run' : 'commit') . ' limit=' . $limit . ' min_future_minutes=' . $minFutureMinutes);
