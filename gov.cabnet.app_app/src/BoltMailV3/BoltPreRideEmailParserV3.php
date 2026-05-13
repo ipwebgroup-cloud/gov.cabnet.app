@@ -16,7 +16,7 @@ namespace Bridge\BoltMailV3;
 
 final class BoltPreRideEmailParserV3
 {
-    public const VERSION = 'v3.0.0-isolated-parser';
+    public const VERSION = 'v3.0.1-isolated-parser-html-block-fix';
     private const MAX_INPUT_BYTES = 60000;
 
     /** @return array<string,mixed> */
@@ -105,15 +105,26 @@ final class BoltPreRideEmailParserV3
         if (preg_match('/=[0-9A-F]{2}/i', $body) === 1) {
             $body = quoted_printable_decode($body);
         }
-        if (stripos($body, '<br') !== false || stripos($body, '<html') !== false || stripos($body, '<div') !== false) {
+
+        // Decode entities before HTML handling so escaped fragments such as
+        // &lt;p&gt;&lt;strong&gt;Customer:&lt;/strong&gt; Name also become parseable.
+        $body = html_entity_decode($body, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        if (preg_match('/<[^>]+>/', $body) === 1) {
+            // Preserve line boundaries from HTML-only Bolt/Gmail fragments. The
+            // previous v3 parser only triggered on <br>, <html>, or <div>; emails
+            // made only of <p><strong>Label:</strong> Value</p> stayed as raw HTML
+            // and labels were missed.
             $body = preg_replace('/<\s*br\s*\/?\s*>/i', "\n", $body) ?? $body;
-            $body = preg_replace('/<\s*\/\s*p\s*>/i', "\n", $body) ?? $body;
-            $body = preg_replace('/<\s*\/\s*div\s*>/i', "\n", $body) ?? $body;
+            $body = preg_replace('/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/i', "\n", $body) ?? $body;
+            $body = preg_replace('/<\s*(p|div|li|tr|h[1-6])\b[^>]*>/i', "\n", $body) ?? $body;
             $body = strip_tags($body);
         }
+
         $body = html_entity_decode($body, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $body = str_replace("\xC2\xA0", ' ', $body);
         $body = preg_replace('/[\t ]+/', ' ', $body) ?? $body;
+        $body = preg_replace('/[ ]*\n[ ]*/', "\n", $body) ?? $body;
         $body = preg_replace('/\n{3,}/', "\n\n", $body) ?? $body;
         return trim($body);
     }

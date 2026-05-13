@@ -21,7 +21,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const PE3_TOOL_VERSION = 'v3.0.0-isolated-office-automation';
+const PE3_TOOL_VERSION = 'v3.0.1-isolated-preview-payload';
 const PE3_MIN_FUTURE_MINUTES = 20;
 const PE3_EDXEIX_CREATE_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
 
@@ -312,8 +312,23 @@ $warnings = is_array($result) ? ($result['warnings'] ?? []) : [];
 $confidence = is_array($result) ? (string)($result['confidence'] ?? 'not parsed') : 'not parsed';
 $futureGate = is_array($result) ? pe3_future_gate($fields) : ['ok' => false, 'message' => 'No parsed transfer yet.', 'minutes_until' => null, 'start_iso' => ''];
 $ready = is_array($result) && empty($missing) && !empty($mapping['ok']) && !empty($futureGate['ok']);
-$payload = $ready ? pe3_helper_payload($fields, $mapping) : [];
+$previewPayload = is_array($result) ? pe3_helper_payload($fields, $mapping) : [];
+$payload = $ready ? $previewPayload : [];
 $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
+$previewPayloadEnvelope = [
+    'preview_only' => true,
+    'not_saved_to_helper' => true,
+    'reason' => $ready ? 'Active helper payload is ready; preview matches the active payload.' : 'One or more V3 gates are blocking helper activation.',
+    'gates' => [
+        'parser_ok' => is_array($result) && empty($missing),
+        'mapping_ok' => !empty($mapping['ok']),
+        'future_ok' => !empty($futureGate['ok']),
+        'overall_ready' => $ready,
+    ],
+    'future_gate' => $futureGate,
+    'payload_preview' => $previewPayload,
+];
+$previewPayloadJson = json_encode($previewPayloadEnvelope, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}';
 $edxeixUrl = PE3_EDXEIX_CREATE_URL . (!empty($mapping['lessor_id']) ? ('?lessor=' . rawurlencode((string)$mapping['lessor_id'])) : '');
 
 if ($jsonMode) {
@@ -485,7 +500,15 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
             </div>
         <?php else: ?>
             <div class="badbox"><strong>Blocked.</strong> V3 helper payload is not enabled until parser, ID lookup, and future-time gates pass.</div>
+            <h3>Diagnostic payload preview</h3>
+            <p class="small"><strong>PREVIEW ONLY — NOT SAVED TO HELPER.</strong> This shows the exact data V3 would send after all safety gates pass. Use it to debug IDs and parsed fields for past or blocked rides without enabling any EDXEIX action.</p>
+            <div class="actions">
+                <button class="btn light" type="button" onclick="copyPreviewPayload()">Copy preview JSON</button>
+                <span id="previewStatus" class="helper-status warn">Preview only</span>
+            </div>
+            <textarea id="previewPayloadJson" class="code-box" readonly><?= pe3_h($previewPayloadJson) ?></textarea>
         <?php endif; ?>
+        <h3><?= $ready ? 'Active helper payload' : 'Active helper payload' ?></h3>
         <textarea id="payloadJson" class="code-box" readonly><?= pe3_h($payloadJson) ?></textarea>
     </section>
 
@@ -517,6 +540,13 @@ async function copyPayload(){
     const text = document.getElementById('payloadJson').value;
     try { await navigator.clipboard.writeText(text); setHelperStatus('Payload copied', 'ok'); }
     catch(e){ setHelperStatus('Copy failed; select JSON manually', 'bad'); }
+}
+async function copyPreviewPayload(){
+    const box = document.getElementById('previewPayloadJson');
+    const status = document.getElementById('previewStatus');
+    if (!box) { return; }
+    try { await navigator.clipboard.writeText(box.value); if(status){ status.textContent='Preview copied'; status.className='helper-status ok'; } }
+    catch(e){ if(status){ status.textContent='Copy failed; select JSON manually'; status.className='helper-status bad'; } }
 }
 function saveV3PayloadOnly(){
     if (!V3_PAYLOAD || !V3_PAYLOAD.lessorId) { setHelperStatus('Payload is not ready', 'bad'); return; }

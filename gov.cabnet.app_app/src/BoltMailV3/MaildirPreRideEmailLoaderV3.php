@@ -15,7 +15,7 @@ namespace Bridge\BoltMailV3;
 
 final class MaildirPreRideEmailLoaderV3
 {
-    public const VERSION = 'v3.0.0-isolated-maildir-loader';
+    public const VERSION = 'v3.0.1-isolated-maildir-loader-html-block-fix';
     private const MAX_FILE_BYTES = 250000;
     private const MAX_FILES_PER_DIR = 80;
 
@@ -199,15 +199,20 @@ final class MaildirPreRideEmailLoaderV3
     private function cleanDecodedText(string $text): string
     {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
-        if (stripos($text, '<br') !== false || stripos($text, '<html') !== false || stripos($text, '<div') !== false) {
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        if (preg_match('/<[^>]+>/', $text) === 1) {
+            // Preserve block boundaries from HTML-only Bolt/Gmail messages.
             $text = preg_replace('/<\s*br\s*\/?\s*>/i', "\n", $text) ?? $text;
-            $text = preg_replace('/<\s*\/\s*p\s*>/i', "\n", $text) ?? $text;
-            $text = preg_replace('/<\s*\/\s*div\s*>/i', "\n", $text) ?? $text;
+            $text = preg_replace('/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/i', "\n", $text) ?? $text;
+            $text = preg_replace('/<\s*(p|div|li|tr|h[1-6])\b[^>]*>/i', "\n", $text) ?? $text;
             $text = strip_tags($text);
         }
+
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = str_replace("\xC2\xA0", ' ', $text);
         $text = preg_replace('/[\t ]+/', ' ', $text) ?? $text;
+        $text = preg_replace('/[ ]*\n[ ]*/', "\n", $text) ?? $text;
         $text = preg_replace('/\n{3,}/', "\n\n", $text) ?? $text;
         return trim($text);
     }
