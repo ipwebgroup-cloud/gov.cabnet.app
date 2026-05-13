@@ -12,7 +12,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const V3_GATE_PAGE_VERSION = 'v3.0.25-live-submit-master-gate-page';
+const V3_GATE_PAGE_VERSION = 'v3.0.31-live-submit-gate-config-hygiene-page';
 
 function v3gate_h($value): string
 {
@@ -118,11 +118,13 @@ $warnings = is_array($result) ? (array)($result['warnings'] ?? []) : [];
                 <tr><th>Gate version</th><td><?= v3gate_h($result['version'] ?? '-') ?></td></tr>
                 <tr><th>Config loaded</th><td><?= !empty($result['config_loaded']) ? v3gate_badge('yes','good') : v3gate_badge('no','bad') ?></td></tr>
                 <tr><th>Config path</th><td><?= v3gate_h($result['config_path'] ?? '-') ?></td></tr>
+                <tr><th>Config error</th><td><?= v3gate_h(($result['config_error'] ?? '') !== '' ? (string)$result['config_error'] : '-') ?></td></tr>
                 <tr><th>Required queue status</th><td><?= v3gate_h($result['required_queue_status'] ?? '-') ?></td></tr>
                 <tr><th>Min future minutes</th><td><?= (int)($result['min_future_minutes'] ?? 0) ?></td></tr>
                 <tr><th>Acknowledgement present</th><td><?= !empty($result['required_acknowledgement_present']) ? v3gate_badge('yes','good') : v3gate_badge('no','bad') ?></td></tr>
                 <tr><th>Allowed lessors</th><td><?= v3gate_h(implode(', ', (array)($result['allowed_lessors'] ?? [])) ?: 'no config-level restriction') ?></td></tr>
                 <tr><th>Operator approval required</th><td><?= !empty($result['operator_approval_required']) ? v3gate_badge('yes','warn') : v3gate_badge('no','neutral') ?></td></tr>
+                <tr><th>Hard enable live submit</th><td><?= !empty($result['hard_enable_live_submit']) ? v3gate_badge('yes','bad') : v3gate_badge('no','good') ?></td></tr>
             </tbody>
         </table>
     </section>
