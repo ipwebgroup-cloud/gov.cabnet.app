@@ -1,4 +1,4 @@
-# gov.cabnet.app — V3 Manual Queue Intake Patch
+# gov.cabnet.app — V3 CLI Queue Intake Patch
 
 ## Production file not touched
 
@@ -11,41 +11,72 @@ public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_MANUAL_QUEUE_INTAKE.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_CLI_INTAKE.md
 PATCH_README.md
 ```
 
 ## Upload path
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
 ```
+
+Docs remain in the local GitHub Desktop repo.
 
 ## SQL
 
-No new SQL. Requires the V3 queue tables already created:
+None. This uses the V3 queue tables already created:
 
 ```text
 pre_ride_email_v3_queue
 pre_ride_email_v3_queue_events
 ```
 
-## Verify
+## Verify syntax
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-toolv3.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
 ```
 
-Open:
+## Dry-run test
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php --limit=20
+```
+
+Expected for current historical emails:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-toolv3.php
+Candidates found
+Ready: 0
+Blocked: many
+No DB rows inserted
 ```
 
-## Expected result
+## JSON dry-run
 
-If no future-ready candidate exists, the queue button is disabled and no rows are written.
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php --limit=20 --json
+```
 
-If a future-ready candidate exists, the operator can click **Queue ready candidates to V3 table**. The tool inserts only eligible candidates into `pre_ride_email_v3_queue`, using `INSERT IGNORE` for dedupe safety, and writes a V3 queue event. It does not call EDXEIX or AADE and does not touch production submission tables.
+## Commit mode
+
+Only after dry-run is clean:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php --limit=20 --commit
+```
+
+Commit mode writes only future-ready rows into V3-only tables using `INSERT IGNORE` and deterministic V3 dedupe keys.
+
+## Safety
+
+- No production route change.
+- No production `submission_jobs` writes.
+- No production `submission_attempts` writes.
+- No EDXEIX server call.
+- No AADE call.
+- No email delete/move/mark-read.
+- Default mode is dry-run.
