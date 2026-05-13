@@ -4,6 +4,10 @@
  *
  * Read-only visibility for V3 rows that are close to live-submit automation.
  * This page does not call EDXEIX and does not write to the database.
+ *
+ * v3.0.22 fixes the starting-point options display query by supporting both
+ * canonical table columns (edxeix_lessor_id / edxeix_starting_point_id) and
+ * display aliases (lessor_id / starting_point_id).
  */
 
 declare(strict_types=1);
@@ -13,7 +17,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const V3_LIVE_PAGE_VERSION = 'v3.0.21-live-submit-readiness-page';
+const V3_LIVE_PAGE_VERSION = 'v3.0.22-live-readiness-page-options-fix';
 
 function v3lr_h($value): string
 {
@@ -53,6 +57,7 @@ function v3lr_app_context(?string &$error = null): ?array
             $error = 'Private app bootstrap did not return a usable DB context.';
             return null;
         }
+        $error = null;
         return $ctx;
     } catch (Throwable $e) {
         $error = $e->getMessage();
@@ -63,8 +68,21 @@ function v3lr_app_context(?string &$error = null): ?array
 function v3lr_table_exists(mysqli $db, string $table): bool
 {
     $stmt = $db->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
-    if (!$stmt) { return false; }
+    if (!$stmt) {
+        return false;
+    }
     $stmt->bind_param('s', $table);
+    $stmt->execute();
+    return (bool)$stmt->get_result()->fetch_assoc();
+}
+
+function v3lr_column_exists(mysqli $db, string $table, string $column): bool
+{
+    $stmt = $db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1');
+    if (!$stmt) {
+        return false;
+    }
+    $stmt->bind_param('ss', $table, $column);
     $stmt->execute();
     return (bool)$stmt->get_result()->fetch_assoc();
 }
@@ -75,7 +93,9 @@ function v3lr_fetch_all(mysqli $db, string $sql): array
     $rows = [];
     $res = $db->query($sql);
     if ($res) {
-        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
     }
     return $rows;
 }
@@ -87,13 +107,21 @@ function v3lr_log_file(string $relative): string
 
 function v3lr_tail_file(string $file, int $maxBytes = 14000): string
 {
-    if (!is_file($file) || !is_readable($file)) { return ''; }
+    if (!is_file($file) || !is_readable($file)) {
+        return '';
+    }
     $size = filesize($file);
-    if ($size === false || $size <= 0) { return ''; }
+    if ($size === false || $size <= 0) {
+        return '';
+    }
     $handle = fopen($file, 'rb');
-    if (!$handle) { return ''; }
+    if (!$handle) {
+        return '';
+    }
     $seek = max(0, $size - $maxBytes);
-    if ($seek > 0) { fseek($handle, $seek); }
+    if ($seek > 0) {
+        fseek($handle, $seek);
+    }
     $data = stream_get_contents($handle);
     fclose($handle);
     return is_string($data) ? trim($data) : '';
@@ -113,16 +141,29 @@ function v3lr_cron_health(): array
     if ($tail !== '') {
         foreach ((preg_split('/\R/', $tail) ?: []) as $line) {
             $line = trim((string)$line);
-            if (str_contains($line, 'SUMMARY')) { $lastSummary = $line; }
-            if (str_contains($line, 'finish')) { $lastFinish = $line; }
+            if (str_contains($line, 'SUMMARY')) {
+                $lastSummary = $line;
+            }
+            if (str_contains($line, 'finish')) {
+                $lastFinish = $line;
+            }
         }
     }
     $status = 'missing';
     $type = 'bad';
-    if ($readable && $age !== null && $age <= 180) { $status = 'fresh'; $type = 'good'; }
-    elseif ($readable && $age !== null && $age <= 900) { $status = 'stale'; $type = 'warn'; }
-    elseif ($readable) { $status = 'old'; $type = 'bad'; }
-    elseif ($exists) { $status = 'unreadable'; $type = 'warn'; }
+    if ($readable && $age !== null && $age <= 180) {
+        $status = 'fresh';
+        $type = 'good';
+    } elseif ($readable && $age !== null && $age <= 900) {
+        $status = 'stale';
+        $type = 'warn';
+    } elseif ($readable) {
+        $status = 'old';
+        $type = 'bad';
+    } elseif ($exists) {
+        $status = 'unreadable';
+        $type = 'warn';
+    }
     return [
         'file' => 'gov.cabnet.app_app/logs/pre_ride_email_v3_live_submit_readiness_cron.log',
         'status' => $status,
@@ -132,6 +173,36 @@ function v3lr_cron_health(): array
         'last_finish' => $lastFinish,
         'tail' => $tail,
     ];
+}
+
+/** @return array<int,array<string,mixed>> */
+function v3lr_fetch_start_options(mysqli $db): array
+{
+    $table = 'pre_ride_email_v3_starting_point_options';
+    if (!v3lr_table_exists($db, $table)) {
+        return [];
+    }
+
+    $lessorCol = v3lr_column_exists($db, $table, 'edxeix_lessor_id') ? 'edxeix_lessor_id' : (v3lr_column_exists($db, $table, 'lessor_id') ? 'lessor_id' : 'NULL');
+    $startCol = v3lr_column_exists($db, $table, 'edxeix_starting_point_id') ? 'edxeix_starting_point_id' : (v3lr_column_exists($db, $table, 'starting_point_id') ? 'starting_point_id' : 'NULL');
+    $labelCol = v3lr_column_exists($db, $table, 'label') ? 'label' : "''";
+    $activeCol = v3lr_column_exists($db, $table, 'is_active') ? 'is_active' : '1';
+    $sourceCol = v3lr_column_exists($db, $table, 'source') ? 'source' : "''";
+    $updatedCol = v3lr_column_exists($db, $table, 'updated_at') ? 'updated_at' : (v3lr_column_exists($db, $table, 'created_at') ? 'created_at' : 'NULL');
+
+    $sql = "
+        SELECT
+            {$lessorCol} AS lessor_id,
+            {$startCol} AS starting_point_id,
+            {$labelCol} AS label,
+            {$activeCol} AS is_active,
+            {$sourceCol} AS source,
+            {$updatedCol} AS updated_at
+        FROM {$table}
+        ORDER BY lessor_id ASC, label ASC, starting_point_id ASC
+        LIMIT 100
+    ";
+    return v3lr_fetch_all($db, $sql);
 }
 
 $ctxError = null;
@@ -158,6 +229,7 @@ if (!$ctx) {
         $schema['queue'] = v3lr_table_exists($db, 'pre_ride_email_v3_queue');
         $schema['events'] = v3lr_table_exists($db, 'pre_ride_email_v3_queue_events');
         $schema['options'] = v3lr_table_exists($db, 'pre_ride_email_v3_starting_point_options');
+
         if ($schema['queue']) {
             $statusRows = v3lr_fetch_all($db, "
                 SELECT queue_status, COUNT(*) AS total,
@@ -177,6 +249,8 @@ if (!$ctx) {
                 ORDER BY pickup_datetime ASC, id ASC
                 LIMIT 25
             ");
+        }
+        if ($schema['events']) {
             $eventRows = v3lr_fetch_all($db, "
                 SELECT id, queue_id, dedupe_key, event_type, event_status, event_message, created_by, created_at
                 FROM pre_ride_email_v3_queue_events
@@ -186,12 +260,7 @@ if (!$ctx) {
             ");
         }
         if ($schema['options']) {
-            $optionRows = v3lr_fetch_all($db, "
-                SELECT lessor_id, starting_point_id, label, is_active, source, updated_at
-                FROM pre_ride_email_v3_starting_point_options
-                ORDER BY lessor_id ASC, label ASC
-                LIMIT 100
-            ");
+            $optionRows = v3lr_fetch_start_options($db);
         }
     } catch (Throwable $e) {
         $error = $e->getMessage();
@@ -219,7 +288,7 @@ foreach ($statusRows as $row) {
     <meta name="robots" content="noindex,nofollow">
     <title>V3 Live-Submit Readiness | gov.cabnet.app</title>
     <style>
-        :root{--bg:#f3f6fb;--panel:#fff;--ink:#061735;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--purple:#6d28d9;--soft:#f8fbff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5}.nav a{color:#fff;text-decoration:none;font-size:14px;white-space:nowrap}.wrap{width:min(1480px,calc(100% - 48px));margin:22px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}.hero{border-left:7px solid var(--purple)}h1{font-size:32px;margin:0 0 10px}h2{font-size:22px;margin:0 0 14px}p{color:var(--muted);line-height:1.45}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.badge-purple{background:#ede9fe;color:#5b21b6}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft)}.metric strong{display:block;font-size:26px}.small{font-size:13px;color:var(--muted)}table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}th{background:#f8fbff;font-size:12px}tr:last-child td{border-bottom:0}.mono{font-family:Consolas,Monaco,monospace}.pre{white-space:pre-wrap;background:#07101f;color:#e6f0ff;padding:12px;border-radius:8px;overflow:auto;font-family:Consolas,Monaco,monospace;font-size:12px}.alert{border-radius:10px;padding:12px;margin:12px 0}.alert-info{background:#eff6ff;border:1px solid #bfdbfe}.alert-warn{background:#fff7ed;border:1px solid #fed7aa}.btn{display:inline-block;border:0;border-radius:8px;padding:9px 13px;background:var(--blue);color:#fff;text-decoration:none;font-weight:700;font-size:13px}.btn-dark{background:#263449}@media(max-width:900px){.grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px)}}
+        :root{--bg:#f3f6fb;--panel:#fff;--ink:#061735;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--purple:#6d28d9;--soft:#f8fbff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav a{color:#fff;text-decoration:none;font-size:14px;white-space:nowrap}.wrap{width:min(1480px,calc(100% - 48px));margin:22px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}.hero{border-left:7px solid var(--purple)}h1{font-size:32px;margin:0 0 10px}h2{font-size:22px;margin:0 0 14px}h3{font-size:18px;margin:14px 0 10px}p{color:var(--muted);line-height:1.45}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.badge-purple{background:#ede9fe;color:#5b21b6}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft)}.metric strong{display:block;font-size:26px}.small{font-size:13px;color:var(--muted)}table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}th{background:#f8fbff;font-size:12px}tr:last-child td{border-bottom:0}.mono{font-family:Consolas,Monaco,monospace}.pre{white-space:pre-wrap;background:#07101f;color:#e6f0ff;padding:12px;border-radius:8px;overflow:auto;font-family:Consolas,Monaco,monospace;font-size:12px}.alert{border-radius:10px;padding:12px;margin:12px 0}.alert-info{background:#eff6ff;border:1px solid #bfdbfe}.alert-warn{background:#fff7ed;border:1px solid #fed7aa}.btn{display:inline-block;border:0;border-radius:8px;padding:9px 13px;background:var(--blue);color:#fff;text-decoration:none;font-weight:700;font-size:13px}.btn-dark{background:#263449}@media(max-width:900px){.grid{grid-template-columns:1fr}.wrap{width:calc(100% - 24px)}}
     </style>
 </head>
 <body>

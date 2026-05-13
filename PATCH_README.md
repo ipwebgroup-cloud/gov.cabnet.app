@@ -1,28 +1,20 @@
-# gov.cabnet.app patch — V3 live-submit readiness gate
+# gov.cabnet.app — V3 Live Readiness Page Fix
 
 ## What changed
 
-Adds a V3-only live-submit readiness layer. This moves rows from `submit_dry_run_ready` to `live_submit_ready` after strict validation, including the verified starting-point guard.
+Fixes the V3 Live-Submit Readiness dashboard display query so it reads verified starting-point options using the actual table columns.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness_cron_worker.php
 public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_SUBMIT_READINESS.md
+docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_READINESS_PAGE_FIX.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness_cron_worker.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness_cron_worker.php
-
 public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
 ```
@@ -34,27 +26,26 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness_cron_worker.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
-
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness.php --limit=20
 ```
 
-## Commit mode
+Open:
 
-Only V3 status/events are written:
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness.php --limit=20 --commit
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-readiness.php
 ```
 
-## Suggested cron
+Expected:
 
-```bash
-* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_readiness_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_live_submit_readiness_cron.log 2>&1
+```text
+No Unknown column lessor_id error.
+Verified start options shows 2 for lessor 2307.
 ```
 
 ## Safety
 
-This patch does not submit to EDXEIX. It does not call AADE and does not touch production submission tables.
+- Production pre-ride-email-tool.php untouched.
+- No DB writes.
+- No EDXEIX calls.
+- No AADE calls.
+- No production submission_jobs/submission_attempts access.
