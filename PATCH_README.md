@@ -1,24 +1,32 @@
-# gov.cabnet.app patch — V3 queue watch alert
+# gov.cabnet.app patch — V3 helper fill capture
+
+## Purpose
+
+Adds a V3-only callback endpoint and updates the isolated V3 Firefox helper so fill-only browser progress can be recorded in V3 queue events.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_QUEUE_WATCH_ALERT.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
+tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
+tools/firefox-edxeix-autofill-helper-v3/manifest.json
+docs/PRE_RIDE_EMAIL_TOOL_V3_HELPER_FILL_CAPTURE.md
 PATCH_README.md
 ```
 
-## Production file not included
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
 ```
 
-## Upload path
+Local Firefox helper files:
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
+tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
+tools/firefox-edxeix-autofill-helper-v3/manifest.json
+→ replace in local repo/tools/firefox-edxeix-autofill-helper-v3/ and reload the temporary Firefox extension
 ```
 
 ## SQL
@@ -28,15 +36,19 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
 ```
 
-Open:
+Local JS check from repo root:
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
+```bash
+node --check tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
 ```
 
 ## Safety
 
-This page is read-only. It does not write to DB, does not call EDXEIX, does not call AADE, and does not touch the production pre-ride email tool.
+- Production `/ops/pre-ride-email-tool.php` is not included and not changed.
+- No EDXEIX submit.
+- No AADE call.
+- No production queue writes.
+- Callback writes only V3 queue events after matching queue ID + dedupe key.

@@ -3,8 +3,9 @@
   if (typeof browser === 'undefined' || !browser.storage || !browser.storage.local) { return; }
   if (!/edxeix\.yme\.gov\.gr$/.test(location.hostname)) { return; }
 
-  var VERSION = 'v3.0.0-isolated-fill-only';
+  var VERSION = 'v3.0.16-helper-fill-callback';
   var PANEL_ID = 'gov-cabnet-edxeix-helper-v3-panel';
+  var CALLBACK_URL = 'https://gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php';
   var lastResults = [];
 
   function qs(sel, root) { try { return (root || document).querySelector(sel); } catch (e) { return null; } }
@@ -113,6 +114,41 @@
     var data = await browser.storage.local.get(['govCabnetV3LatestPayload']);
     return data.govCabnetV3LatestPayload || null;
   }
+  async function reportFillResult(payload, eventType, eventStatus, message) {
+    if (!payload || !payload.queueId || !payload.dedupeKey) { return false; }
+    try {
+      var body = {
+        queueId: String(payload.queueId || ''),
+        dedupeKey: String(payload.dedupeKey || ''),
+        eventType: eventType || 'helper_diagnostic_reported',
+        eventStatus: eventStatus || 'ok',
+        message: message || '',
+        helperVersion: VERSION,
+        pageUrl: location.href,
+        locationHost: location.hostname,
+        savedAt: payload.savedAt || '',
+        results: lastResults.slice(0, 80)
+      };
+      var res = await fetch(CALLBACK_URL, {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var json = null;
+      try { json = await res.json(); } catch (e) {}
+      if (!res.ok || !json || !json.ok) {
+        lastResults.push('WARN callback failed: ' + (json && json.error ? json.error : ('HTTP ' + res.status)));
+        return false;
+      }
+      lastResults.push('OK V3 callback event recorded: ' + eventType + ' #' + (json.event_id || ''));
+      return true;
+    } catch (e) {
+      lastResults.push('WARN callback error: ' + (e && e.message ? e.message : String(e)));
+      return false;
+    }
+  }
   function output(text, type) {
     var el = qs('#gov-cabnet-edxeix-helper-v3-output');
     if (!el) { return; }
@@ -126,61 +162,72 @@
   async function openCorrectCompany() {
     var p = await loadPayload();
     if (!p || !p.lessorId) { output('No V3 company/lessor ID saved.', 'bad'); return; }
+    await reportFillResult(p, 'helper_redirect_company', 'redirect', 'V3 helper opened the correct EDXEIX company form.');
     location.href = location.origin + '/dashboard/lease-agreement/create?lessor=' + encodeURIComponent(txt(p.lessorId));
   }
   async function fillPayload(payload) {
     lastResults = [];
-    if (!payload) { output('No V3 saved transfer. Go to gov.cabnet.app /ops/pre-ride-email-toolv3.php and click Save V3 payload.', 'bad'); return false; }
-    if (shouldRedirect(payload)) { await openCorrectCompany(); return false; }
-
-    var passenger = txt(payload.passengerName || payload.customerName || payload.customer || payload.lesseeName || '');
-    var pickup = txt(payload.pickupAddress || payload.pickup || payload.boardingPoint || '');
-    var dropoff = txt(payload.dropoffAddress || payload.dropoff || payload.destinationAddress || payload.disembarkPoint || '');
-    var times = getTimes(payload);
-
+    if (!payload) { output('No V3 saved transfer. Go to gov.cabnet.app /ops/pre-ride-email-toolv3.php or V3 queue and save a payload.', 'bad'); return false; }
     lastResults.push('V3 helper ' + VERSION + ' fill-only');
     lastResults.push('No POST button exists in V3 helper. Operator must review and save manually inside EDXEIX.');
+    lastResults.push('Payload queue=' + txt(payload.queueId) + ' dedupe=' + txt(payload.dedupeKey));
     lastResults.push('Payload company=' + txt(payload.lessorId) + ' driver=' + txt(payload.driverId) + ' vehicle=' + txt(payload.vehicleId));
+    await reportFillResult(payload, 'helper_fill_started', 'started', 'V3 helper started fill-only operation.');
 
-    var lessorSelect = qs('select[name="lessor"]');
-    if (lessorSelect && txt(lessorSelect.value) === txt(payload.lessorId)) {
-      mark(lessorSelect);
-      lastResults.push('OK lessor already correct: ' + txt(payload.lessorId));
-    } else {
-      setSelectExact('lessor', payload.lessorId, payload.lessor || payload.operator || '');
-      lastResults.push('WARN lessor was changed by V3 helper; waiting for EDXEIX reset.');
-      await delay(1400);
-    }
+    if (shouldRedirect(payload)) { await openCorrectCompany(); return false; }
 
-    function fillSelectsOnly() {
-      setSelectExact('driver', payload.driverId, payload.driver || payload.driverName || '');
-      setSelectExact('vehicle', payload.vehicleId, payload.vehicle || payload.vehiclePlate || '');
-      if (payload.startingPointId) { setSelectExact('starting_point_id', payload.startingPointId, payload.startingPointLabel || ''); }
-      else { lastResults.push('MISSING starting point: choose manually.'); mark(qs('select[name="starting_point_id"]'), '#b45309'); }
-      var natural = qs('input[name="lessee[type]"][value="natural"]') || qs('#lessee_natural');
-      if (natural) { natural.checked = true; fire(natural); mark(natural); }
-      else { lastResults.push('MISSING lessee natural radio'); }
-    }
-    function fillTextOnly(roundLabel) {
-      setAll('input[name="lessee[name]"]', passenger, 'Passenger name ' + roundLabel);
-      setOne('textarea[name="boarding_point"]', pickup, 'Pickup / boarding point ' + roundLabel);
-      setOne('textarea[name="disembark_point"]', dropoff, 'Drop-off / disembark point ' + roundLabel);
-      if (times.drafted) { setOne('input[name="drafted_at"]', times.drafted, 'Drafted at ' + roundLabel); }
-      if (times.started) { setOne('input[name="started_at"]', times.started, 'Started at ' + roundLabel); }
-      if (times.ended) { setOne('input[name="ended_at"]', times.ended, 'Ended at ' + roundLabel); }
-      if (times.price) { setOne('input[name="price"]', times.price, 'Price ' + roundLabel); }
-    }
+    try {
+      var passenger = txt(payload.passengerName || payload.customerName || payload.customer || payload.lesseeName || '');
+      var pickup = txt(payload.pickupAddress || payload.pickup || payload.boardingPoint || '');
+      var dropoff = txt(payload.dropoffAddress || payload.dropoff || payload.destinationAddress || payload.disembarkPoint || '');
+      var times = getTimes(payload);
 
-    fillSelectsOnly();
-    await delay(1200);
-    for (var i = 1; i <= 8; i++) {
-      fillTextOnly('V3 stabilize ' + i);
-      if (i === 4) { fillSelectsOnly(); }
-      output('V3 fill-only stabilizing... ' + i + '/8\n\n' + lastResults.slice(-18).join('\n'), 'warn');
-      await delay(650);
+      var lessorSelect = qs('select[name="lessor"]');
+      if (lessorSelect && txt(lessorSelect.value) === txt(payload.lessorId)) {
+        mark(lessorSelect);
+        lastResults.push('OK lessor already correct: ' + txt(payload.lessorId));
+      } else {
+        setSelectExact('lessor', payload.lessorId, payload.lessor || payload.operator || '');
+        lastResults.push('WARN lessor was changed by V3 helper; waiting for EDXEIX reset.');
+        await delay(1400);
+      }
+
+      function fillSelectsOnly() {
+        setSelectExact('driver', payload.driverId, payload.driver || payload.driverName || '');
+        setSelectExact('vehicle', payload.vehicleId, payload.vehicle || payload.vehiclePlate || '');
+        if (payload.startingPointId) { setSelectExact('starting_point_id', payload.startingPointId, payload.startingPointLabel || ''); }
+        else { lastResults.push('MISSING starting point: choose manually.'); mark(qs('select[name="starting_point_id"]'), '#b45309'); }
+        var natural = qs('input[name="lessee[type]"][value="natural"]') || qs('#lessee_natural');
+        if (natural) { natural.checked = true; fire(natural); mark(natural); }
+        else { lastResults.push('MISSING lessee natural radio'); }
+      }
+      function fillTextOnly(roundLabel) {
+        setAll('input[name="lessee[name]"]', passenger, 'Passenger name ' + roundLabel);
+        setOne('textarea[name="boarding_point"]', pickup, 'Pickup / boarding point ' + roundLabel);
+        setOne('textarea[name="disembark_point"]', dropoff, 'Drop-off / disembark point ' + roundLabel);
+        if (times.drafted) { setOne('input[name="drafted_at"]', times.drafted, 'Drafted at ' + roundLabel); }
+        if (times.started) { setOne('input[name="started_at"]', times.started, 'Started at ' + roundLabel); }
+        if (times.ended) { setOne('input[name="ended_at"]', times.ended, 'Ended at ' + roundLabel); }
+        if (times.price) { setOne('input[name="price"]', times.price, 'Price ' + roundLabel); }
+      }
+
+      fillSelectsOnly();
+      await delay(1200);
+      for (var i = 1; i <= 8; i++) {
+        fillTextOnly('V3 stabilize ' + i);
+        if (i === 4) { fillSelectsOnly(); }
+        output('V3 fill-only stabilizing... ' + i + '/8\n\n' + lastResults.slice(-18).join('\n'), 'warn');
+        await delay(650);
+      }
+      await reportFillResult(payload, 'helper_fill_completed', 'ok', 'V3 helper completed fill-only operation. Operator must still verify and save manually.');
+      output('V3 fill-only finished. Callback recorded when queue ID exists. Verify every visible field. Save manually in EDXEIX only after review.\n\n' + lastResults.join('\n'), 'ok');
+      return true;
+    } catch (e) {
+      lastResults.push('ERROR fill failed: ' + (e && e.message ? e.message : String(e)));
+      await reportFillResult(payload, 'helper_fill_failed', 'failed', 'V3 helper fill-only operation failed.');
+      output('V3 fill-only failed.\n\n' + lastResults.join('\n'), 'bad');
+      return false;
     }
-    output('V3 fill-only finished. Verify every visible field. Save manually in EDXEIX only after review.\n\n' + lastResults.join('\n'), 'ok');
-    return true;
   }
   async function copyDiagnostic() {
     var p = await loadPayload();
@@ -188,6 +235,8 @@
     lines.push('Gov Cabnet EDXEIX Helper V3 diagnostic ' + VERSION);
     lines.push('URL: ' + location.href);
     lines.push('Saved transfer: ' + ((p && p.savedAt) || 'none'));
+    lines.push('Queue ID: ' + ((p && p.queueId) || ''));
+    lines.push('Dedupe: ' + ((p && p.dedupeKey) || ''));
     lines.push('Passenger: ' + ((p && (p.passengerName || p.customerName || p.customer)) || ''));
     lines.push('Company ID: ' + ((p && p.lessorId) || ''));
     lines.push('Driver ID: ' + ((p && p.driverId) || ''));
@@ -196,7 +245,8 @@
     lines.push('Last results:');
     lastResults.forEach(function (r) { lines.push('- ' + r); });
     var text = lines.join('\n');
-    try { await navigator.clipboard.writeText(text); output('V3 diagnostic copied.', 'ok'); } catch (e) { console.log(text); output(text, 'warn'); }
+    await reportFillResult(p, 'helper_diagnostic_reported', 'diagnostic', 'V3 helper diagnostic copied/reported.');
+    try { await navigator.clipboard.writeText(text); output('V3 diagnostic copied. Callback recorded when queue ID exists.', 'ok'); } catch (e) { console.log(text); output(text, 'warn'); }
   }
   async function buildPanel() {
     if (qs('#' + PANEL_ID)) { return; }
@@ -207,11 +257,12 @@
     var saved = p && p.savedAt ? new Date(p.savedAt).toLocaleString() : 'No V3 saved transfer yet';
     div.innerHTML = '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px;"><strong>Gov Cabnet EDXEIX Helper V3 ' + VERSION + '</strong><button type="button" id="gov-cabnet-edxeix-helper-v3-close" style="border:0;background:#e5e7eb;border-radius:6px;padding:2px 7px;cursor:pointer;">×</button></div>' +
       '<div style="font-size:12px;color:#41577a;margin-bottom:4px;">Saved: ' + saved + '</div>' +
+      '<div style="font-size:12px;color:#41577a;margin-bottom:4px;">Queue ID: ' + ((p && p.queueId) || 'none') + ' · Dedupe: ' + ((p && p.dedupeKey) || 'none') + '</div>' +
       '<div style="font-size:12px;color:#41577a;margin-bottom:8px;">' + (p ? ('Company ID: ' + (p.lessorId||'missing') + ' · Driver ID: ' + (p.driverId||'missing') + ' · Vehicle ID: ' + (p.vehicleId||'missing')) : 'No saved V3 IDs') + '</div>' +
       '<button type="button" id="gov-cabnet-edxeix-helper-v3-company" style="width:100%;border:1px solid #6d28d9;border-radius:9px;background:#ede9fe;color:#5b21b6;font-weight:700;padding:9px;cursor:pointer;font-size:13px;margin-bottom:8px;">Open correct company form</button>' +
       '<button type="button" id="gov-cabnet-edxeix-helper-v3-fill" style="width:100%;border:0;border-radius:9px;background:#6d28d9;color:#fff;font-weight:700;padding:11px;cursor:pointer;font-size:14px;">Fill using V3 exact IDs</button>' +
-      '<button type="button" id="gov-cabnet-edxeix-helper-v3-diagnostic" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;color:#0f172a;font-weight:700;padding:9px;cursor:pointer;font-size:13px;margin-top:8px;">Copy V3 diagnostic</button>' +
-      '<div id="gov-cabnet-edxeix-helper-v3-output" style="white-space:pre-wrap;font-size:12px;line-height:1.35;margin-top:9px;color:#41577a;max-height:230px;overflow:auto;">V3 is fill-only. No POST/save action is available here.</div>';
+      '<button type="button" id="gov-cabnet-edxeix-helper-v3-diagnostic" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;color:#0f172a;font-weight:700;padding:9px;cursor:pointer;font-size:13px;margin-top:8px;">Copy/report V3 diagnostic</button>' +
+      '<div id="gov-cabnet-edxeix-helper-v3-output" style="white-space:pre-wrap;font-size:12px;line-height:1.35;margin-top:9px;color:#41577a;max-height:230px;overflow:auto;">V3 is fill-only. No POST/save action is available here. Fill events are reported to the V3 queue when queue ID exists.</div>';
     document.documentElement.appendChild(div);
     qs('#gov-cabnet-edxeix-helper-v3-close').addEventListener('click', function () { div.remove(); });
     qs('#gov-cabnet-edxeix-helper-v3-company').addEventListener('click', openCorrectCompany);
