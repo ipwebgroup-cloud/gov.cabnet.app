@@ -15,12 +15,16 @@
 
 declare(strict_types=1);
 
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const V3Q_PAGE_VERSION = 'v3.0.10-queue-helper-handoff';
+const V3Q_PAGE_VERSION = 'v3.0.14-submit-control-panel';
 
 function v3q_h($value): string
 {
@@ -109,7 +113,7 @@ function v3q_fetch_all(mysqli $db, string $sql): array
 /** @return array<int,array<string,mixed>> */
 function v3q_fetch_queue_rows(mysqli $db, string $status, int $limit, int $offset): array
 {
-    $allowedStatuses = ['all', 'queued', 'ready', 'locked', 'submitted', 'failed', 'blocked', 'needs_review', 'cancelled'];
+    $allowedStatuses = ['all', 'queued', 'ready', 'submit_dry_run_ready', 'locked', 'submitted', 'failed', 'blocked', 'needs_review', 'cancelled'];
     if (!in_array($status, $allowedStatuses, true)) {
         $status = 'all';
     }
@@ -186,7 +190,7 @@ function v3q_status_badge(string $status): string
 {
     $status = trim($status) ?: 'unknown';
     $type = match ($status) {
-        'queued', 'ready' => 'good',
+        'queued', 'ready', 'submit_dry_run_ready' => 'good',
         'submitted' => 'neutral',
         'failed', 'blocked' => 'bad',
         'locked', 'needs_review' => 'warn',
@@ -198,6 +202,228 @@ function v3q_status_badge(string $status): string
 function v3q_yes_no_badge($value, string $yes = 'yes', string $no = 'no'): string
 {
     return !empty($value) ? v3q_badge($yes, 'good') : v3q_badge($no, 'bad');
+}
+
+function v3q_csrf_token(): string
+{
+    if (empty($_SESSION['v3q_csrf']) || !is_string($_SESSION['v3q_csrf'])) {
+        $_SESSION['v3q_csrf'] = bin2hex(random_bytes(24));
+    }
+    return $_SESSION['v3q_csrf'];
+}
+
+function v3q_check_csrf(): bool
+{
+    $posted = (string)($_POST['csrf_token'] ?? '');
+    $stored = (string)($_SESSION['v3q_csrf'] ?? '');
+    return $posted !== '' && $stored !== '' && hash_equals($stored, $posted);
+}
+
+function v3q_redirect_after_action(int $id, string $status, string $result, string $message): never
+{
+    $params = [
+        'id' => (string)$id,
+        'status' => $status !== '' ? $status : 'all',
+        'action_result' => $result,
+        'action_message' => $message,
+    ];
+    header('Location: /ops/pre-ride-email-v3-queue.php?' . http_build_query($params));
+    exit;
+}
+
+function v3q_insert_event(mysqli $db, int $queueId, string $dedupeKey, string $type, string $status, string $message, array $context = []): void
+{
+    $contextJson = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $createdBy = 'v3_dashboard';
+    $stmt = $db->prepare('INSERT INTO pre_ride_email_v3_queue_events (queue_id, dedupe_key, event_type, event_status, event_message, event_context_json, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    if (!$stmt) {
+        return;
+    }
+    $stmt->bind_param('issssss', $queueId, $dedupeKey, $type, $status, $message, $contextJson, $createdBy);
+    $stmt->execute();
+}
+
+function v3q_update_operator_note(mysqli $db, int $id, string $note): bool
+{
+    if ($note === '') {
+        return true;
+    }
+    $stmt = $db->prepare("UPDATE pre_ride_email_v3_queue SET operator_note = CASE WHEN operator_note IS NULL OR operator_note = '' THEN ? ELSE CONCAT(operator_note, '\n', ?) END WHERE id = ? LIMIT 1");
+    if (!$stmt) {
+        return false;
+    }
+    $stmt->bind_param('ssi', $note, $note, $id);
+    return $stmt->execute();
+}
+
+function v3q_apply_operator_action(mysqli $db, array $row, string $action, string $note): array
+{
+    $id = (int)($row['id'] ?? 0);
+    $dedupeKey = (string)($row['dedupe_key'] ?? '');
+    $note = trim(mb_substr($note, 0, 1000, 'UTF-8'));
+    $stamp = date('Y-m-d H:i:s');
+    $noteLine = $note !== '' ? '[' . $stamp . '] ' . $note : '[' . $stamp . '] ' . $action;
+
+    if ($id <= 0 || $dedupeKey === '') {
+        return [false, 'Invalid queue row.'];
+    }
+
+    if ($action === 'mark_reviewed') {
+        $ok = v3q_update_operator_note($db, $id, $noteLine);
+        v3q_insert_event($db, $id, $dedupeKey, 'operator_reviewed', $ok ? 'ok' : 'failed', $note !== '' ? $note : 'Operator marked row reviewed.', ['action' => $action]);
+        return [$ok, $ok ? 'Row marked reviewed with V3-only event.' : 'Could not mark row reviewed.'];
+    }
+
+    if ($action === 'block_row') {
+        $reason = $note !== '' ? $note : 'Operator blocked row from V3 dashboard.';
+        $stmt = $db->prepare("UPDATE pre_ride_email_v3_queue SET queue_status = 'blocked', failed_at = NOW(), last_error = ?, operator_note = CASE WHEN operator_note IS NULL OR operator_note = '' THEN ? ELSE CONCAT(operator_note, '\n', ?) END WHERE id = ? LIMIT 1");
+        if (!$stmt) {
+            return [false, 'Could not prepare block update.'];
+        }
+        $noteForDb = '[' . $stamp . '] BLOCKED: ' . $reason;
+        $stmt->bind_param('sssi', $reason, $noteForDb, $noteForDb, $id);
+        $ok = $stmt->execute();
+        v3q_insert_event($db, $id, $dedupeKey, 'operator_blocked', $ok ? 'blocked' : 'failed', $reason, ['action' => $action]);
+        return [$ok, $ok ? 'Row blocked in V3 queue only.' : 'Could not block row.'];
+    }
+
+    if ($action === 'reset_to_queued') {
+        $stmt = $db->prepare("UPDATE pre_ride_email_v3_queue SET queue_status = 'queued', locked_at = NULL, submitted_at = NULL, failed_at = NULL, last_error = NULL WHERE id = ? LIMIT 1");
+        if (!$stmt) {
+            return [false, 'Could not prepare reset update.'];
+        }
+        $stmt->bind_param('i', $id);
+        $ok = $stmt->execute();
+        v3q_update_operator_note($db, $id, '[' . $stamp . '] RESET: ' . ($note !== '' ? $note : 'Operator reset row to queued.'));
+        v3q_insert_event($db, $id, $dedupeKey, 'operator_reset_to_queued', $ok ? 'queued' : 'failed', $note !== '' ? $note : 'Operator reset row to queued.', ['action' => $action]);
+        return [$ok, $ok ? 'Row reset to queued in V3 queue only.' : 'Could not reset row.'];
+    }
+
+    if ($action === 'mark_submit_dry_run_ready') {
+        [$eligible, $reasons] = v3q_helper_eligibility($row);
+        if (!$eligible) {
+            v3q_insert_event($db, $id, $dedupeKey, 'operator_submit_dry_run_ready_blocked', 'blocked', implode('; ', $reasons), ['action' => $action, 'reasons' => $reasons]);
+            return [false, 'Dry-run ready action blocked: ' . implode('; ', $reasons)];
+        }
+        $stmt = $db->prepare("UPDATE pre_ride_email_v3_queue SET queue_status = 'submit_dry_run_ready', locked_at = NULL, last_error = NULL WHERE id = ? LIMIT 1");
+        if (!$stmt) {
+            return [false, 'Could not prepare dry-run ready update.'];
+        }
+        $stmt->bind_param('i', $id);
+        $ok = $stmt->execute();
+        v3q_update_operator_note($db, $id, '[' . $stamp . '] SUBMIT DRY-RUN READY: ' . ($note !== '' ? $note : 'Operator marked row ready for submit dry-run stage.'));
+        v3q_insert_event($db, $id, $dedupeKey, 'operator_marked_submit_dry_run_ready', $ok ? 'submit_dry_run_ready' : 'failed', $note !== '' ? $note : 'Operator marked row ready for submit dry-run stage.', ['action' => $action]);
+        return [$ok, $ok ? 'Row marked submit_dry_run_ready in V3 queue only.' : 'Could not mark row dry-run ready.'];
+    }
+
+    return [false, 'Unsupported action.'];
+}
+
+
+function v3q_log_file(string $relative): string
+{
+    $relative = ltrim($relative, '/');
+    $candidates = [
+        dirname(__DIR__, 3) . '/gov.cabnet.app_app/' . $relative,
+        dirname(__DIR__, 2) . '/gov.cabnet.app_app/' . $relative,
+    ];
+    foreach ($candidates as $file) {
+        if (is_file($file)) {
+            return $file;
+        }
+    }
+    return $candidates[0];
+}
+
+function v3q_tail_file(string $file, int $maxBytes = 16000): string
+{
+    if (!is_file($file) || !is_readable($file)) {
+        return '';
+    }
+    $size = filesize($file);
+    if ($size === false || $size <= 0) {
+        return '';
+    }
+    $handle = fopen($file, 'rb');
+    if (!$handle) {
+        return '';
+    }
+    $seek = max(0, $size - $maxBytes);
+    if ($seek > 0) {
+        fseek($handle, $seek);
+    }
+    $data = stream_get_contents($handle);
+    fclose($handle);
+    return is_string($data) ? trim($data) : '';
+}
+
+/**
+ * @return array<string,mixed>
+ */
+function v3q_cron_health(): array
+{
+    $file = v3q_log_file('logs/pre_ride_email_v3_cron.log');
+    $exists = is_file($file);
+    $readable = $exists && is_readable($file);
+    $mtime = $exists ? (filemtime($file) ?: 0) : 0;
+    $age = $mtime > 0 ? (time() - $mtime) : null;
+    $tail = $readable ? v3q_tail_file($file) : '';
+
+    $lastSummary = '';
+    $lastStart = '';
+    $lastFinish = '';
+    $lastBlocked = [];
+    if ($tail !== '') {
+        $lines = preg_split('/\R/', $tail) ?: [];
+        foreach ($lines as $line) {
+            $line = trim((string)$line);
+            if ($line === '') { continue; }
+            if (str_contains($line, 'V3 cron worker start')) { $lastStart = $line; }
+            if (str_contains($line, 'SUMMARY')) { $lastSummary = $line; }
+            if (str_contains($line, 'BLOCKED')) { $lastBlocked[] = $line; }
+            if (str_contains($line, 'V3 cron worker finish')) { $lastFinish = $line; }
+        }
+    }
+
+    $status = 'missing';
+    $statusType = 'bad';
+    $message = 'Cron log file was not found yet.';
+    if ($exists && !$readable) {
+        $status = 'unreadable';
+        $statusType = 'warn';
+        $message = 'Cron log exists but is not readable by this page.';
+    } elseif ($readable) {
+        if ($age !== null && $age <= 180) {
+            $status = 'fresh';
+            $statusType = 'good';
+            $message = 'Cron log was updated recently.';
+        } elseif ($age !== null && $age <= 900) {
+            $status = 'stale';
+            $statusType = 'warn';
+            $message = 'Cron log is older than 3 minutes. Check whether cPanel cron is still active.';
+        } else {
+            $status = 'old';
+            $statusType = 'bad';
+            $message = 'Cron log is old or has no timestamp. Check the cron job.';
+        }
+    }
+
+    return [
+        'file' => $file,
+        'safe_file' => 'gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log',
+        'exists' => $exists,
+        'readable' => $readable,
+        'mtime' => $mtime,
+        'age_seconds' => $age,
+        'status' => $status,
+        'status_type' => $statusType,
+        'message' => $message,
+        'last_summary' => $lastSummary,
+        'last_start' => $lastStart,
+        'last_finish' => $lastFinish,
+        'last_blocked' => array_slice(array_reverse($lastBlocked), 0, 3),
+        'tail' => $tail,
+    ];
 }
 
 
@@ -301,6 +527,9 @@ $recentRows = [];
 $events = [];
 $selectedRow = null;
 $error = null;
+$cronHealth = v3q_cron_health();
+$actionResult = preg_replace('/[^a-z0-9_\-]/i', '', (string)($_GET['action_result'] ?? ''));
+$actionMessage = trim((string)($_GET['action_message'] ?? ''));
 
 $status = preg_replace('/[^a-z0-9_\-]/i', '', (string)($_GET['status'] ?? 'all')) ?: 'all';
 $limit = (int)($_GET['limit'] ?? 50);
@@ -323,6 +552,25 @@ if (!$ctx) {
         $schemaOk = $tableQueue && $tableEvents;
 
         if ($schemaOk) {
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $postId = max(0, (int)($_POST['queue_id'] ?? 0));
+                $postAction = preg_replace('/[^a-z0-9_\-]/i', '', (string)($_POST['queue_action'] ?? '')) ?: '';
+                $postStatus = preg_replace('/[^a-z0-9_\-]/i', '', (string)($_POST['return_status'] ?? $status)) ?: 'all';
+                $postNote = (string)($_POST['operator_note'] ?? '');
+
+                if (!v3q_check_csrf()) {
+                    v3q_redirect_after_action($postId, $postStatus, 'bad', 'CSRF check failed. Reload the page and try again.');
+                }
+
+                $postRow = v3q_fetch_queue_row($db, $postId);
+                if (!$postRow) {
+                    v3q_redirect_after_action($postId, $postStatus, 'bad', 'Queue row was not found.');
+                }
+
+                [$ok, $message] = v3q_apply_operator_action($db, $postRow, $postAction, $postNote);
+                v3q_redirect_after_action($postId, $postStatus, $ok ? 'good' : 'bad', $message);
+            }
+
             $summaryRows = v3q_fetch_all($db, "
                 SELECT queue_status, COUNT(*) AS total,
                        SUM(CASE WHEN pickup_datetime IS NOT NULL AND pickup_datetime >= NOW() THEN 1 ELSE 0 END) AS future_count,
@@ -398,10 +646,10 @@ if (is_array($selectedRow)) {
 <main class="wrap">
     <section class="card hero">
         <h1>V3 Pre-Ride Email Queue</h1>
-        <p>Visibility and operator handoff for the isolated V3 queue tables. This page can save one selected future-safe queue row to the isolated V3 Firefox helper, but it does not submit to EDXEIX, does not issue AADE, and does not touch the production pre-ride email tool.</p>
+        <p>Visibility, operator controls, and helper handoff for the isolated V3 queue tables. This page may write operator actions only to V3 queue/events tables; it does not submit to EDXEIX, does not issue AADE, and does not touch the production pre-ride email tool.</p>
         <div>
             <?= v3q_badge('V3 ISOLATED', 'purple') ?>
-            <?= v3q_badge('NO DB WRITE', 'good') ?>
+            <?= v3q_badge('V3 DB WRITES ONLY', 'warn') ?>
             <?= v3q_badge('HELPER HANDOFF ONLY', 'purple') ?>
             <?= v3q_badge('NO EDXEIX CALL', 'good') ?>
             <?= v3q_badge('NO AADE CALL', 'good') ?>
@@ -411,6 +659,9 @@ if (is_array($selectedRow)) {
 
     <?php if ($error): ?>
         <section class="card badbox"><strong>Error:</strong> <?= v3q_h($error) ?></section>
+    <?php endif; ?>
+    <?php if ($actionMessage !== ''): ?>
+        <section class="card <?= $actionResult === 'good' ? 'okbox' : 'badbox' ?>"><strong>V3 operator action:</strong> <?= v3q_h($actionMessage) ?></section>
     <?php endif; ?>
 
     <section class="card">
@@ -424,6 +675,36 @@ if (is_array($selectedRow)) {
         <?php if (!$schemaOk): ?>
             <p class="small">Run the V3 queue foundation SQL first. This page will remain read-only after the schema is installed.</p>
         <?php endif; ?>
+    </section>
+
+
+    <section class="card">
+        <h2>V3 cron intake health</h2>
+        <div class="statusline">
+            <?= v3q_badge('cron ' . (string)$cronHealth['status'], (string)$cronHealth['status_type']) ?>
+            <strong>Log:</strong> <code><?= v3q_h($cronHealth['safe_file'] ?? '') ?></code>
+            <?php if (!empty($cronHealth['mtime'])): ?>
+                <span class="small">Last update: <?= v3q_h(date('Y-m-d H:i:s', (int)$cronHealth['mtime'])) ?> · age <?= v3q_h((string)($cronHealth['age_seconds'] ?? '')) ?>s</span>
+            <?php endif; ?>
+        </div>
+        <p class="small"><?= v3q_h($cronHealth['message'] ?? '') ?></p>
+        <?php if (!empty($cronHealth['last_summary'])): ?>
+            <div class="okbox"><strong>Last summary</strong><br><code><?= v3q_h($cronHealth['last_summary']) ?></code></div>
+        <?php elseif (!empty($cronHealth['exists'])): ?>
+            <div class="warnbox"><strong>No SUMMARY line found yet.</strong> Wait for the next cron run or run the worker once manually.</div>
+        <?php else: ?>
+            <div class="warnbox"><strong>No cron log yet.</strong> Confirm the cPanel cron line is active and writes to the expected log file.</div>
+        <?php endif; ?>
+        <?php if (!empty($cronHealth['last_blocked'])): ?>
+            <h3>Last blocked examples</h3>
+            <ul class="mini">
+                <?php foreach ($cronHealth['last_blocked'] as $line): ?><li><code><?= v3q_h($line) ?></code></li><?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+        <details>
+            <summary class="small">Show cron log tail</summary>
+            <textarea class="code-box" readonly><?= v3q_h($cronHealth['tail'] ?? '') ?></textarea>
+        </details>
     </section>
 
     <?php if ($schemaOk): ?>
@@ -486,7 +767,7 @@ if (is_array($selectedRow)) {
             <form method="get" action="/ops/pre-ride-email-v3-queue.php" class="actions">
                 <label>Status<br>
                     <select name="status">
-                        <?php foreach (['all','queued','ready','locked','submitted','failed','blocked','needs_review','cancelled'] as $opt): ?>
+                        <?php foreach (['all','queued','ready','submit_dry_run_ready','locked','submitted','failed','blocked','needs_review','cancelled'] as $opt): ?>
                             <option value="<?= v3q_h($opt) ?>" <?= $status === $opt ? 'selected' : '' ?>><?= v3q_h($opt) ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -497,7 +778,7 @@ if (is_array($selectedRow)) {
                 <a class="btn light" href="/ops/pre-ride-email-v3-queue.php">Reset</a>
                 <a class="btn dark" href="/ops/pre-ride-email-toolv3.php">Back to V3 intake</a>
             </form>
-            <p class="small">This page does not write to the database. If a selected row is future-safe, it can be saved to the isolated V3 Firefox helper for fill-only EDXEIX review.</p>
+            <p class="small">This page writes only explicit operator actions to V3 queue/events tables. If a selected row is future-safe, it can also be saved to the isolated V3 Firefox helper for fill-only EDXEIX review.</p>
         </section>
     </section>
 
@@ -544,6 +825,27 @@ if (is_array($selectedRow)) {
             <strong>Route</strong><div><?= v3q_h($selectedRow['pickup_address'] ?? '') ?> → <?= v3q_h($selectedRow['dropoff_address'] ?? '') ?></div>
             <strong>Price</strong><div><?= v3q_h($selectedRow['price_text'] ?? '') ?> / <?= v3q_h($selectedRow['price_amount'] ?? '') ?></div>
             <strong>Last error</strong><div><?= v3q_h($selectedRow['last_error'] ?? '') ?></div>
+        </div>
+
+        <h3>V3 submit control panel</h3>
+        <div class="warnbox">
+            <strong>Operator-controlled V3 state only.</strong>
+            <p class="small">These buttons update only <code>pre_ride_email_v3_queue</code> and <code>pre_ride_email_v3_queue_events</code>. They do not call EDXEIX, do not call AADE, and do not touch production submission tables.</p>
+            <form method="post" action="/ops/pre-ride-email-v3-queue.php" class="actions" onsubmit="return confirm('Apply this V3-only operator action?');">
+                <input type="hidden" name="csrf_token" value="<?= v3q_h(v3q_csrf_token()) ?>">
+                <input type="hidden" name="queue_id" value="<?= v3q_h($selectedRow['id'] ?? '') ?>">
+                <input type="hidden" name="return_status" value="<?= v3q_h($status) ?>">
+                <label style="flex:1 1 360px;">Operator note / reason<br>
+                    <input type="text" name="operator_note" maxlength="1000" placeholder="Optional note for the V3 event log" style="width:100%;">
+                </label>
+                <button class="btn light" type="submit" name="queue_action" value="mark_reviewed">Mark reviewed</button>
+                <button class="btn purple" type="submit" name="queue_action" value="mark_submit_dry_run_ready" <?= $helperEligible ? '' : 'disabled' ?>>Mark submit dry-run ready</button>
+                <button class="btn dark" type="submit" name="queue_action" value="reset_to_queued">Reset to queued</button>
+                <button class="btn" style="background:#b42318" type="submit" name="queue_action" value="block_row">Block row</button>
+            </form>
+            <?php if (!$helperEligible): ?>
+                <p class="small"><strong>Submit dry-run ready is disabled because:</strong> <?= v3q_h(implode('; ', $helperBlockReasons)) ?></p>
+            <?php endif; ?>
         </div>
 
         <h3>V3 helper handoff</h3>
