@@ -21,7 +21,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const PE3_TOOL_VERSION = 'v3.0.1-isolated-preview-payload';
+const PE3_TOOL_VERSION = 'v3.0.2-isolated-candidate-scanner';
 const PE3_MIN_FUTURE_MINUTES = 20;
 const PE3_EDXEIX_CREATE_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
 
@@ -137,8 +137,8 @@ function pe3_lookup_edxeix_ids(array $fields, ?string &$error = null): array
     }
 }
 
-/** @return array<string,mixed> */
-function pe3_load_latest_server_email(): array
+/** @return array<int,string> */
+function pe3_maildir_extra_dirs(): array
 {
     $extraDirs = [];
     $ctxError = null;
@@ -169,9 +169,37 @@ function pe3_load_latest_server_email(): array
             }
         }
     }
+    return array_values(array_unique($extraDirs));
+}
 
+/** @return array<string,mixed> */
+function pe3_load_latest_server_email(): array
+{
     $loader = new MaildirPreRideEmailLoaderV3();
-    return $loader->loadLatest($extraDirs);
+    return $loader->loadLatest(pe3_maildir_extra_dirs());
+}
+
+/** @return array<string,mixed> */
+function pe3_load_server_email_candidates(int $limit = 10): array
+{
+    $loader = new MaildirPreRideEmailLoaderV3();
+    if (method_exists($loader, 'loadCandidates')) {
+        return $loader->loadCandidates(pe3_maildir_extra_dirs(), $limit);
+    }
+
+    $latest = $loader->loadLatest(pe3_maildir_extra_dirs());
+    return [
+        'ok' => !empty($latest['ok']),
+        'candidates' => !empty($latest['ok']) ? [[
+            'email_text' => (string)($latest['email_text'] ?? ''),
+            'source' => (string)($latest['source'] ?? ''),
+            'source_mtime' => (string)($latest['source_mtime'] ?? ''),
+            'source_mtime_epoch' => 0,
+        ]] : [],
+        'error' => (string)($latest['error'] ?? ''),
+        'checked_dirs' => $latest['checked_dirs'] ?? [],
+        'loader_version' => $latest['loader_version'] ?? 'legacy-v3-loader',
+    ];
 }
 
 function pe3_el_date_from_iso(string $iso): string
@@ -247,6 +275,57 @@ function pe3_helper_payload(array $fields, array $mapping): array
     ];
 }
 
+/** @return array<string,mixed> */
+function pe3_analyze_candidate(array $candidate, int $index): array
+{
+    $row = [
+        'index' => $index,
+        'source' => (string)($candidate['source'] ?? ''),
+        'source_mtime' => (string)($candidate['source_mtime'] ?? ''),
+        'customer' => '',
+        'driver' => '',
+        'vehicle' => '',
+        'pickup_datetime' => '',
+        'minutes_until' => null,
+        'parser_ok' => false,
+        'mapping_ok' => false,
+        'future_ok' => false,
+        'ready' => false,
+        'mapping_warnings' => [],
+        'parser_warnings' => [],
+        'error' => '',
+    ];
+
+    try {
+        $parser = new BoltPreRideEmailParserV3();
+        $parsed = $parser->parse((string)($candidate['email_text'] ?? ''));
+        $fields = is_array($parsed) ? ($parsed['fields'] ?? []) : [];
+        $missing = is_array($parsed) ? ($parsed['missing_required'] ?? []) : [];
+        $row['parser_ok'] = is_array($parsed) && empty($missing);
+        $row['customer'] = (string)($fields['customer_name'] ?? '');
+        $row['driver'] = (string)($fields['driver_name'] ?? '');
+        $row['vehicle'] = (string)($fields['vehicle_plate'] ?? '');
+        $row['pickup_datetime'] = (string)($fields['pickup_datetime_local'] ?? '');
+        $row['parser_warnings'] = is_array($parsed) ? ($parsed['warnings'] ?? []) : [];
+
+        $lookupError = null;
+        $mapping = pe3_lookup_edxeix_ids(is_array($fields) ? $fields : [], $lookupError);
+        $future = pe3_future_gate(is_array($fields) ? $fields : []);
+        $row['mapping_ok'] = !empty($mapping['ok']);
+        $row['future_ok'] = !empty($future['ok']);
+        $row['minutes_until'] = $future['minutes_until'] ?? null;
+        $row['ready'] = !empty($row['parser_ok']) && !empty($row['mapping_ok']) && !empty($row['future_ok']);
+        $row['mapping_warnings'] = $mapping['warnings'] ?? [];
+        if ($lookupError) {
+            $row['mapping_warnings'][] = $lookupError;
+        }
+    } catch (Throwable $e) {
+        $row['error'] = $e->getMessage();
+    }
+
+    return $row;
+}
+
 $manual = isset($_GET['manual']);
 $watch = isset($_GET['watch']);
 $jsonMode = (($_GET['format'] ?? '') === 'json');
@@ -256,6 +335,10 @@ $error = null;
 $mailLoad = null;
 $mailLoadError = null;
 $dbLookupError = null;
+$candidateLoad = null;
+$candidateRows = [];
+$selectedCandidateIndex = null;
+$autoSelectionReason = '';
 $mapping = [
     'ok' => false,
     'lessor_id' => '',
@@ -267,27 +350,62 @@ $mapping = [
 ];
 $autoLoaded = false;
 
+$shouldLoadCandidates = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? 'parse_pasted');
     if ($action === 'load_latest_server_email') {
-        $mailLoad = pe3_load_latest_server_email();
-        if (!empty($mailLoad['ok'])) {
-            $rawEmail = (string)$mailLoad['email_text'];
-            $autoLoaded = true;
-        } else {
-            $mailLoadError = (string)($mailLoad['error'] ?? 'Unable to load latest server email.');
-            $rawEmail = (string)($_POST['email_text'] ?? '');
-        }
+        $shouldLoadCandidates = true;
     } else {
         $rawEmail = (string)($_POST['email_text'] ?? '');
     }
 } elseif (!$manual) {
-    $mailLoad = pe3_load_latest_server_email();
-    if (!empty($mailLoad['ok'])) {
-        $rawEmail = (string)$mailLoad['email_text'];
-        $autoLoaded = true;
+    $shouldLoadCandidates = true;
+}
+
+if ($shouldLoadCandidates) {
+    $candidateLoad = pe3_load_server_email_candidates(10);
+    if (!empty($candidateLoad['ok']) && !empty($candidateLoad['candidates']) && is_array($candidateLoad['candidates'])) {
+        foreach ($candidateLoad['candidates'] as $idx => $candidate) {
+            if (is_array($candidate)) {
+                $candidateRows[] = pe3_analyze_candidate($candidate, (int)$idx);
+            }
+        }
+
+        $requestedIndex = isset($_GET['candidate']) ? (int)$_GET['candidate'] : null;
+        if ($requestedIndex !== null && isset($candidateLoad['candidates'][$requestedIndex])) {
+            $selectedCandidateIndex = $requestedIndex;
+            $autoSelectionReason = 'Operator selected candidate #' . ($requestedIndex + 1) . ' for inspection.';
+        } else {
+            foreach ($candidateRows as $row) {
+                if (!empty($row['ready'])) {
+                    $selectedCandidateIndex = (int)$row['index'];
+                    $autoSelectionReason = 'V3 auto-selected the first future-ready Maildir candidate.';
+                    break;
+                }
+            }
+            if ($selectedCandidateIndex === null) {
+                $selectedCandidateIndex = 0;
+                $autoSelectionReason = 'No future-ready candidate was found; V3 is showing the latest candidate in preview-only mode.';
+            }
+        }
+
+        $selected = $candidateLoad['candidates'][$selectedCandidateIndex] ?? null;
+        if (is_array($selected)) {
+            $rawEmail = (string)($selected['email_text'] ?? '');
+            $mailLoad = [
+                'ok' => true,
+                'email_text' => $rawEmail,
+                'source' => (string)($selected['source'] ?? ''),
+                'source_mtime' => (string)($selected['source_mtime'] ?? ''),
+                'checked_dirs' => $candidateLoad['checked_dirs'] ?? [],
+                'loader_version' => $candidateLoad['loader_version'] ?? '',
+                'selected_candidate_index' => $selectedCandidateIndex,
+                'auto_selection_reason' => $autoSelectionReason,
+            ];
+            $autoLoaded = true;
+        }
     } else {
-        $mailLoadError = (string)($mailLoad['error'] ?? 'Unable to load latest server email.');
+        $mailLoadError = (string)($candidateLoad['error'] ?? 'Unable to load latest server email.');
     }
 }
 
@@ -338,6 +456,9 @@ if ($jsonMode) {
         'tool_version' => PE3_TOOL_VERSION,
         'auto_loaded' => $autoLoaded,
         'mail_source' => is_array($mailLoad) ? ($mailLoad['source'] ?? '') : '',
+        'selected_candidate_index' => $selectedCandidateIndex,
+        'auto_selection_reason' => $autoSelectionReason,
+        'candidate_rows' => $candidateRows,
         'parser_ok' => is_array($result) && empty($missing),
         'mapping_ok' => !empty($mapping['ok']),
         'future_ok' => !empty($futureGate['ok']),
@@ -369,7 +490,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
     <?php if ($watch): ?><meta http-equiv="refresh" content="20"><?php endif; ?>
     <title>Bolt Pre-Ride Email Tool V3 | gov.cabnet.app</title>
     <style>
-        :root{--bg:#f3f6fb;--panel:#fff;--ink:#07152f;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff;--gold:#d4922d;--purple:#6d28d9}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:18px 0 10px}p{color:var(--muted);line-height:1.45}.safety{border-left:7px solid var(--green);background:#ecfdf3}.hero{border-left:7px solid var(--purple)}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1 / -1}label{font-weight:700;font-size:13px;color:#27385f}input,textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:var(--ink)}textarea{min-height:240px;resize:vertical}.raw textarea{min-height:420px}.output textarea{min-height:150px;background:#fbfdff}.btn{display:inline-block;border:0;padding:11px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;cursor:pointer}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.dark{background:var(--slate)}.btn.gold{background:var(--gold)}.btn.purple{background:var(--purple)}.btn.light{background:#eaf1ff;color:#1e40af}.btn:disabled,.btn.disabled{opacity:.48;cursor:not-allowed}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.badge-purple{background:#ede9fe;color:#5b21b6}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:86px}.metric strong{display:block;font-size:27px;line-height:1.08;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.warnline{color:#b45309}.badline{color:#991b1b}.goodline{color:#166534}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.form-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;color:#9a3412}.stepbox{background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;color:#1e3a8a}.okbox{background:#ecfdf3;border:1px solid #bbf7d0;border-radius:10px;padding:12px;color:#14532d}.badbox{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;color:#991b1b}.code-box{font-family:Consolas,Menlo,Monaco,monospace;font-size:13px;line-height:1.35;min-height:280px;background:#0b1220;color:#dbeafe}.helper-status{display:inline-block;margin-left:8px;font-weight:700}.helper-status.ok{color:#166534}.helper-status.warn{color:#b45309}.helper-status.bad{color:#991b1b}@media(max-width:980px){.two,.three,.field-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}.raw textarea{min-height:280px}}
+        :root{--bg:#f3f6fb;--panel:#fff;--ink:#07152f;--muted:#41577a;--line:#d7e1ef;--nav:#081225;--blue:#2563eb;--green:#07875a;--orange:#b85c00;--red:#b42318;--slate:#334155;--soft:#f8fbff;--gold:#d4922d;--purple:#6d28d9}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}.nav{background:var(--nav);color:#fff;min-height:56px;display:flex;align-items:center;gap:18px;padding:0 26px;position:sticky;top:0;z-index:5;overflow:auto}.nav strong{white-space:nowrap}.nav a{color:#fff;text-decoration:none;font-size:15px;white-space:nowrap;opacity:.92}.nav a:hover{opacity:1;text-decoration:underline}.wrap{width:min(1480px,calc(100% - 48px));margin:26px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 10px 26px rgba(8,18,37,.04)}h1{font-size:34px;margin:0 0 12px}h2{font-size:23px;margin:0 0 14px}h3{font-size:18px;margin:18px 0 10px}p{color:var(--muted);line-height:1.45}.safety{border-left:7px solid var(--green);background:#ecfdf3}.hero{border-left:7px solid var(--purple)}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1 / -1}label{font-weight:700;font-size:13px;color:#27385f}input,textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:var(--ink)}textarea{min-height:240px;resize:vertical}.raw textarea{min-height:420px}.output textarea{min-height:150px;background:#fbfdff}.btn{display:inline-block;border:0;padding:11px 14px;border-radius:8px;color:#fff;text-decoration:none;font-weight:700;background:var(--blue);font-size:14px;cursor:pointer}.btn.green{background:var(--green)}.btn.orange{background:var(--orange)}.btn.dark{background:var(--slate)}.btn.gold{background:var(--gold)}.btn.purple{background:var(--purple)}.btn.light{background:#eaf1ff;color:#1e40af}.btn:disabled,.btn.disabled{opacity:.48;cursor:not-allowed}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;margin:1px 3px 1px 0;white-space:nowrap}.badge-good{background:#dcfce7;color:#166534}.badge-warn{background:#fff7ed;color:#b45309}.badge-bad{background:#fee2e2;color:#991b1b}.badge-neutral{background:#eaf1ff;color:#1e40af}.badge-purple{background:#ede9fe;color:#5b21b6}.list{margin:0;padding-left:18px;color:var(--muted)}.list li{margin:7px 0}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--soft);min-height:86px}.metric strong{display:block;font-size:27px;line-height:1.08;word-break:break-word}.metric span{color:var(--muted);font-size:14px}.warnline{color:#b45309}.badline{color:#991b1b}.goodline{color:#166534}.small{font-size:13px;color:var(--muted)}code{background:#eef2ff;padding:2px 5px;border-radius:5px}.form-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;color:#9a3412}.stepbox{background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;color:#1e3a8a}.okbox{background:#ecfdf3;border:1px solid #bbf7d0;border-radius:10px;padding:12px;color:#14532d}.badbox{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;color:#991b1b}.code-box{font-family:Consolas,Menlo,Monaco,monospace;font-size:13px;line-height:1.35;min-height:280px;background:#0b1220;color:#dbeafe}.helper-status{display:inline-block;margin-left:8px;font-weight:700}.helper-status.ok{color:#166534}.helper-status.warn{color:#b45309}.helper-status.bad{color:#991b1b}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.candidate-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}.candidate-table th,.candidate-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.candidate-table th{background:#f8fbff;color:#27385f;white-space:nowrap}.candidate-table tr.selected{background:#eef6ff}.candidate-table tr.ready{background:#ecfdf3}.candidate-table tr.blocked{background:#fff7ed}.mini{font-size:12px;color:var(--muted)}@media(max-width:980px){.two,.three,.field-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.wrap{width:calc(100% - 24px);margin-top:14px}.nav{padding:0 14px}.raw textarea{min-height:280px}}
     </style>
 </head>
 <body>
@@ -414,6 +535,45 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
                 <button class="btn light" type="button" onclick="loadSample()">Load safe sample</button>
                 <button class="btn dark" type="button" onclick="clearInput()">Clear</button>
             </div>
+            <?php if (!empty($candidateRows)): ?>
+                <h3>Recent Maildir candidates</h3>
+                <p class="small"><?= pe3_h($autoSelectionReason) ?></p>
+                <div class="table-wrap">
+                    <table class="candidate-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Source</th>
+                                <th>Pickup</th>
+                                <th>Transfer</th>
+                                <th>Gates</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($candidateRows as $row):
+                                $isSelected = ((int)$row['index'] === (int)$selectedCandidateIndex);
+                                $rowClass = $isSelected ? 'selected' : (!empty($row['ready']) ? 'ready' : 'blocked');
+                                $candidateUrl = '/ops/pre-ride-email-toolv3.php?candidate=' . rawurlencode((string)$row['index']) . ($watch ? '&watch=1' : '');
+                            ?>
+                                <tr class="<?= pe3_h($rowClass) ?>">
+                                    <td><strong><?= pe3_h((string)((int)$row['index'] + 1)) ?></strong><?= $isSelected ? '<br>' . pe3_badge('selected', 'neutral') : '' ?></td>
+                                    <td><?= pe3_h($row['source'] ?? '') ?><br><span class="mini"><?= pe3_h($row['source_mtime'] ?? '') ?></span></td>
+                                    <td><?= pe3_h($row['pickup_datetime'] ?? '') ?><br><span class="mini"><?= is_numeric($row['minutes_until'] ?? null) ? pe3_h((string)$row['minutes_until']) . ' min' : '-' ?></span></td>
+                                    <td><?= pe3_h($row['customer'] ?? '') ?><br><span class="mini"><?= pe3_h(($row['driver'] ?? '') . ' / ' . ($row['vehicle'] ?? '')) ?></span></td>
+                                    <td>
+                                        <?= !empty($row['parser_ok']) ? pe3_badge('parser', 'good') : pe3_badge('parser', 'warn') ?>
+                                        <?= !empty($row['mapping_ok']) ? pe3_badge('ids', 'good') : pe3_badge('ids', 'warn') ?>
+                                        <?= !empty($row['future_ok']) ? pe3_badge('future', 'good') : pe3_badge('past/soon', 'bad') ?>
+                                        <?= !empty($row['ready']) ? pe3_badge('ready', 'good') : pe3_badge('blocked', 'bad') ?>
+                                    </td>
+                                    <td><a class="btn light" href="<?= pe3_h($candidateUrl) ?>">Inspect</a></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         </form>
 
         <section class="card">
@@ -437,6 +597,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
                 </p>
                 <?php if (is_array($mailLoad) && !empty($mailLoad['ok'])): ?>
                     <p class="goodline"><strong>Server email loaded:</strong> <?= pe3_h($mailLoad['source'] ?? '') ?> <?= !empty($mailLoad['source_mtime']) ? '(' . pe3_h($mailLoad['source_mtime']) . ')' : '' ?></p>
+                    <?php if (!empty($mailLoad['auto_selection_reason'])): ?><p class="small"><strong>Selection:</strong> <?= pe3_h($mailLoad['auto_selection_reason']) ?></p><?php endif; ?>
                 <?php elseif ($mailLoadError): ?>
                     <p class="warnline"><strong>Server email loader:</strong> <?= pe3_h($mailLoadError) ?></p>
                 <?php endif; ?>

@@ -15,7 +15,7 @@ namespace Bridge\BoltMailV3;
 
 final class MaildirPreRideEmailLoaderV3
 {
-    public const VERSION = 'v3.0.1-isolated-maildir-loader-html-block-fix';
+    public const VERSION = 'v3.0.2-isolated-candidate-scanner';
     private const MAX_FILE_BYTES = 250000;
     private const MAX_FILES_PER_DIR = 80;
 
@@ -25,7 +25,80 @@ final class MaildirPreRideEmailLoaderV3
      */
     public function loadLatest(array $extraDirs = []): array
     {
+        $list = $this->loadCandidates($extraDirs, 1);
+        $candidate = $list['candidates'][0] ?? null;
+        if (is_array($candidate)) {
+            return [
+                'ok' => true,
+                'email_text' => (string)($candidate['email_text'] ?? ''),
+                'source' => (string)($candidate['source'] ?? ''),
+                'source_mtime' => (string)($candidate['source_mtime'] ?? ''),
+                'error' => '',
+                'checked_dirs' => $list['checked_dirs'],
+                'loader_version' => self::VERSION,
+            ];
+        }
+
+        return [
+            'ok' => false,
+            'email_text' => '',
+            'source' => '',
+            'source_mtime' => '',
+            'error' => $list['error'],
+            'checked_dirs' => $list['checked_dirs'],
+            'loader_version' => self::VERSION,
+        ];
+    }
+
+    /**
+     * Return recent matching pre-ride emails, newest first, without moving, deleting,
+     * marking-read, storing, or logging any message. Public paths are sanitized to
+     * safe Maildir tail names only; raw server paths are never returned.
+     *
+     * @param array<int,string> $extraDirs
+     * @return array{ok:bool,candidates:array<int,array<string,mixed>>,error:string,checked_dirs:array<int,string>,loader_version:string}
+     */
+    public function loadCandidates(array $extraDirs = [], int $limit = 10): array
+    {
+        $limit = max(1, min(25, $limit));
         $dirs = $this->candidateDirs($extraDirs);
+        $files = $this->candidateFiles($dirs);
+        $candidates = [];
+
+        foreach ($files as $file) {
+            $raw = $this->readLimited($file);
+            if ($raw === '') {
+                continue;
+            }
+            $body = $this->decodeEmailBody($raw);
+            if (!$this->looksLikeBoltPreRide($body)) {
+                continue;
+            }
+            $mtime = filemtime($file) ?: time();
+            $candidates[] = [
+                'email_text' => $body,
+                'source' => $this->safeSourceName($file),
+                'source_mtime' => date('Y-m-d H:i:s', $mtime),
+                'source_mtime_epoch' => $mtime,
+                'loader_version' => self::VERSION,
+            ];
+            if (count($candidates) >= $limit) {
+                break;
+            }
+        }
+
+        return [
+            'ok' => count($candidates) > 0,
+            'candidates' => $candidates,
+            'error' => count($candidates) > 0 ? '' : 'No matching Bolt pre-ride email was found in the configured/default Maildir paths.',
+            'checked_dirs' => $this->safeDirs($dirs),
+            'loader_version' => self::VERSION,
+        ];
+    }
+
+    /** @param array<int,string> $dirs @return array<int,string> */
+    private function candidateFiles(array $dirs): array
+    {
         $files = [];
         foreach ($dirs as $dir) {
             if (!is_dir($dir) || !is_readable($dir)) {
@@ -41,36 +114,7 @@ final class MaildirPreRideEmailLoaderV3
         }
 
         usort($files, static fn(string $a, string $b): int => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
-
-        foreach ($files as $file) {
-            $raw = $this->readLimited($file);
-            if ($raw === '') {
-                continue;
-            }
-            $body = $this->decodeEmailBody($raw);
-            if (!$this->looksLikeBoltPreRide($body)) {
-                continue;
-            }
-            return [
-                'ok' => true,
-                'email_text' => $body,
-                'source' => $this->safeSourceName($file),
-                'source_mtime' => date('Y-m-d H:i:s', filemtime($file) ?: time()),
-                'error' => '',
-                'checked_dirs' => $this->safeDirs($dirs),
-                'loader_version' => self::VERSION,
-            ];
-        }
-
-        return [
-            'ok' => false,
-            'email_text' => '',
-            'source' => '',
-            'source_mtime' => '',
-            'error' => 'No matching Bolt pre-ride email was found in the configured/default Maildir paths.',
-            'checked_dirs' => $this->safeDirs($dirs),
-            'loader_version' => self::VERSION,
-        ];
+        return array_values(array_unique($files));
     }
 
     /** @param array<int,string> $extraDirs @return array<int,string> */
