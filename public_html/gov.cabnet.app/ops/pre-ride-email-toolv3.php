@@ -22,8 +22,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-const PE3_TOOL_VERSION = 'v3.0.6-isolated-manual-queue-intake';
-const PE3_MIN_FUTURE_MINUTES = 20;
+const PE3_TOOL_VERSION = 'v3.0.9-isolated-fast-intake';
+const PE3_MIN_FUTURE_MINUTES = 1;
 const PE3_EDXEIX_CREATE_URL = 'https://edxeix.yme.gov.gr/dashboard/lease-agreement/create';
 
 function pe3_h($value): string
@@ -229,7 +229,7 @@ function pe3_future_gate(array $fields): array
         if ($minutes < PE3_MIN_FUTURE_MINUTES) {
             return [
                 'ok' => false,
-                'message' => 'Pickup is only ' . $minutes . ' minutes from now. V3 requires at least ' . PE3_MIN_FUTURE_MINUTES . ' minutes in the future.',
+                'message' => 'Pickup is only ' . $minutes . ' minutes from now. V3 fast intake requires at least ' . PE3_MIN_FUTURE_MINUTES . ' minute in the future.',
                 'minutes_until' => $minutes,
                 'start_iso' => $pickup->format(DateTimeInterface::ATOM),
             ];
@@ -968,7 +968,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
 
     <section class="card hero">
         <h1>Bolt Pre-Ride Email → V3 Automated Preflight</h1>
-        <p>Default mode auto-loads the latest Maildir pre-ride email, parses it, resolves EDXEIX IDs with read-only lookup, and prepares a V3 helper payload only when all safety gates pass.</p>
+        <p>Default mode auto-loads the latest Maildir pre-ride email, parses it, resolves EDXEIX IDs with read-only lookup, and uses a fast 1-minute queue-intake gate for real Bolt timing. EDXEIX live-submit remains disabled.</p>
         <div>
             <?= pe3_badge('V3 ISOLATED', 'purple') ?>
             <?= pe3_badge('NO PRODUCTION FILE CHANGE', 'good') ?>
@@ -1097,6 +1097,7 @@ $sample = "Operator: Fleet Mykonos LUXLIMO IKE\nCustomer: Example Customer\nCust
                 <div class="<?= !empty($queueSchemaStatus['ok']) ? 'okbox' : 'stepbox' ?>">
                     <strong>Schema:</strong> <?= !empty($queueSchemaStatus['ok']) ? pe3_badge('installed', 'good') : pe3_badge('not installed', 'warn') ?>
                     <?= pe3_badge('manual V3-only queue intake', !empty($queueSchemaStatus['ok']) ? 'purple' : 'neutral') ?>
+            <?= pe3_badge('fast queue gate: 1 min', 'warn') ?>
                     <p class="small" style="margin:8px 0 0;"><?= pe3_h($queueSchemaStatus['message'] ?? '') ?></p>
                     <p class="small" style="margin:6px 0 0;"><strong>Optional SQL:</strong> <code><?= pe3_h($queueSchemaStatus['sql_file'] ?? 'gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_queue_tables.sql') ?></code></p>
                     <ul class="list" style="margin-top:8px;">

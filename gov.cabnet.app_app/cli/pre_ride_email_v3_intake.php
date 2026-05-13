@@ -19,9 +19,9 @@
 
 declare(strict_types=1);
 
-const PE3_CLI_VERSION = 'v3.0.7-cli-queue-intake';
+const PE3_CLI_VERSION = 'v3.0.9-fast-queue-intake';
 const PE3_DEFAULT_LIMIT = 20;
-const PE3_DEFAULT_MIN_FUTURE_MINUTES = 20;
+const PE3_DEFAULT_MIN_FUTURE_MINUTES = 1;
 
 $appRoot = dirname(__DIR__);
 $bootstrapFile = $appRoot . '/src/bootstrap.php';
@@ -41,6 +41,15 @@ use Bridge\BoltMailV3\BoltPreRideEmailParserV3;
 use Bridge\BoltMailV3\EdxeixMappingLookupV3;
 use Bridge\BoltMailV3\MaildirPreRideEmailLoaderV3;
 
+function pe3_cli_default_min_future_minutes(): int
+{
+    $env = getenv('GOV_CABNET_V3_MIN_FUTURE_MINUTES');
+    if (is_string($env) && preg_match('/^\d+$/', trim($env))) {
+        return max(1, min(1440, (int)trim($env)));
+    }
+    return PE3_DEFAULT_MIN_FUTURE_MINUTES;
+}
+
 /** @return array<string,mixed> */
 function pe3_cli_options(array $argv): array
 {
@@ -48,7 +57,7 @@ function pe3_cli_options(array $argv): array
         'commit' => false,
         'json' => false,
         'limit' => PE3_DEFAULT_LIMIT,
-        'min_future_minutes' => PE3_DEFAULT_MIN_FUTURE_MINUTES,
+        'min_future_minutes' => pe3_cli_default_min_future_minutes(),
         'help' => false,
     ];
 
@@ -82,7 +91,7 @@ Usage:
 
 Options:
   --limit=N                 Number of recent Maildir candidates to scan. Default: 20, max: 100.
-  --min-future-minutes=N    Future safety window. Default: 20.
+  --min-future-minutes=N    Queue intake future window. Default: 1 minute. Env override: GOV_CABNET_V3_MIN_FUTURE_MINUTES.
   --json                    Output machine-readable JSON.
   --commit                  Insert only future-ready candidates into V3-only queue tables.
   --help                    Show this help.
@@ -194,7 +203,7 @@ function pe3_cli_future_gate(array $fields, int $minFutureMinutes): array
         if ($minutes < $minFutureMinutes) {
             return [
                 'ok' => false,
-                'message' => 'Pickup is only ' . $minutes . ' minutes from now. V3 requires at least ' . $minFutureMinutes . ' minutes in the future.',
+                'message' => 'Pickup is only ' . $minutes . ' minutes from now. V3 fast intake requires at least ' . $minFutureMinutes . ' minute(s) in the future.',
                 'minutes_until' => $minutes,
                 'start_iso' => $pickup->format(DateTimeInterface::ATOM),
             ];

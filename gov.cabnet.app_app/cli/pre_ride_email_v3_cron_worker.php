@@ -17,8 +17,9 @@
 
 declare(strict_types=1);
 
-const WORKER_VERSION = 'v3.0.8-cron-worker';
+const WORKER_VERSION = 'v3.0.9-fast-intake-cron-worker';
 const DEFAULT_LIMIT = 20;
+const DEFAULT_MIN_FUTURE_MINUTES = 1;
 
 function cw_ts(): string
 {
@@ -51,11 +52,17 @@ if ($limit < 1 || $limit > 200) {
     $limit = DEFAULT_LIMIT;
 }
 
+$minFutureText = cw_arg_value($argv, '--min-future-minutes', getenv('GOV_CABNET_V3_MIN_FUTURE_MINUTES') ?: (string)DEFAULT_MIN_FUTURE_MINUTES);
+$minFutureMinutes = (int)$minFutureText;
+if ($minFutureMinutes < 1 || $minFutureMinutes > 1440) {
+    $minFutureMinutes = DEFAULT_MIN_FUTURE_MINUTES;
+}
+
 $dryRun = cw_has_flag($argv, '--dry-run');
 $lockFile = sys_get_temp_dir() . '/gov_cabnet_pre_ride_email_v3_cron_worker.lock';
 $intakeScript = __DIR__ . '/pre_ride_email_v3_intake.php';
 
-cw_line('V3 cron worker start ' . WORKER_VERSION . ' mode=' . ($dryRun ? 'dry_run' : 'commit') . ' limit=' . $limit);
+cw_line('V3 cron worker start ' . WORKER_VERSION . ' mode=' . ($dryRun ? 'dry_run' : 'commit') . ' limit=' . $limit . ' min_future_minutes=' . $minFutureMinutes);
 
 if (!is_file($intakeScript)) {
     cw_line('ERROR: intake script not found: ' . $intakeScript);
@@ -86,6 +93,7 @@ $cmd = [
     $php,
     $intakeScript,
     '--limit=' . (string)$limit,
+    '--min-future-minutes=' . (string)$minFutureMinutes,
     '--json',
 ];
 
