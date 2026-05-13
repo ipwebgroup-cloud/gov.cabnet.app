@@ -1,59 +1,43 @@
-# gov.cabnet.app patch — V3 live-submit final rehearsal
+# Patch: V3 Disabled Live-Submit Config Installer
 
 ## What changed
 
-Adds a read-only final rehearsal layer for the V3 full-automation path. It validates `live_submit_ready` rows against the master gate, per-row operator approval, verified starting-point options, required adapter package fields, future-time checks, and price/time sanity.
+Adds a CLI installer that creates `/home/cabnet/gov.cabnet.app_config/pre_ride_email_v3_live_submit.php` in a disabled state so the V3 master gate can load a config without enabling live submit.
 
 ## Files included
 
-- `gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_rehearsal.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-rehearsal.php`
-- `docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_SUBMIT_REHEARSAL.md`
+- `gov.cabnet.app_app/cli/install_pre_ride_email_v3_disabled_live_submit_config.php`
+- `docs/PRE_RIDE_EMAIL_TOOL_V3_DISABLED_LIVE_CONFIG.md`
 - `PATCH_README.md`
 
-## Upload paths
+## Upload path
 
-- `gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_rehearsal.php`
-  → `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_rehearsal.php`
+`gov.cabnet.app_app/cli/install_pre_ride_email_v3_disabled_live_submit_config.php`
+→ `/home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_email_v3_disabled_live_submit_config.php`
 
-- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-rehearsal.php`
-  → `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-rehearsal.php`
-
-## SQL
-
-None.
-
-## Verify
+## Commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_rehearsal.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-rehearsal.php
-
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_rehearsal.php --limit=20
+php -l /home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_email_v3_disabled_live_submit_config.php
+php /home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_email_v3_disabled_live_submit_config.php --dry-run
+php /home/cabnet/gov.cabnet.app_app/cli/install_pre_ride_email_v3_disabled_live_submit_config.php --write
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
 ```
 
-Open:
+## Expected result
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-submit-rehearsal.php
-```
+The V3 gate should show config loaded, but remain closed:
+
+- Enabled: no
+- Mode: disabled
+- Adapter: disabled
+- Hard live submit: no
 
 ## Safety
 
-- No EDXEIX call.
-- No AADE call.
-- No DB writes.
-- No production `submission_jobs` writes.
-- No production `submission_attempts` writes.
-- Production `public_html/gov.cabnet.app/ops/pre-ride-email-tool.php` is untouched.
-
-## Expected result right now
-
-With no `live_submit_ready` rows:
-
-```text
-Rows checked: 0
-Pre-live passed: 0
-Blocked: 0
-No EDXEIX call. No AADE call. No DB writes.
-```
+- No EDXEIX call
+- No AADE call
+- No DB writes
+- No production submission table writes
+- No production `pre-ride-email-tool.php` change
+- Generated config remains disabled
