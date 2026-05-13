@@ -1,38 +1,38 @@
-# gov.cabnet.app — V3 Queue Helper Handoff Patch
+# gov.cabnet.app — V3 Submit Preflight Dry-Run Patch
 
-## Upload paths
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
-```
-
-Local Firefox helper file:
+## Files included
 
 ```text
-tools/firefox-edxeix-autofill-helper-v3/manifest.json
-→ reload this helper locally in Firefox from the repo/tools folder
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_SUBMIT_PREFLIGHT.md
+PATCH_README.md
 ```
+
+## Upload path
+
+```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+```
+
+Docs stay in the local GitHub repo.
+
+## SQL
+
+None.
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
-```
-
-Open:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-queue.php
-```
-
-Select a queue row. If it is still future-safe, use:
-
-```text
-Save selected row to V3 helper
-Save + open EDXEIX company form
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php --limit=20
 ```
 
 ## Safety
 
-No production `pre-ride-email-tool.php` change. No DB writes from dashboard. No EDXEIX submit. No AADE.
+- SELECT only.
+- No DB writes.
+- No EDXEIX calls.
+- No AADE calls.
+- No production queue access.
+- Production pre-ride-email-tool.php is not included and not touched.
