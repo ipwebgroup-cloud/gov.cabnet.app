@@ -1,21 +1,29 @@
-# gov.cabnet.app — V3 Submit Control Panel Patch
+# gov.cabnet.app — V3 Submit Dry-Run Cron Worker Patch
 
-## Files included
+## What changed
+
+Adds a private V3-only cron worker:
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_SUBMIT_CONTROL_PANEL.md
-PATCH_README.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+```
+
+It automatically runs the existing V3 submit dry-run worker and can mark queued V3 rows as `submit_dry_run_ready` when strict preflight checks pass.
+
+## Production file not touched
+
+This patch does not include or modify:
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
 ## Upload path
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
 ```
-
-Docs remain in the local GitHub Desktop repo.
 
 ## SQL
 
@@ -24,20 +32,23 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-queue.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php
+mkdir -p /home/cabnet/gov.cabnet.app_app/logs
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php --dry-run
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log 2>&1
+tail -n 80 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log
 ```
 
-Then open:
+## Suggested cron
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-queue.php
+```bash
+* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_submit_dry_run_cron.log 2>&1
 ```
 
 ## Safety
 
-- Production `/ops/pre-ride-email-tool.php` is not included.
 - No EDXEIX calls.
 - No AADE calls.
-- No writes to production `submission_jobs`.
-- No writes to production `submission_attempts`.
-- Operator actions write only to V3 queue/events tables.
+- No production submission_jobs writes.
+- No production submission_attempts writes.
+- V3-only queue/status/events writes through the child dry-run worker.
