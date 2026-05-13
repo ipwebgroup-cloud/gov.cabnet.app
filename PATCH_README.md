@@ -1,82 +1,39 @@
-# gov.cabnet.app — V3 CLI Queue Intake Patch
-
-## Production file not touched
-
-This patch does not include or modify:
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
+# gov.cabnet.app — V3 cron worker patch
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_CLI_INTAKE.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_CRON_WORKER.md
 PATCH_README.md
 ```
 
 ## Upload path
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
 ```
-
-Docs remain in the local GitHub Desktop repo.
 
 ## SQL
 
-None. This uses the V3 queue tables already created:
+None.
 
-```text
-pre_ride_email_v3_queue
-pre_ride_email_v3_queue_events
-```
-
-## Verify syntax
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php
+mkdir -p /home/cabnet/gov.cabnet.app_app/logs
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php
+tail -n 80 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log
 ```
 
-## Dry-run test
+## Cron line
 
 ```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php --limit=20
+* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_cron.log 2>&1
 ```
-
-Expected for current historical emails:
-
-```text
-Candidates found
-Ready: 0
-Blocked: many
-No DB rows inserted
-```
-
-## JSON dry-run
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php --limit=20 --json
-```
-
-## Commit mode
-
-Only after dry-run is clean:
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_intake.php --limit=20 --commit
-```
-
-Commit mode writes only future-ready rows into V3-only tables using `INSERT IGNORE` and deterministic V3 dedupe keys.
 
 ## Safety
 
-- No production route change.
-- No production `submission_jobs` writes.
-- No production `submission_attempts` writes.
-- No EDXEIX server call.
-- No AADE call.
-- No email delete/move/mark-read.
-- Default mode is dry-run.
+No EDXEIX call. No AADE call. No production `submission_jobs` write. No production `submission_attempts` write. The worker calls only the existing V3 intake script, which inserts only eligible future-ready records into the V3-only queue tables.
