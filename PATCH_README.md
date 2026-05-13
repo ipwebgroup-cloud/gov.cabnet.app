@@ -1,35 +1,30 @@
-# gov.cabnet.app — V3 live-submit gate config hygiene patch
+# gov.cabnet.app patch — V3 automation readiness report
 
 ## What changed
 
-This patch improves the V3 live-submit master gate after the disabled server-only config was installed.
-
-- Removes the blank `Config load error:` block when config loads successfully.
-- Supports both acknowledgement key names used by current/future disabled config files.
-- Adds `hard_enable_live_submit` to the gate output and read-only dashboard.
-- Keeps the gate closed by default.
+Adds a consolidated read-only V3 automation readiness report for the Bolt pre-ride email automation chain.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_GATE_CONFIG_HYGIENE.md
+gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_AUTOMATION_READINESS.md
 PATCH_README.md
 ```
 
 ## Upload paths
 
 ```text
-gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
-→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
+gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
+→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
 
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
 ```
 
 ## SQL
@@ -39,35 +34,36 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
+php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/AutomationReadinessReportV3.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
 
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_automation_readiness.php --json
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
 ```
 
 ## Expected result
 
-```text
-Config loaded: yes
-Config error: -
-Enabled: no
-Mode: disabled
-Adapter: disabled
-Hard enable live submit: no
-OK for future live submit: no
-```
+The page should show the full V3 chain status in one place:
+
+- Schema status.
+- Queue counts.
+- Cron freshness.
+- Disabled live-submit config state.
+- Safety state.
+- Next recommended action.
 
 ## Safety
 
-- No EDXEIX call.
-- No AADE call.
-- No DB write.
-- No production submission table write.
-- Production pre-ride-email-tool.php is untouched.
+- Production `pre-ride-email-tool.php` is untouched.
+- No EDXEIX calls.
+- No AADE calls.
+- No database writes.
+- No production `submission_jobs` writes.
+- No production `submission_attempts` writes.
