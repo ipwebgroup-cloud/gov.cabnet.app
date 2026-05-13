@@ -1,55 +1,56 @@
-# gov.cabnet.app patch — V3 Live-Submit Master Gate
+# gov.cabnet.app patch — V3 live-submit operator approval gate
 
 ## What changed
 
-Adds a central read-only master gate for any future V3 live EDXEIX submit worker.
+Adds a V3-only operator approval ledger and ops page for rows that reach `live_submit_ready`.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
-gov.cabnet.app_config_examples/pre_ride_email_v3_live_submit.example.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_SUBMIT_GATE.md
+gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_approval_audit.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-approval.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_LIVE_APPROVAL_GATE.md
 PATCH_README.md
 ```
 
 ## Upload paths
 
 ```text
-gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
-→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
+gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql
+→ /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql
 
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_approval_audit.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_approval_audit.php
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-approval.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-approval.php
 ```
 
-The config example stays in Git only. Do not upload it as the real live config unless explicitly approved.
+## SQL
+
+```bash
+mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_live_submit_approvals.sql
+```
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/LiveSubmitGateV3.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_gate_check.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_approval_audit.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-approval.php
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_approval_audit.php --limit=20
 ```
 
 Open:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-approval.php
 ```
 
 ## Safety
 
-- Production `pre-ride-email-tool.php` is untouched.
-- No EDXEIX call.
-- No AADE call.
-- No DB writes.
-- No production submission tables.
-- Default gate state is closed.
+- No EDXEIX calls.
+- No AADE calls.
+- No production submission table writes.
+- No production tool changes.
+- Approval writes only to the V3 approval ledger and V3 events.
