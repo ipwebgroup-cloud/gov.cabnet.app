@@ -1,21 +1,29 @@
-# gov.cabnet.app — V3 Submit Preflight Dry-Run Patch
+# gov.cabnet.app — V3 Submit Dry-Run Worker Patch
+
+## Production file not touched
+
+This patch does not include or modify:
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+```
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_SUBMIT_PREFLIGHT.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_SUBMIT_DRY_RUN_WORKER.md
 PATCH_README.md
 ```
 
 ## Upload path
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
 ```
 
-Docs stay in the local GitHub repo.
+Docs remain in the local repo.
 
 ## SQL
 
@@ -24,15 +32,27 @@ None.
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php --limit=20
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+```
+
+## Dry-run
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php --limit=20
+```
+
+## Commit V3-only dry-run status/events
+
+Run only after a future-safe row appears in the V3 queue:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php --limit=20 --commit
 ```
 
 ## Safety
 
-- SELECT only.
-- No DB writes.
 - No EDXEIX calls.
 - No AADE calls.
-- No production queue access.
-- Production pre-ride-email-tool.php is not included and not touched.
+- No production `submission_jobs` writes.
+- No production `submission_attempts` writes.
+- Writes only V3 dry-run status/events when `--commit` is used.
