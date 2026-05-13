@@ -1,84 +1,73 @@
-# gov.cabnet.app — V3 Starting-Point Guard Patch
+# gov.cabnet.app — V3 submit starting-point guard patch
 
 ## What changed
 
-Adds V3-only verified EDXEIX starting-point options and a guard worker that blocks active V3 queue rows when their `starting_point_id` is known-invalid for the selected lessor.
+The V3 submit preflight and V3 submit dry-run worker now enforce the verified V3 starting-point options table before a queue row can be marked submit-dry-run-ready.
+
+This prevents rows with a starting point ID that is not available in the EDXEIX company/lessor form from proceeding through the V3 submit readiness stage.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
-gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
-docs/PRE_RIDE_EMAIL_TOOL_V3_STARTING_POINT_GUARD.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+docs/PRE_RIDE_EMAIL_TOOL_V3_SUBMIT_STARTING_POINT_GUARD.md
 PATCH_README.md
-```
-
-## Production file not touched
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
 
-gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
-
-gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
-→ /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
+gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
 ```
 
 ## SQL
 
-```bash
-mysql cabnet_gov < /home/cabnet/gov.cabnet.app_sql/2026_05_13_pre_ride_email_v3_starting_point_options.sql
+None. This patch uses the already-installed table:
+
+```text
+pre_ride_email_v3_starting_point_options
 ```
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
+
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php --status=all --limit=20
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php --status=queued --limit=20
 ```
 
-## Dry-run
+## Expected result
 
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php --limit=50
-```
-
-## Commit guard action
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard.php --limit=50 --commit
-```
-
-## Suggested cron
-
-```cron
-* * * * * /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_starting_point_guard_cron_worker.php >> /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_starting_point_guard_cron.log 2>&1
-```
-
-## Page
+A row with:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-starting-point-guard.php
+lessor_id = 2307
+starting_point_id = 1455969
 ```
+
+can pass the starting-point guard.
+
+A row with:
+
+```text
+lessor_id = 2307
+starting_point_id = 6467495
+```
+
+is blocked from submit dry-run readiness.
 
 ## Safety
 
+- Production `/ops/pre-ride-email-tool.php` is untouched.
 - No EDXEIX calls.
 - No AADE calls.
-- No production route changes.
-- No production queue writes.
-- Guard commit writes only to V3 queue/status/events.
+- No production `submission_jobs` writes.
+- No production `submission_attempts` writes.
+- Dry-run worker commit mode writes only to V3 queue/status/events.

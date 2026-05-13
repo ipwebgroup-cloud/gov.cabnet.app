@@ -6,6 +6,7 @@
  * - Move the isolated V3 queue one step closer to submit automation.
  * - Read V3 queue rows, run strict submit preflight, and optionally mark rows as
  *   submit_dry_run_ready in V3-only tables.
+ * - Enforce operator-verified V3 EDXEIX starting-point options before dry-run readiness.
  *
  * Safety:
  * - No EDXEIX calls.
@@ -18,9 +19,10 @@
 
 declare(strict_types=1);
 
-const PRV3_SUBMIT_DRY_RUN_VERSION = 'v3.0.13-submit-dry-run-worker';
+const PRV3_SUBMIT_DRY_RUN_VERSION = 'v3.0.19-submit-dry-run-starting-point-guard';
 const PRV3_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const PRV3_EVENTS_TABLE = 'pre_ride_email_v3_queue_events';
+const PRV3_STARTING_POINT_OPTIONS_TABLE = 'pre_ride_email_v3_starting_point_options';
 
 date_default_timezone_set('Europe/Athens');
 
@@ -75,7 +77,6 @@ function prv3_bootstrap_context(): array
         $bootstrap = dirname(__DIR__, 2) . '/src/bootstrap.php';
     }
     if (!is_file($bootstrap)) {
-        // CLI file is usually /home/cabnet/gov.cabnet.app_app/cli, so ../src/bootstrap.php.
         $bootstrap = dirname(__DIR__) . '/src/bootstrap.php';
     }
     if (!is_file($bootstrap)) {
@@ -116,6 +117,92 @@ function prv3_fetch_rows(mysqli $db, string $status, int $limit): array
         $rows[] = $row;
     }
     return $rows;
+}
+
+/** @return array<int,array<string,string>> */
+function prv3_starting_point_options(mysqli $db, string $lessorId): array
+{
+    $lessorId = trim($lessorId);
+    if ($lessorId === '' || !prv3_table_exists($db, PRV3_STARTING_POINT_OPTIONS_TABLE)) {
+        return [];
+    }
+
+    $stmt = $db->prepare(
+        'SELECT lessor_id, starting_point_id, label, is_active, source '
+        . 'FROM ' . PRV3_STARTING_POINT_OPTIONS_TABLE . ' '
+        . 'WHERE lessor_id = ? AND is_active = 1 '
+        . 'ORDER BY label ASC, starting_point_id ASC'
+    );
+    if (!$stmt) {
+        return [];
+    }
+    $stmt->bind_param('s', $lessorId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $rows = [];
+    while ($row = $res->fetch_assoc()) {
+        $rows[] = [
+            'lessor_id' => (string)($row['lessor_id'] ?? ''),
+            'starting_point_id' => (string)($row['starting_point_id'] ?? ''),
+            'label' => (string)($row['label'] ?? ''),
+            'source' => (string)($row['source'] ?? ''),
+        ];
+    }
+    return $rows;
+}
+
+/** @return array{ok:bool,status:string,message:string,options:array<int,array<string,string>>} */
+function prv3_starting_point_guard(mysqli $db, string $lessorId, string $startingPointId): array
+{
+    $lessorId = trim($lessorId);
+    $startingPointId = trim($startingPointId);
+
+    if (!prv3_table_exists($db, PRV3_STARTING_POINT_OPTIONS_TABLE)) {
+        return [
+            'ok' => false,
+            'status' => 'options_table_missing',
+            'message' => 'Verified starting-point options table is missing.',
+            'options' => [],
+        ];
+    }
+
+    if ($lessorId === '' || $startingPointId === '') {
+        return [
+            'ok' => false,
+            'status' => 'missing_ids',
+            'message' => 'Lessor ID or starting point ID is missing for starting-point guard.',
+            'options' => [],
+        ];
+    }
+
+    $options = prv3_starting_point_options($db, $lessorId);
+    if (count($options) === 0) {
+        return [
+            'ok' => false,
+            'status' => 'unknown_lessor_options',
+            'message' => 'No operator-verified EDXEIX starting-point options exist for lessor ' . $lessorId . '.',
+            'options' => [],
+        ];
+    }
+
+    foreach ($options as $option) {
+        if ((string)$option['starting_point_id'] === $startingPointId) {
+            return [
+                'ok' => true,
+                'status' => 'verified',
+                'message' => 'Starting point ' . $startingPointId . ' is verified for lessor ' . $lessorId . '.',
+                'options' => $options,
+            ];
+        }
+    }
+
+    $allowed = array_map(static fn(array $o): string => $o['starting_point_id'] . ' / ' . $o['label'], $options);
+    return [
+        'ok' => false,
+        'status' => 'known_invalid',
+        'message' => 'Starting point ' . $startingPointId . ' is not among verified EDXEIX options for lessor ' . $lessorId . '. Allowed: ' . implode(', ', $allowed),
+        'options' => $options,
+    ];
 }
 
 /** @return array{ok:bool,minutes_until:int|null,message:string} */
@@ -176,7 +263,7 @@ function prv3_valid_json(?string $json): bool
 }
 
 /** @return array<string,mixed> */
-function prv3_preflight_row(array $row, int $minFutureMinutes): array
+function prv3_preflight_row(mysqli $db, array $row, int $minFutureMinutes): array
 {
     $block = [];
     $warnings = [];
@@ -208,6 +295,11 @@ function prv3_preflight_row(array $row, int $minFutureMinutes): array
         if (trim((string)($row[$key] ?? '')) === '') {
             $block[] = 'Missing ' . $label . '.';
         }
+    }
+
+    $startGuard = prv3_starting_point_guard($db, (string)($row['lessor_id'] ?? ''), (string)($row['starting_point_id'] ?? ''));
+    if (!$startGuard['ok']) {
+        $block[] = 'Starting-point guard: ' . $startGuard['message'];
     }
 
     $future = prv3_pickup_future_check($row['pickup_datetime'] ?? null, $minFutureMinutes);
@@ -247,6 +339,7 @@ function prv3_preflight_row(array $row, int $minFutureMinutes): array
             'vehicle_id' => (string)($row['vehicle_id'] ?? ''),
             'starting_point_id' => (string)($row['starting_point_id'] ?? ''),
         ],
+        'starting_point_guard' => $startGuard,
         'ready' => count($block) === 0,
         'block_reasons' => array_values(array_unique($block)),
         'warnings' => array_values(array_unique($warnings)),
@@ -310,9 +403,11 @@ $summary = [
     'status_filter' => (string)$opts['status'],
     'min_future_minutes' => (int)$opts['min_future_minutes'],
     'schema_ok' => false,
+    'starting_point_options_schema_ok' => false,
     'rows_checked' => 0,
     'submit_dry_run_ready_count' => 0,
     'blocked_count' => 0,
+    'starting_point_guard_block_count' => 0,
     'warning_count' => 0,
     'events_inserted' => 0,
     'rows_marked_ready' => 0,
@@ -336,17 +431,22 @@ try {
 
     $queueExists = prv3_table_exists($db, PRV3_QUEUE_TABLE);
     $eventsExists = prv3_table_exists($db, PRV3_EVENTS_TABLE);
+    $optionsExists = prv3_table_exists($db, PRV3_STARTING_POINT_OPTIONS_TABLE);
     $summary['schema_ok'] = $queueExists && $eventsExists;
+    $summary['starting_point_options_schema_ok'] = $optionsExists;
 
     if (!$summary['schema_ok']) {
         throw new RuntimeException('V3 queue schema is not installed.');
+    }
+    if (!$optionsExists) {
+        throw new RuntimeException('V3 starting-point options schema is not installed.');
     }
 
     $rows = prv3_fetch_rows($db, (string)$opts['status'], (int)$opts['limit']);
     $summary['rows_checked'] = count($rows);
 
     foreach ($rows as $row) {
-        $check = prv3_preflight_row($row, (int)$opts['min_future_minutes']);
+        $check = prv3_preflight_row($db, $row, (int)$opts['min_future_minutes']);
         $results[] = $check;
         if ($check['ready']) {
             $summary['submit_dry_run_ready_count']++;
@@ -358,7 +458,7 @@ try {
                     (string)$check['dedupe_key'],
                     'submit_dry_run_ready',
                     'ready',
-                    'V3 submit dry-run preflight passed. No EDXEIX call was made.',
+                    'V3 submit dry-run preflight passed including verified starting-point guard. No EDXEIX call was made.',
                     $check
                 );
                 $summary['events_inserted']++;
@@ -366,6 +466,9 @@ try {
             }
         } else {
             $summary['blocked_count']++;
+            if (!$check['starting_point_guard']['ok']) {
+                $summary['starting_point_guard_block_count']++;
+            }
             if ($opts['commit']) {
                 prv3_insert_event(
                     $db,
@@ -399,8 +502,8 @@ if ($opts['json']) {
 echo 'V3 submit dry-run worker ' . PRV3_SUBMIT_DRY_RUN_VERSION . "\n";
 echo 'Mode: ' . $summary['mode'] . "\n";
 echo 'Database: ' . ($summary['database'] ?: '-') . "\n";
-echo 'Schema OK: ' . ($summary['schema_ok'] ? 'yes' : 'no') . "\n";
-echo 'Rows checked: ' . $summary['rows_checked'] . ' | Dry-run ready: ' . $summary['submit_dry_run_ready_count'] . ' | Blocked: ' . $summary['blocked_count'] . ' | Warnings: ' . $summary['warning_count'] . "\n";
+echo 'Schema OK: ' . ($summary['schema_ok'] ? 'yes' : 'no') . ' | Starting-point options: ' . ($summary['starting_point_options_schema_ok'] ? 'yes' : 'no') . "\n";
+echo 'Rows checked: ' . $summary['rows_checked'] . ' | Dry-run ready: ' . $summary['submit_dry_run_ready_count'] . ' | Blocked: ' . $summary['blocked_count'] . ' | Start-guard blocks: ' . $summary['starting_point_guard_block_count'] . ' | Warnings: ' . $summary['warning_count'] . "\n";
 echo 'Events inserted: ' . $summary['events_inserted'] . ' | Rows marked ready: ' . $summary['rows_marked_ready'] . "\n";
 
 if ($summary['error'] !== '') {
@@ -424,6 +527,7 @@ foreach ($results as $i => $row) {
     echo '  Queue ID: ' . $row['queue_id'] . ' | Pickup: ' . $row['pickup_datetime'] . ' (' . ($row['minutes_until'] === null ? '-' : $row['minutes_until'] . ' min') . ")\n";
     echo '  Transfer: ' . $row['customer_name'] . ' | ' . $row['driver_name'] . ' | ' . $row['vehicle_plate'] . "\n";
     echo '  IDs: lessor=' . $row['ids']['lessor_id'] . ' driver=' . $row['ids']['driver_id'] . ' vehicle=' . $row['ids']['vehicle_id'] . ' start=' . $row['ids']['starting_point_id'] . "\n";
+    echo '  Starting-point guard: ' . $row['starting_point_guard']['status'] . ' — ' . $row['starting_point_guard']['message'] . "\n";
     foreach ($row['block_reasons'] as $reason) {
         echo '  Block: ' . $reason . "\n";
     }
