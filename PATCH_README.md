@@ -1,54 +1,28 @@
-# gov.cabnet.app patch — V3 helper fill capture
+# gov.cabnet.app V3 helper starting-point retry patch
 
-## Purpose
+## Upload / replace locally
 
-Adds a V3-only callback endpoint and updates the isolated V3 Firefox helper so fill-only browser progress can be recorded in V3 queue events.
-
-## Files included
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
-tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
-tools/firefox-edxeix-autofill-helper-v3/manifest.json
-docs/PRE_RIDE_EMAIL_TOOL_V3_HELPER_FILL_CAPTURE.md
-PATCH_README.md
-```
-
-## Upload paths
-
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
-```
-
-Local Firefox helper files:
+Replace these files in the local GitHub Desktop repo and reload the temporary Firefox extension:
 
 ```text
 tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
 tools/firefox-edxeix-autofill-helper-v3/manifest.json
-→ replace in local repo/tools/firefox-edxeix-autofill-helper-v3/ and reload the temporary Firefox extension
 ```
 
-## SQL
+## Server files
 
 None.
 
-## Verify
+## Production safety
 
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
+This patch does not include or modify:
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
 ```
 
-Local JS check from repo root:
+## What changed
 
-```bash
-node --check tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
-```
+The V3 helper now retries the EDXEIX starting-point dropdown more aggressively and can detect it by multiple field names or by the Greek label `Σημείο έναρξης`.
 
-## Safety
-
-- Production `/ops/pre-ride-email-tool.php` is not included and not changed.
-- No EDXEIX submit.
-- No AADE call.
-- No production queue writes.
-- Callback writes only V3 queue events after matching queue ID + dedupe key.
+It remains fill-only and does not submit to EDXEIX.
