@@ -1,73 +1,38 @@
-# gov.cabnet.app — V3 submit starting-point guard patch
-
-## What changed
-
-The V3 submit preflight and V3 submit dry-run worker now enforce the verified V3 starting-point options table before a queue row can be marked submit-dry-run-ready.
-
-This prevents rows with a starting point ID that is not available in the EDXEIX company/lessor form from proceeding through the V3 submit readiness stage.
-
-## Files included
-
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
-docs/PRE_RIDE_EMAIL_TOOL_V3_SUBMIT_STARTING_POINT_GUARD.md
-PATCH_README.md
-```
+# gov.cabnet.app — V3 Manual Save Capture Patch
 
 ## Upload paths
 
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-
-gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
-```
-
-## SQL
-
-None. This patch uses the already-installed table:
+Server:
 
 ```text
-pre_ride_email_v3_starting_point_options
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
 ```
+
+Local Firefox helper:
+
+```text
+tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
+tools/firefox-edxeix-autofill-helper-v3/manifest.json
+→ replace in local repo/tools/firefox-edxeix-autofill-helper-v3/
+```
+
+Then reload the V3 temporary Firefox extension.
 
 ## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php
-
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_preflight.php --status=all --limit=20
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_submit_dry_run_worker.php --status=queued --limit=20
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php
 ```
 
-## Expected result
+Local optional check:
 
-A row with:
-
-```text
-lessor_id = 2307
-starting_point_id = 1455969
+```bash
+node --check tools/firefox-edxeix-autofill-helper-v3/edxeix-fill-v3.js
 ```
 
-can pass the starting-point guard.
-
-A row with:
-
-```text
-lessor_id = 2307
-starting_point_id = 6467495
-```
-
-is blocked from submit dry-run readiness.
+Node is not required on the server.
 
 ## Safety
 
-- Production `/ops/pre-ride-email-tool.php` is untouched.
-- No EDXEIX calls.
-- No AADE calls.
-- No production `submission_jobs` writes.
-- No production `submission_attempts` writes.
-- Dry-run worker commit mode writes only to V3 queue/status/events.
+No EDXEIX submit is added. No AADE call. No production submission tables are touched. Production pre-ride-email-tool.php is untouched.

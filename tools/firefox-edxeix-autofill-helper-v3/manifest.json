@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Gov Cabnet EDXEIX Autofill Helper V3 Isolated",
-  "version": "3.0.2",
-  "description": "Isolated V3 fill-only helper for transferring reviewed Bolt pre-ride email fields or selected V3 queue rows into EDXEIX. Includes robust starting-point retry and V3 fill-result capture. No POST button.",
+  "version": "3.0.3",
+  "description": "Isolated V3 fill-only helper for transferring reviewed Bolt pre-ride email fields or selected V3 queue rows into EDXEIX. Includes robust starting-point retry, V3 fill-result capture, and operator-confirmed manual save reporting. No POST button.",
   "permissions": [
     "storage",
     "https://gov.cabnet.app/*",

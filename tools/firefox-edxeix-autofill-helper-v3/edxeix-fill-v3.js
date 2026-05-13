@@ -4,7 +4,7 @@
   if (typeof browser === 'undefined' || !browser.storage || !browser.storage.local) { return; }
   if (!/edxeix\.yme\.gov\.gr$/.test(location.hostname)) { return; }
 
-  var VERSION = 'v3.0.17-starting-point-retry';
+  var VERSION = 'v3.0.20-manual-save-report';
   var PANEL_ID = 'gov-cabnet-edxeix-helper-v3-panel';
   var CALLBACK_URL = 'https://gov.cabnet.app/ops/pre-ride-email-v3-helper-callback.php';
   var lastResults = [];
@@ -73,7 +73,7 @@
     if (!queueId || !dedupeKey) { return; }
 
     try {
-      await fetch(CALLBACK_URL, {
+      var res = await fetch(CALLBACK_URL, {
         method: 'POST',
         credentials: 'omit',
         headers: { 'Content-Type': 'application/json' },
@@ -89,14 +89,29 @@
           event_message: message || '',
           message: message || '',
           context: context || {},
+          results: (context && context.results) || lastResults.slice(-80),
           helper_version: VERSION,
+          helperVersion: VERSION,
           page_url: location.href,
+          pageUrl: location.href,
+          location_host: location.hostname,
+          locationHost: location.hostname,
+          saved_at: payload.savedAt || '',
+          savedAt: payload.savedAt || '',
           user_agent: navigator.userAgent
         })
       });
+      var text = await res.text();
+      var parsed = null;
+      try { parsed = text ? JSON.parse(text) : null; } catch (e) { parsed = { ok: false, error: text || 'Invalid callback response' }; }
+      if (!res.ok || !parsed || parsed.ok === false) {
+        console.warn('V3 callback returned error', parsed);
+      }
+      return parsed;
     } catch (e) {
       // Callback must never block the operator.
       console.warn('V3 callback failed', e);
+      return { ok: false, error: e && e.message ? e.message : String(e) };
     }
   }
 
@@ -404,6 +419,51 @@
     }
   }
 
+
+  async function reportManualSave() {
+    var p = await loadPayload();
+    if (!p || !p.queueId || !p.dedupeKey) {
+      output('No V3 queue payload is saved. Select a V3 queue row first.', 'bad');
+      return;
+    }
+
+    var ok = window.confirm(
+      'Only continue if you manually reviewed the EDXEIX form and clicked Save inside EDXEIX.\n\n' +
+      'This button does NOT submit to EDXEIX. It only records the manual save in the V3 queue.\n\n' +
+      'Record this V3 row as manually submitted?'
+    );
+    if (!ok) {
+      output('Manual save report cancelled. No V3 status was changed.', 'warn');
+      return;
+    }
+
+    var response = await reportEvent(
+      p,
+      'helper_manual_save_reported',
+      'submitted',
+      'Operator reports the V3-filled EDXEIX form was reviewed and manually saved.',
+      {
+        helperVersion: VERSION,
+        url: location.href,
+        results: lastResults.slice(-80),
+        manualConfirmation: true
+      }
+    );
+
+    if (response && response.ok) {
+      output(
+        'Manual EDXEIX save recorded in V3 queue.\n' +
+        'Queue ID: ' + txt(p.queueId) + '\n' +
+        'Status: ' + (response.queue_status_after || 'submitted') + '\n' +
+        'Event ID: ' + (response.event_id || '') + '\n\n' +
+        'No EDXEIX POST was performed by the helper. This only recorded your manual save.',
+        'ok'
+      );
+    } else {
+      output('Could not record manual save in V3 queue.\n' + ((response && response.error) || 'Unknown callback error'), 'bad');
+    }
+  }
+
   async function copyDiagnostic() {
     var p = await loadPayload();
     var lines = [];
@@ -444,12 +504,14 @@
       '<div style="font-size:12px;color:#41577a;margin-bottom:8px;">' + (p ? ('Company ID: ' + (p.lessorId || 'missing') + ' · Driver ID: ' + (p.driverId || 'missing') + ' · Vehicle ID: ' + (p.vehicleId || 'missing') + ' · Start ID: ' + (p.startingPointId || 'missing')) : 'No saved V3 IDs') + '</div>' +
       '<button type="button" id="gov-cabnet-edxeix-helper-v3-company" style="width:100%;border:1px solid #6d28d9;border-radius:9px;background:#ede9fe;color:#5b21b6;font-weight:700;padding:9px;cursor:pointer;font-size:13px;margin-bottom:8px;">Open correct company form</button>' +
       '<button type="button" id="gov-cabnet-edxeix-helper-v3-fill" style="width:100%;border:0;border-radius:9px;background:#6d28d9;color:#fff;font-weight:700;padding:11px;cursor:pointer;font-size:14px;">Fill using V3 exact IDs</button>' +
+      '<button type="button" id="gov-cabnet-edxeix-helper-v3-manual-save" style="width:100%;border:0;border-radius:9px;background:#047857;color:#fff;font-weight:700;padding:10px;cursor:pointer;font-size:13px;margin-top:8px;">Report manual EDXEIX save</button>' +
       '<button type="button" id="gov-cabnet-edxeix-helper-v3-diagnostic" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;color:#0f172a;font-weight:700;padding:9px;cursor:pointer;font-size:13px;margin-top:8px;">Copy/report V3 diagnostic</button>' +
       '<div id="gov-cabnet-edxeix-helper-v3-output" style="white-space:pre-wrap;font-size:12px;line-height:1.35;margin-top:9px;color:#41577a;max-height:230px;overflow:auto;">V3 is fill-only. No POST/save action is available here.</div>';
     document.documentElement.appendChild(div);
     qs('#gov-cabnet-edxeix-helper-v3-close').addEventListener('click', function () { div.remove(); });
     qs('#gov-cabnet-edxeix-helper-v3-company').addEventListener('click', openCorrectCompany);
     qs('#gov-cabnet-edxeix-helper-v3-fill').addEventListener('click', async function () { var payload = await loadPayload(); await fillPayload(payload); });
+    qs('#gov-cabnet-edxeix-helper-v3-manual-save').addEventListener('click', reportManualSave);
     qs('#gov-cabnet-edxeix-helper-v3-diagnostic').addEventListener('click', copyDiagnostic);
   }
 

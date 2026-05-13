@@ -5,13 +5,15 @@
  * Purpose:
  * - Receive fill-only progress reports from the isolated V3 Firefox helper.
  * - Record V3-only queue events for visibility/debugging.
+ * - Optionally record operator-confirmed manual EDXEIX save into V3 queue only.
  *
  * Safety:
  * - Does not call EDXEIX.
  * - Does not call AADE.
  * - Does not write to production submission_jobs or submission_attempts.
  * - Does not modify /ops/pre-ride-email-tool.php.
- * - Does not change queue_status; it only inserts V3 queue event rows.
+ * - Does not submit to EDXEIX.
+ * - The only queue_status change allowed is helper_manual_save_reported -> submitted in V3 queue only.
  */
 
 declare(strict_types=1);
@@ -131,6 +133,7 @@ $allowedEventTypes = [
     'helper_fill_completed',
     'helper_fill_failed',
     'helper_diagnostic_reported',
+    'helper_manual_save_reported',
 ];
 if (!in_array($eventType, $allowedEventTypes, true)) {
     $eventType = 'helper_diagnostic_reported';
@@ -156,7 +159,7 @@ try {
         v3hc_json(['ok' => false, 'error' => 'V3 queue schema is not installed.'], 500);
     }
 
-    $stmt = $db->prepare('SELECT id, dedupe_key, queue_status, pickup_datetime FROM pre_ride_email_v3_queue WHERE id = ? AND dedupe_key = ? LIMIT 1');
+    $stmt = $db->prepare('SELECT id, dedupe_key, queue_status, pickup_datetime, submitted_at FROM pre_ride_email_v3_queue WHERE id = ? AND dedupe_key = ? LIMIT 1');
     if (!$stmt) {
         v3hc_json(['ok' => false, 'error' => 'Could not prepare queue lookup.'], 500);
     }
@@ -198,29 +201,83 @@ try {
             'helper_redirect_company' => 'V3 helper redirected to the correct EDXEIX lessor form.',
             'helper_fill_completed' => 'V3 helper completed fill-only operation. Operator must still review and save manually.',
             'helper_fill_failed' => 'V3 helper reported fill-only failure.',
+            'helper_manual_save_reported' => 'Operator reported the V3-filled EDXEIX form was reviewed and manually saved.',
             default => 'V3 helper reported diagnostic event.',
         };
     }
 
     $createdBy = 'v3_firefox_helper';
+    $queueStatusChanged = false;
+    $queueStatusAfter = (string)($row['queue_status'] ?? '');
+
+    $db->begin_transaction();
+
+    if ($eventType === 'helper_manual_save_reported') {
+        $currentStatus = (string)($row['queue_status'] ?? '');
+        if (in_array($currentStatus, ['blocked', 'cancelled', 'failed'], true)) {
+            $db->rollback();
+            v3hc_json([
+                'ok' => false,
+                'error' => 'Manual save report is blocked because the V3 queue row status is ' . $currentStatus . '.',
+                'queue_id' => $queueId,
+                'dedupe_key' => $dedupeKey,
+                'queue_status' => $currentStatus,
+            ], 409);
+        }
+
+        $note = '[' . date('Y-m-d H:i:s') . '] V3 helper manual save reported from EDXEIX page.';
+        $update = $db->prepare("UPDATE pre_ride_email_v3_queue
+            SET queue_status = 'submitted',
+                submitted_at = COALESCE(submitted_at, NOW()),
+                locked_at = NULL,
+                failed_at = NULL,
+                last_error = NULL,
+                operator_note = CASE
+                    WHEN operator_note IS NULL OR operator_note = '' THEN ?
+                    ELSE CONCAT(operator_note, '\n', ?)
+                END
+            WHERE id = ? AND dedupe_key = ? LIMIT 1");
+        if (!$update) {
+            $db->rollback();
+            v3hc_json(['ok' => false, 'error' => 'Could not prepare manual save status update.'], 500);
+        }
+        $update->bind_param('ssis', $note, $note, $queueId, $dedupeKey);
+        $update->execute();
+        $queueStatusChanged = $update->affected_rows >= 0;
+        $queueStatusAfter = 'submitted';
+        $context['queue_status_after_report'] = $queueStatusAfter;
+        $context['submitted_at_reported'] = date(DATE_ATOM);
+        $contextJson = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($contextJson)) {
+            $contextJson = '{}';
+        }
+        $eventStatus = 'submitted';
+    }
+
     $insert = $db->prepare('INSERT INTO pre_ride_email_v3_queue_events (queue_id, dedupe_key, event_type, event_status, event_message, event_context_json, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
     if (!$insert) {
+        $db->rollback();
         v3hc_json(['ok' => false, 'error' => 'Could not prepare event insert.'], 500);
     }
     $insert->bind_param('issssss', $queueId, $dedupeKey, $eventType, $eventStatus, $message, $contextJson, $createdBy);
     $insert->execute();
+    $eventId = $db->insert_id;
+
+    $db->commit();
 
     v3hc_json([
         'ok' => true,
-        'version' => 'v3.0.16-helper-fill-callback',
+        'version' => 'v3.0.20-helper-manual-save-capture',
         'queue_id' => $queueId,
         'dedupe_key' => $dedupeKey,
-        'event_id' => $db->insert_id,
+        'event_id' => $eventId,
         'event_type' => $eventType,
         'event_status' => $eventStatus,
+        'queue_status_after' => $queueStatusAfter,
         'safety' => [
-            'v3_events_only' => true,
-            'queue_status_changed' => false,
+            'v3_events_only' => $eventType !== 'helper_manual_save_reported',
+            'v3_queue_status_update_only' => $eventType === 'helper_manual_save_reported',
+            'queue_status_changed' => $queueStatusChanged,
             'edxeix_call' => false,
             'aade_call' => false,
             'production_submission_jobs' => false,
