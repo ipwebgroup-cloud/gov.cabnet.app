@@ -1,20 +1,16 @@
-# Patch README — v3.0.73 V3 Proof Ledger
+# Patch README — v3.0.74 V3 Live Gate Drift Guard
 
 ## What changed
 
-Adds a read-only V3 proof ledger so Andreas can review the current pre-live proof evidence without searching artifact folders manually.
+Adds a read-only V3 live gate drift guard.
 
-This patch adds:
-
-- A CLI ledger that indexes proof bundle artifacts and package exports.
-- An Ops page that lists the latest proof bundles and local EDXEIX field package exports.
-- Updated handoff and continuation documentation.
+The guard verifies that the V3 live-submit master gate remains in the expected disabled pre-live posture and detects accidental live-gate drift before any future real adapter phase.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
 docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
 HANDOFF.md
 CONTINUE_PROMPT.md
@@ -23,27 +19,24 @@ PATCH_README.md
 
 ## Upload paths
 
-Upload these files exactly as follows:
-
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
 
 docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
-→ /home/cabnet/public_html/gov.cabnet.app/docs/V3_AUTOMATION_PRE_LIVE_STATUS.md only if docs are served from public docs
-→ otherwise keep in Git repo docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
+→ repo docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
 
 HANDOFF.md
-→ repo root / HANDOFF.md
+→ repo root HANDOFF.md
 
 CONTINUE_PROMPT.md
-→ repo root / CONTINUE_PROMPT.md
+→ repo root CONTINUE_PROMPT.md
 
 PATCH_README.md
-→ repo root / PATCH_README.md
+→ repo root PATCH_README.md
 ```
 
 ## SQL
@@ -53,50 +46,55 @@ No SQL changes.
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php"
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php"
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
 ```
 
 Ops URL:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
 ```
 
-Expected CLI result:
+## Expected result
+
+While live submit remains intentionally disabled:
 
 ```text
-V3 proof ledger v3.0.73-v3-proof-ledger
-Mode: read_only_proof_ledger
-Safety: No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.
 OK: yes
+Expected disabled pre-live posture: yes
+Live risk detected: no
+Full live switch looks open: no
 ```
 
-Expected Ops result:
+## Safety
 
-- Page loads after Ops login.
-- Shows latest proof bundles.
-- Shows latest local EDXEIX field package exports.
-- Shows no-call/no-write safety badges.
-- Does not execute commands from the browser.
+```text
+No Bolt call
+No EDXEIX call
+No AADE call
+No DB writes
+No queue status changes
+No production submission tables
+V0 untouched
+```
 
 ## Git commit title
 
 ```text
-Add V3 proof ledger for pre-live evidence review
+Add V3 live gate drift guard
 ```
 
 ## Git commit description
 
 ```text
-Adds a read-only V3 proof ledger CLI and Ops page for reviewing pre-live proof bundle artifacts and local EDXEIX field package exports.
+Adds a read-only V3 live gate drift guard CLI and Ops page.
 
-The ledger indexes existing artifacts under the private app storage directory, summarizes bundle safety flags, payload consistency, adapter hash matching, no-call evidence, and local package export metadata.
+The guard checks the server-only live submit gate config, detects accidental deviations from the expected disabled pre-live posture, scans adapter files for live/network-capable signals, and displays latest proof bundle/package artifact presence.
 
-The Ops page does not execute commands and does not write files. The CLI is read-only and performs only optional SELECT-style queue/approval counts.
-
-Live EDXEIX submission remains disabled. No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission table writes, and V0 remains untouched.
+No live submission is enabled. No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission table writes, and V0 remains untouched.
 ```

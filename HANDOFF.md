@@ -1,122 +1,93 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-## Current checkpoint
+Updated: 2026-05-14 11:55 UTC  
+Current patch: `v3.0.74-v3-live-gate-drift-guard`
 
-Patch/package: `v3.0.73-v3-proof-ledger`
+## Project identity
 
-Project: `gov.cabnet.app` Bolt pre-ride email V3 automation path.
+- Domain: `https://gov.cabnet.app`
+- Repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
+- Expected server layout:
+  - `/home/cabnet/public_html/gov.cabnet.app`
+  - `/home/cabnet/gov.cabnet.app_app`
+  - `/home/cabnet/gov.cabnet.app_config`
+  - `/home/cabnet/gov.cabnet.app_sql`
 
-Stack remains plain PHP + mysqli/MariaDB with manual cPanel upload. No Composer, no framework, no Node/build tooling.
+## Current V3 state
 
-## Server layout
+V3 forwarded-email automation has proven the pre-live path:
 
-Expected live paths:
+- Forwarded Bolt pre-ride emails are parsed and queued.
+- Future eligible rows can reach `live_submit_ready`.
+- Past/expired rows are blocked by the expiry guard.
+- Starting points are verified against `pre_ride_email_v3_starting_point_options`.
+- Operator approvals exist for closed-gate rehearsal only.
+- Package export writes local private artifacts only.
+- Adapter contract probe is safe.
+- Future real adapter file exists as a skeleton and is not live-capable.
+- Adapter simulation does not submit.
+- Payload consistency confirms DB payload, exported EDXEIX fields, and adapter simulation hash match.
+- Proof bundle export writes private summary artifacts.
+- Proof ledger indexes proof and package artifacts.
+- v3.0.74 adds a live gate drift guard to confirm the master gate remains closed.
 
-```text
-/home/cabnet/public_html/gov.cabnet.app
-/home/cabnet/gov.cabnet.app_app
-/home/cabnet/gov.cabnet.app_config
-/home/cabnet/gov.cabnet.app_sql
-```
+## Critical safety rules
 
-## Current state
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
+- Live submission must remain blocked unless a real eligible future Bolt trip exists, preflight passes, and the trip is sufficiently in the future.
+- Historical, cancelled, terminal, expired, invalid, or past Bolt rows must never be submitted to EDXEIX.
+- No real credentials should be requested or exposed.
+- Config examples may be committed; real config stays server-only.
+- Keep V0 untouched unless explicitly requested.
 
-V3 automation is in a closed-gate pre-live proof state.
-
-Confirmed before this patch:
-
-```text
-V3 pre-live proof bundle export v3.0.72-v3-proof-bundle-runner-and-ops-hotfix
-OK: yes
-Bundle safe: yes
-```
-
-Safety flags confirmed:
-
-```text
-storage_ok: yes
-payload_consistency_ok: yes
-db_vs_artifact_match: yes
-adapter_hash_match: yes
-adapter_live_capable: no
-adapter_submitted: no
-simulation_safe: yes
-edxeix_call_made: no
-aade_call_made: no
-db_write_made: no
-v0_touched: no
-```
-
-## v3.0.73 deliverable
-
-Adds a read-only proof ledger:
+## New files in v3.0.74
 
 ```text
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
+docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
-The CLI and Ops page index existing proof artifacts:
-
-```text
-/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles
-/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages
-```
-
-The Ops page does not execute commands. It reads local artifact files only.
-The CLI is read-only. It may connect to the DB for SELECT-only queue/approval counts, but it performs no writes.
-
-## Absolute safety rules
-
-Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit implementation/update.
-
-Live submission must remain blocked unless all of the following are true in a future approved phase:
-
-- There is a real eligible future Bolt/pre-ride row.
-- The row is currently future-safe.
-- Starting point is verified for the lessor.
-- Payload is complete.
-- Operator approval is valid and not expired.
-- Master gate is explicitly enabled for live mode.
-- Adapter is explicitly live-capable.
-- Hard enable is true.
-- Final rehearsal passes.
-
-Historical, blocked, expired, cancelled, terminal, invalid, or past rows must never be submitted to EDXEIX.
-
-## Recommended next step
-
-After v3.0.73 is uploaded and tested, commit it as:
-
-```text
-Add V3 proof ledger for pre-live evidence review
-```
-
-Then continue with:
-
-```text
-v3.0.74 — V3 proof ledger integration polish
-```
-
-Suggested next scope:
-
-1. Add proof-ledger link to the V3 Control Center/Ops Index.
-2. Add latest-proof summary card to pre-live switchboard.
-3. Add read-only retention/count warnings for proof artifacts.
-4. Keep live submit disabled.
-
-## Verification commands
+## Verification after upload
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php"
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php"
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
 ```
 
-Ops URL:
+Open:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
 ```
+
+Expected result while gate is safely closed:
+
+```text
+OK: yes
+Expected disabled pre-live posture: yes
+Live risk detected: no
+Full live switch looks open: no
+```
+
+## Next best step
+
+After this patch is verified, the next safest phase is a read-only final cutover checklist that combines:
+
+- current future `live_submit_ready` row
+- valid non-expired operator approval
+- starting-point verification
+- payload consistency hash
+- package export existence
+- proof bundle freshness
+- master gate still closed until explicit live approval
+
+Do not implement live EDXEIX network submission yet.
