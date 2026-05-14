@@ -6,10 +6,10 @@
  * This page does not call Bolt, does not call EDXEIX, does not submit forms,
  * does not enqueue live submissions, and does not modify database rows.
  *
- * v3.0.38 notes:
- * - Keeps the defensive v3.0.37 metric handling.
- * - Re-skins the page to match the established Ops Home shell/palette.
- * - UI-only change: no queue mutation, no cron changes, no live-submit change.
+ * v3.0.45 notes:
+ * - Keeps the defensive metric handling and Ops Home shell/palette.
+ * - Integrates verified V3 focus pages into the control center: Compact Monitor, Queue Focus, Pulse Focus, Readiness Focus, and Storage Check.
+ * - UI-only change: no V0 changes, no queue mutation, no cron changes, no live-submit change.
  */
 
 declare(strict_types=1);
@@ -491,11 +491,11 @@ $liveConfig = $data['live_config'];
         <?php
         gov_ops_render_page_tabs([
             ['key' => 'card', 'label' => 'Καρτέλα', 'href' => '/ops/pre-ride-email-v3-dashboard.php'],
-            ['key' => 'queue_watch', 'label' => 'Queue Watch', 'href' => '/ops/pre-ride-email-v3-queue-watch.php'],
-            ['key' => 'pulse', 'label' => 'Pulse Runner', 'href' => '/ops/pre-ride-email-v3-fast-pipeline-pulse.php'],
-            ['key' => 'queue', 'label' => 'Queue', 'href' => '/ops/pre-ride-email-v3-queue.php'],
-            ['key' => 'guards', 'label' => 'Safety Guards', 'href' => '/ops/pre-ride-email-v3-starting-point-guard.php'],
-            ['key' => 'readiness', 'label' => 'Readiness', 'href' => '/ops/pre-ride-email-v3-automation-readiness.php'],
+            ['key' => 'compact', 'label' => 'Compact Monitor', 'href' => '/ops/pre-ride-email-v3-monitor.php'],
+            ['key' => 'queue_focus', 'label' => 'Queue Focus', 'href' => '/ops/pre-ride-email-v3-queue-focus.php'],
+            ['key' => 'pulse_focus', 'label' => 'Pulse Focus', 'href' => '/ops/pre-ride-email-v3-pulse-focus.php'],
+            ['key' => 'readiness_focus', 'label' => 'Readiness Focus', 'href' => '/ops/pre-ride-email-v3-readiness-focus.php'],
+            ['key' => 'storage', 'label' => 'Storage Check', 'href' => '/ops/pre-ride-email-v3-storage-check.php'],
             ['key' => 'gate', 'label' => 'Locked Gate', 'href' => '/ops/pre-ride-email-v3-live-submit-gate.php'],
         ], 'card');
         ?>
@@ -516,9 +516,10 @@ $liveConfig = $data['live_config'];
                 <?= gov_ops_badge('Generated ' . (string)$data['generated_at'], 'neutral') ?>
             </p>
             <div class="ops-actions">
-                <a class="btn green" href="/ops/pre-ride-email-v3-queue-watch.php">Open Queue Watch</a>
-                <a class="btn blue" href="/ops/pre-ride-email-v3-fast-pipeline-pulse.php">Open Pulse Monitor</a>
-                <a class="btn slate" href="/ops/pre-ride-email-v3-automation-readiness.php">Automation Readiness</a>
+                <a class="btn green" href="/ops/pre-ride-email-v3-monitor.php">Open Compact Monitor</a>
+                <a class="btn blue" href="/ops/pre-ride-email-v3-queue-focus.php">Open Queue Focus</a>
+                <a class="btn blue" href="/ops/pre-ride-email-v3-pulse-focus.php">Open Pulse Focus</a>
+                <a class="btn slate" href="/ops/pre-ride-email-v3-readiness-focus.php">Readiness Focus</a>
                 <a class="btn amber" href="/ops/pre-ride-email-v3-live-submit-gate.php">Locked Submit Gate</a>
             </div>
         </section>
@@ -590,8 +591,10 @@ $liveConfig = $data['live_config'];
                 <h2>Pending Future-Safe Email</h2>
                 <p>Keep the watch and pulse pages open while waiting for the next real Bolt pre-ride email.</p>
                 <div class="link-grid">
-                    <a class="link-card" href="/ops/pre-ride-email-v3-queue-watch.php"><strong>Queue Watch</strong><span>Main live view for the pending test.</span></a>
-                    <a class="link-card" href="/ops/pre-ride-email-v3-fast-pipeline-pulse.php"><strong>Pulse Runner</strong><span>Confirms pulse cycles and pipeline status.</span></a>
+                    <a class="link-card" href="/ops/pre-ride-email-v3-monitor.php"><strong>Compact Monitor</strong><span>Fast top-level V3 status view.</span></a>
+                    <a class="link-card" href="/ops/pre-ride-email-v3-queue-focus.php"><strong>Queue Focus</strong><span>Newest rows, status, pickup timing, and last_error.</span></a>
+                    <a class="link-card" href="/ops/pre-ride-email-v3-pulse-focus.php"><strong>Pulse Focus</strong><span>Pulse cron health, lock owner, and recent log events.</span></a>
+                    <a class="link-card" href="/ops/pre-ride-email-v3-readiness-focus.php"><strong>Readiness Focus</strong><span>Pulse, queue, mappings, errors, and locked gate overview.</span></a>
                 </div>
                 <h3>Manual proof command</h3>
                 <pre>php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse.php --limit=50 --cycles=3 --sleep=2 --commit</pre>
@@ -619,6 +622,19 @@ $liveConfig = $data['live_config'];
                     <li><span>Live adapter</span><strong><?= gov_ops_badge('disabled', 'good') ?></strong></li>
                 </ul>
             </article>
+        </section>
+
+        <section class="ops-card">
+            <h2>Verified V3 Operator Views</h2>
+            <p>These pages are now the primary V3 visibility set. They are read-only and do not touch the V0 laptop/manual production helper.</p>
+            <div class="link-grid">
+                <a class="link-card" href="/ops/pre-ride-email-v3-monitor.php"><strong>Compact Monitor</strong><span>One-screen pulse, queue, newest row, and locked gate summary.</span></a>
+                <a class="link-card" href="/ops/pre-ride-email-v3-queue-focus.php"><strong>Queue Focus</strong><span>Queue totals, newest row, status distribution, and last_error previews.</span></a>
+                <a class="link-card" href="/ops/pre-ride-email-v3-pulse-focus.php"><strong>Pulse Focus</strong><span>Pulse cron start/finish, summary, errors, log tail, and lock ownership.</span></a>
+                <a class="link-card" href="/ops/pre-ride-email-v3-readiness-focus.php"><strong>Readiness Focus</strong><span>Pulse readiness, queue state, mappings, errors, and closed gate state.</span></a>
+                <a class="link-card" href="/ops/pre-ride-email-v3-storage-check.php"><strong>Storage Check</strong><span>Runtime folders, logs, pulse files, and lock file owner/perms.</span></a>
+                <a class="link-card" href="/ops/pre-ride-email-v3-dashboard.php"><strong>V3 Control Center</strong><span>This integrated hub for the V3 development/monitoring path.</span></a>
+            </div>
         </section>
 
         <?php if (!empty($data['warnings'])): ?>
@@ -677,6 +693,7 @@ $liveConfig = $data['live_config'];
                     <a class="link-card" href="/ops/home.php"><strong>Ops Home</strong><span>Master operations landing page.</span></a>
                     <a class="link-card" href="/ops/pre-ride-email-v3-dashboard.php"><strong>Pre-Ride V3</strong><span>Current automation monitor.</span></a>
                     <a class="link-card" href="/ops/pre-ride-email-v3-live-submit-gate.php"><strong>Live Submit Locked</strong><span>Gate visibility only.</span></a>
+                    <a class="link-card" href="/ops/pre-ride-email-v3-storage-check.php"><strong>Storage Check</strong><span>Pulse lock and runtime prerequisites.</span></a>
                     <a class="link-card" href="/ops/readiness.php"><strong>Bolt Bridge</strong><span>Legacy/current bridge visibility.</span></a>
                 </div>
             </article>
@@ -684,9 +701,9 @@ $liveConfig = $data['live_config'];
             <article class="ops-card">
                 <h2>Next Safe UI Steps</h2>
                 <ol>
-                    <li>Confirm this dashboard visually matches the Ops Home shell.</li>
-                    <li>Gradually attach the shared shell to other V3 pages.</li>
-                    <li>Add mappings/reference-data pages after the future-safe test proof.</li>
+                    <li>Use the compact/focus pages as the main V3 visibility set.</li>
+                    <li>Leave V0 on the laptop/manual production flow untouched.</li>
+                    <li>Polish older V3 worker pages only when needed.</li>
                     <li>Keep live submit disabled until separately approved.</li>
                 </ol>
                 <p><strong>No live-submit, cron, queue mutation, mapping, or SQL change is included.</strong></p>

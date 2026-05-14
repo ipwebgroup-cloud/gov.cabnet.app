@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.0.44 adds the V3 Readiness Focus read-only monitor and keeps the V3-only diagnostics navigation and aligns the new V3 dashboard with the established Ops Home shell:
+ * v3.0.45 integrates the verified V3 focus pages into the shared Ops navigation and V3 dashboard while keeping V0 untouched and live submit disabled. The shell follows the established Ops Home palette:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */
