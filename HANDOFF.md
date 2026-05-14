@@ -1,57 +1,67 @@
-# HANDOFF — gov.cabnet.app V3 Automation
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-## Current phase
+Version: v3.0.70-v3-payload-consistency-proof-checkpoint
+Date: 2026-05-14
 
-V3 Bolt pre-ride email automation is in closed-gate pre-live preparation. Live submit remains disabled.
+## Project identity
 
-## Verified state
+Domain: https://gov.cabnet.app
+Repository: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
 
-- V3 intake/pulse path is proven.
-- Fresh future-safe rows have reached `live_submit_ready`.
-- Operator approval workflow is proven.
-- Payload audit is proven.
-- Package export is proven.
-- Final rehearsal accepts valid approval and blocks on master gate.
-- Kill-switch check accepts valid approval and blocks on master gate/adapter.
-- Pre-live switchboard loads in browser using direct DB/config read-only rendering.
-- Adapter row simulation is proven with the future adapter skeleton.
-- Adapter skeleton remains non-live-capable and returns `submitted=false`.
-- Live submit remains disabled.
-- V0 is untouched.
-
-## Current patch
-
-`v3.0.69-v3-adapter-payload-consistency-harness`
-
-Adds a V3-only read-only consistency harness that compares:
-
-- DB-built EDXEIX payload fields,
-- latest local package export `edxeix_fields.json`,
-- future adapter skeleton returned payload hash.
-
-## Safety rules
-
-- Do not enable live submit unless Andreas explicitly asks for a live-submit update.
-- Do not touch V0 production or dependencies.
-- Do not call Bolt, EDXEIX, or AADE from V3 test tools.
-- Do not write queue status from proof/switchboard/simulation/consistency tools.
-- Do not commit server-only real config or credentials.
-
-## Main V3 URLs
+Expected server layout:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-adapter-payload-consistency.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-proof.php
+/home/cabnet/public_html/gov.cabnet.app
+/home/cabnet/gov.cabnet.app_app
+/home/cabnet/gov.cabnet.app_config
+/home/cabnet/gov.cabnet.app_sql
 ```
 
-## Next safest step
+## Current V3 state
 
-Run and verify v3.0.69. Then create a commit checkpoint.
+V3 closed-gate automation proof is complete through payload consistency harness verification.
 
-Potential next phase:
+Verified v3.0.69 result:
 
-`v3.0.70-v3-historical-proof-index` — read-only proof/artifact/event index.
+```text
+OK: yes
+Simulation safe: yes
+DB payload hash matches latest package artifact hash
+Adapter payload hash matches DB-built payload hash
+Adapter live_capable=no
+Adapter submitted=no
+No Bolt call
+No EDXEIX call
+No AADE call
+No DB writes
+No queue status changes
+No production submission tables
+V0 untouched
+```
+
+## Verified row
+
+Queue row `427` was used as a historical/expired proof row after it had already safely moved to blocked. The payload and package artifacts remained consistent.
+
+## Critical safety rules
+
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
+- Live submission must remain blocked unless there is a real eligible future Bolt trip, all preflight checks pass, operator approval exists, and the trip is sufficiently in the future.
+- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
+- V0 production and dependencies must not be touched.
+- AADE receipt issuing must not be changed by V3 automation work.
+- Never request or expose real API keys, DB passwords, tokens, cookies, sessions, or private credentials.
+
+## Next recommended phase
+
+`v3.0.71-v3-pre-live-proof-bundle-export`
+
+Create a read-only proof bundle exporter that writes local JSON/TXT artifacts under:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles
+```
+
+The exporter should gather V3 switchboard, payload consistency, adapter simulation, readiness, storage, and final block status into one audit package.
+

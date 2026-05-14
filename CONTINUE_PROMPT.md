@@ -1,52 +1,46 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from V3 closed-gate pre-live automation.
+Continue from v3.0.70-v3-payload-consistency-proof-checkpoint.
 
-Project constraints:
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload.
-- No frameworks, Composer, Node, or heavy dependencies.
-- Live server is not a cloned Git repo.
-- Patch zips must mirror the live/repo structure directly, with no wrapper folder.
-- V0 production/manual helper must remain untouched.
+Project identity:
+- Domain: https://gov.cabnet.app
+- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
+- Server layout:
+  /home/cabnet/public_html/gov.cabnet.app
+  /home/cabnet/gov.cabnet.app_app
+  /home/cabnet/gov.cabnet.app_config
+  /home/cabnet/gov.cabnet.app_sql
 
-Current V3 status:
-- Intake/pulse path proven.
-- Future-safe rows reached `live_submit_ready`.
-- Operator approval workflow proven.
-- Package export proven.
-- Final rehearsal accepted valid approval and blocked only on master gate during proof.
-- Kill-switch accepted valid approval and blocked on master gate/adapter during proof.
-- Pre-live switchboard browser page works with direct DB/config read-only renderer.
-- Adapter row simulation proven.
-- Future adapter skeleton is present, non-live-capable, and returns `submitted=false`.
-- Live submit remains disabled.
+Current proven V3 state:
+- V3 closed-gate automation path is proven through payload consistency.
+- v3.0.69 adapter payload consistency harness verified:
+  - DB-built EDXEIX payload hash matched latest package artifact hash.
+  - Adapter skeleton payload hash matched DB-built payload hash.
+  - Adapter remained non-live-capable.
+  - Adapter returned submitted=false.
+  - No Bolt/EDXEIX/AADE calls.
+  - No DB writes or queue status changes.
+  - V0 untouched.
 
-Latest planned/created patch:
-`v3.0.69-v3-adapter-payload-consistency-harness`
+Do not touch current V0 production or dependencies.
+Do not enable live EDXEIX submit unless Andreas explicitly asks for a live-submit update.
+Historical/expired rows may be used only for read-only proof and must never be submitted.
 
-It adds:
-- `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-payload-consistency.php`
+Next safest phase:
+- Build v3.0.71-v3-pre-live-proof-bundle-export.
+- It should be read-only except for writing local proof artifacts under:
+  /home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles
+- It should collect storage check, automation readiness, switchboard, adapter simulation, payload consistency, selected queue row, and final blocks into JSON/TXT proof files.
+- It must not call Bolt, EDXEIX, or AADE; must not write DB rows; must not change queue status; must not touch V0.
 
-Purpose:
-Compare DB-built EDXEIX fields, latest package export edxeix_fields artifact, and future adapter skeleton payload hash for the selected V3 row.
+Expected deliverables for any patch:
+1. What changed.
+2. Files included.
+3. Exact upload paths.
+4. SQL to run, if any.
+5. Verification commands/URLs.
+6. Expected result.
+7. Git commit title.
+8. Git commit description.
 
-Verification:
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-payload-consistency.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php"
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php --json"
-```
-
-Expected safety:
-- No Bolt call.
-- No EDXEIX call.
-- No AADE call.
-- No DB writes.
-- No queue status changes.
-- No production submission table writes.
-- V0 untouched.
-
-If verified, prepare the commit summary. If it fails, patch only the V3 harness/page.
