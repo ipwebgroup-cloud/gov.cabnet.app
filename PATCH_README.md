@@ -1,19 +1,21 @@
-# v3.0.72 — V3 Proof Bundle Runner and Ops Hotfix
+# Patch README — v3.0.73 V3 Proof Ledger
 
 ## What changed
 
-Fixes two issues discovered during v3.0.71 verification:
+Adds a read-only V3 proof ledger so Andreas can review the current pre-live proof evidence without searching artifact folders manually.
 
-1. The proof bundle Ops page hard-failed with `Ops auth include missing.`
-2. The proof bundle CLI reported child command `exit_code=-1` even when the child command produced valid decoded JSON.
+This patch adds:
+
+- A CLI ledger that indexes proof bundle artifacts and package exports.
+- An Ops page that lists the latest proof bundles and local EDXEIX field package exports.
+- Updated handoff and continuation documentation.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
-docs/V3_PRE_LIVE_PROOF_BUNDLE_HOTFIX.md
-docs/V3_AUTOMATION_NEXT_STEPS.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -21,56 +23,80 @@ PATCH_README.md
 
 ## Upload paths
 
+Upload these files exactly as follows:
+
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
+
+docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
+→ /home/cabnet/public_html/gov.cabnet.app/docs/V3_AUTOMATION_PRE_LIVE_STATUS.md only if docs are served from public docs
+→ otherwise keep in Git repo docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
+
+HANDOFF.md
+→ repo root / HANDOFF.md
+
+CONTINUE_PROMPT.md
+→ repo root / CONTINUE_PROMPT.md
+
+PATCH_README.md
+→ repo root / PATCH_README.md
 ```
-
-Keep docs in the local GitHub Desktop repo.
 
 ## SQL
 
-No SQL required.
+No SQL changes.
 
-## Verification
+## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php"
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php --json"
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php --write"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_proof_ledger.php --json"
 ```
 
-Open:
+Ops URL:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-proof-ledger.php
 ```
 
-## Expected result
+Expected CLI result:
 
-- Ops page loads.
-- CLI child command exit codes no longer appear as `-1` when the command completed and JSON was decoded.
-- Bundle safety can be `yes` when the proof state is healthy, even if the master live-submit gate remains closed.
-- No Bolt, EDXEIX, AADE, DB writes, queue changes, production submission table writes, SQL changes, cron changes, or V0 changes.
+```text
+V3 proof ledger v3.0.73-v3-proof-ledger
+Mode: read_only_proof_ledger
+Safety: No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.
+OK: yes
+```
+
+Expected Ops result:
+
+- Page loads after Ops login.
+- Shows latest proof bundles.
+- Shows latest local EDXEIX field package exports.
+- Shows no-call/no-write safety badges.
+- Does not execute commands from the browser.
 
 ## Git commit title
 
 ```text
-Fix V3 proof bundle runner and Ops page
+Add V3 proof ledger for pre-live evidence review
 ```
 
 ## Git commit description
 
 ```text
-Fixes the V3 pre-live proof bundle Ops page and child process runner.
+Adds a read-only V3 proof ledger CLI and Ops page for reviewing pre-live proof bundle artifacts and local EDXEIX field package exports.
 
-The Ops page no longer hard-fails when a specific auth include is absent on the current cPanel layout, while still using available Ops auth guards. The proof bundle CLI now preserves child process exit codes when proc_get_status observes them before proc_close, preventing valid decoded JSON child runs from appearing as exit_code=-1.
+The ledger indexes existing artifacts under the private app storage directory, summarizes bundle safety flags, payload consistency, adapter hash matching, no-call evidence, and local package export metadata.
 
-Closed live-submit gate blocks remain visible as expected proof state. No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, DB writes, queue status changes, production submission table writes, cron schedules, or SQL schema are changed.
+The Ops page does not execute commands and does not write files. The CLI is read-only and performs only optional SELECT-style queue/approval counts.
+
+Live EDXEIX submission remains disabled. No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission table writes, and V0 remains untouched.
 ```
