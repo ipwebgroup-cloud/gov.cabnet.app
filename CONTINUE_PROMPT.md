@@ -1,31 +1,24 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from v3.0.41.
+Continue from v3.0.42.
 
-Important state:
-
-- V0 is installed on the laptop and remains the manual production helper.
-- V3 is installed on the PC/server and remains the development/automation path.
-- Do not touch V0 production or dependencies.
-- Do not add software that decides whether Andreas should use V0 or V3.
-- Andreas will use his own judgment operationally.
+Current state:
+- V0 is installed on the laptop and remains the manual/production helper. Do not touch V0 files or dependencies.
+- V3 is installed on the PC/server path and is the development/automation path.
+- V3 pulse cron storage/lock issue was fixed.
+- V3 storage check is healthy as cabnet.
+- V3 pulse cron is healthy and logs cycles_run=5 ok=5 failed=0 exit_code=0.
+- V3 compact monitor is installed at /ops/pre-ride-email-v3-monitor.php.
+- V3 queue focus is installed at /ops/pre-ride-email-v3-queue-focus.php.
 - Live EDXEIX submit remains disabled.
-- V3 pulse cron is healthy after fixing a root-owned pulse lock file.
-- Storage check v3.0.40 verifies the pulse lock file and warns not to test the V3 pulse cron worker as root.
-- v3.0.41 added `/ops/pre-ride-email-v3-monitor.php` as a fast read-only V3 visibility page.
 
-Current useful URLs:
-
-- https://gov.cabnet.app/ops/pre-ride-email-v3-monitor.php
-- https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-- https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
-- https://gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
-- https://gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline-pulse.php
-
-Next safe work:
-
-- Continue V3-only UI polish.
-- Keep changes additive or small.
+Critical rules:
+- Do not enable live-submit.
+- Do not call EDXEIX live.
+- Do not touch V0.
+- Prefer read-only, V3-only visibility and small patches.
 - Preserve plain PHP/mysqli/cPanel workflow.
-- No SQL unless explicitly needed.
-- No live submit.
+
+Next safest work:
+- Polish V3 Queue Watch / Pulse Monitor / Automation Readiness pages to match the shared Ops shell.
+- Keep all changes read-only unless Andreas explicitly asks otherwise.
