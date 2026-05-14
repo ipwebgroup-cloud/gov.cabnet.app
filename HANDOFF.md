@@ -1,27 +1,137 @@
-# HANDOFF — gov.cabnet.app V3 automation
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX V3 Automation
 
-Latest checkpoint: `v3.0.56-v3-adapter-contract-probe`.
+Version: `v3.0.57-v3-live-adapter-runbook`
 
-## Current verified state
+## Project identity
 
-V3 readiness path has been proven using a forwarded Gmail/Bolt-style pre-ride email. The proof row reached `live_submit_ready`, then later expired and was safely blocked by the expiry guard. The proof dashboard preserves the historical proof via V3 queue events.
+- Domain: `https://gov.cabnet.app`
+- Repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
+- Do not introduce Composer, Node, frameworks, or heavy dependencies unless Andreas explicitly approves.
 
-V3 package export, operator approval visibility, closed-gate diagnostics, and adapter contract probe are now installed.
+## Server layout
 
-## Live submit posture
+```text
+/home/cabnet/public_html/gov.cabnet.app
+/home/cabnet/gov.cabnet.app_app
+/home/cabnet/gov.cabnet.app_config
+/home/cabnet/gov.cabnet.app_sql
+/home/cabnet/tools/firefox-edxeix-autofill-helper
+```
 
-Live EDXEIX submit remains disabled.
+## Critical boundary
 
-Gate remains closed:
+```text
+V0 laptop/manual helper: production fallback, untouched by V3 patches.
+V3 PC/server automation: development path.
+Live EDXEIX submit: disabled.
+```
 
-- enabled: no
-- mode: disabled
-- adapter: disabled
-- hard enable: no
-- operator approval: no valid approval
+## Verified V3 milestone
 
-V0 laptop/manual production helper remains untouched.
+V3 readiness pipeline was proven with a forwarded Gmail/Bolt-style pre-ride email.
 
-## Next safe phase
+Proof row:
 
-Continue closed-gate live adapter preparation only. Do not enable live submit unless Andreas explicitly requests that specific change.
+```text
+queue_id: 56
+customer: Arnaud BAGORO
+driver: Filippos Giannakopoulos
+vehicle: EHA2545
+lessor_id: 3814
+driver_id: 17585
+vehicle_id: 5949
+starting_point_id: 6467495
+historically reached: live_submit_ready
+payload audit: PAYLOAD-READY
+package export: artifacts written
+current status: blocked after expiry
+```
+
+Proven path:
+
+```text
+forwarded Gmail email
+→ server mailbox
+→ V3 intake
+→ parser
+→ mapping
+→ future-safe guard
+→ starting-point guard
+→ submit_dry_run_ready
+→ live_submit_ready
+→ payload audit
+→ final rehearsal blocked by master gate
+→ package export
+```
+
+## Current gate state
+
+Expected safe state:
+
+```text
+enabled=no
+mode=disabled
+adapter=disabled
+hard_enable_live_submit=no
+ok_for_live_submit=no
+```
+
+## Recent installed/verified phase items
+
+```text
+v3.0.52 live package export: verified
+v3.0.53 operator approval visibility: verified
+v3.0.54 closed-gate adapter diagnostics: verified
+v3.0.55 future adapter skeleton: verified
+v3.0.56 adapter contract probe: verified
+v3.0.57 live adapter runbook: documentation checkpoint
+```
+
+## Current next recommended work
+
+Proceed toward automation using closed-gate safeguards:
+
+```text
+v3.0.58-v3-live-adapter-result-envelope
+v3.0.59-v3-live-adapter-evidence-artifacts
+v3.0.60-v3-operator-approval-write-scaffold-closed
+v3.0.61-v3-final-prelive-dry-run-test
+```
+
+Do not enable live submit yet.
+
+## Useful commands
+
+Storage check:
+
+```bash
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
+```
+
+Pulse health:
+
+```bash
+tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline_pulse.log | egrep "cron start|ERROR|Pulse summary|finish exit_code" || true
+```
+
+Closed-gate diagnostics:
+
+```bash
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php"
+```
+
+Adapter contract probe:
+
+```bash
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php"
+```
+
+## Safety rules
+
+- Do not request or expose credentials.
+- Do not submit expired, historical, terminal, cancelled, invalid, or exempt rows.
+- EMT8640 remains permanently exempt.
+- Do not run the pulse cron worker as root.
+- Do not change V0 laptop/manual production helper files.
+- Do not enable live submit without explicit Andreas approval.
