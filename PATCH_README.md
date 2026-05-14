@@ -1,56 +1,40 @@
-# v3.0.55 — V3 Closed-Gate Real Adapter Skeleton
+# Patch README — v3.0.56-v3-adapter-contract-probe
 
 ## What changed
 
-Adds the future real EDXEIX adapter class location:
+Adds a V3-only adapter contract probe CLI and Ops page.
 
-```text
-gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
-```
+## Files
 
-The class implements `LiveSubmitAdapterV3`, but remains deliberately blocked and not live-capable.
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-contract-probe.php`
+- `docs/V3_ADAPTER_CONTRACT_PROBE.md`
+- `docs/V3_AUTOMATION_NEXT_STEPS.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
 
-## Files included
+## Upload paths
 
-```text
-gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
-docs/V3_CLOSED_GATE_REAL_ADAPTER_SKELETON.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php` → `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-contract-probe.php` → `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-contract-probe.php`
 
-## Upload path
-
-```text
-gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
-→ /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
-```
-
-Docs go into the local GitHub Desktop repo.
+Docs stay in the local GitHub Desktop repo unless intentionally uploaded.
 
 ## SQL
 
 No SQL required.
 
-## Verification
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-contract-probe.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php --json"
-```
-
-Expected diagnostic change:
-
-```text
-future_real_adapter exists=yes
-selected adapter remains disabled
-eligible_for_live_submit_now=no
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php --json"
 ```
 
 ## Safety
 
-No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission tables, cron schedules, or SQL schema are changed.
+No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.

@@ -1,55 +1,27 @@
-# HANDOFF — gov.cabnet.app V3 Bolt → EDXEIX bridge
+# HANDOFF — gov.cabnet.app V3 automation
+
+Latest checkpoint: `v3.0.56-v3-adapter-contract-probe`.
 
 ## Current verified state
 
-V3 readiness path has been proven using a forwarded Gmail/Bolt pre-ride email.
+V3 readiness path has been proven using a forwarded Gmail/Bolt-style pre-ride email. The proof row reached `live_submit_ready`, then later expired and was safely blocked by the expiry guard. The proof dashboard preserves the historical proof via V3 queue events.
 
-Proof path:
+V3 package export, operator approval visibility, closed-gate diagnostics, and adapter contract probe are now installed.
 
-```text
-forwarded email
-→ server mailbox
-→ V3 intake
-→ parser
-→ mapping
-→ future-safe guard
-→ verified starting-point guard
-→ submit_dry_run_ready
-→ live_submit_ready
-→ payload audit payload-ready
-→ final rehearsal blocked by master gate
-→ local live package export artifacts written
-→ closed-gate adapter diagnostics verified
-```
+## Live submit posture
 
-## Latest patch direction
+Live EDXEIX submit remains disabled.
 
-`v3.0.55-v3-closed-gate-real-adapter-skeleton` adds:
+Gate remains closed:
 
-```text
-gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
-```
+- enabled: no
+- mode: disabled
+- adapter: disabled
+- hard enable: no
+- operator approval: no valid approval
 
-This is a closed-gate skeleton only. It is not live-capable and does not call EDXEIX.
+V0 laptop/manual production helper remains untouched.
 
-## Safety boundaries
+## Next safe phase
 
-- V0 laptop/manual helper remains untouched.
-- Live EDXEIX submit remains disabled.
-- AADE behavior is untouched.
-- No queue mutation logic changes.
-- No SQL schema changes.
-- No cron schedule changes.
-- Master gate remains closed.
-
-## Current recommended next step
-
-Run diagnostics after installing v3.0.55 and confirm:
-
-```text
-future_real_adapter exists=yes
-selected adapter remains disabled
-eligible_for_live_submit_now=no
-```
-
-Then continue toward V3 automation with more closed-gate tests only.
+Continue closed-gate live adapter preparation only. Do not enable live submit unless Andreas explicitly requests that specific change.
