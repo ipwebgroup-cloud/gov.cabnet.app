@@ -1,30 +1,29 @@
-# v3.0.48 — V3 Forwarded-Email Readiness Proof Checkpoint
+# PATCH README — V3 Documentation Checkpoint
 
-## What changed
+Package: v3.0.49-v3-scope-readme-handoff-checkpoint
 
-Documentation checkpoint only. Records that the V3 forwarded-email readiness path was proven through `live_submit_ready` while the master live-submit gate remained closed.
+## Purpose
+
+Prepare commit-ready documentation for the verified V3 forwarded-email readiness proof and the next development phase.
 
 ## Files included
 
 ```text
-docs/V3_FORWARDED_EMAIL_READINESS_PROOF.md
+README_V3_AUTOMATION_STATUS.md
+SCOPE_V3_NEXT_PHASE.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+docs/V3_NEXT_PHASE_PLAN.md
+docs/V3_COMMIT_CHECKPOINT.md
+docs/V3_TRACKING_INDEX.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Server upload
 
-These files are intended for the local GitHub Desktop repo root:
+No server upload is required.
 
-```text
-docs/V3_FORWARDED_EMAIL_READINESS_PROOF.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
-
-No server upload is required unless Andreas wants server-side docs mirrored.
+These files are intended for the local GitHub Desktop repo so the current direction, scope, handoff, and status are preserved before the next V3 phase.
 
 ## SQL
 
@@ -32,47 +31,37 @@ No SQL required.
 
 ## Verification
 
-No PHP lint required; documentation only.
+No PHP lint is required because this package contains Markdown/text documentation only.
 
-Optional live confirmation commands:
+## Safety
 
-```bash
-mysql cabnet_gov -e "
-SELECT id, queue_status, customer_name, pickup_datetime, driver_name, vehicle_plate, lessor_id, driver_id, vehicle_id, starting_point_id, last_error, created_at, updated_at
-FROM pre_ride_email_v3_queue
-ORDER BY id DESC
-LIMIT 10;
-"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_payload_audit.php --limit=10"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_submit_rehearsal.php --limit=10"
-```
-
-## Expected result
+This package does not include:
 
 ```text
-row 56 = live_submit_ready
-payload audit = payload-ready
-final rehearsal = blocked by closed master gate
-live submit = disabled
-V0 = untouched
+V0 files
+credentials
+logs
+session files
+raw email dumps
+SQL changes
+PHP code changes
+live-submit changes
+EDXEIX calls
+AADE changes
 ```
 
-## Git commit title
+## Recommended commit title
 
 ```text
-Prove V3 forwarded-email readiness path
+Document V3 readiness proof and next phase
 ```
 
-## Git commit description
+## Recommended commit description
 
 ```text
-Documents and preserves the verified V3 forwarded-email readiness proof.
+Adds commit-ready documentation for the verified V3 forwarded-email readiness proof and defines the next phase: closed-gate live adapter preparation.
 
-The test proved Gmail/manual forward → server mailbox → V3 intake → parser → mapping → future-safe guard → verified starting-point guard → submit_dry_run_ready → live_submit_ready.
+Documents the current V3 status, proof row, safe gate blocks, V0/V3 operational boundary, required safety rules, next-phase scope, and continuation prompt.
 
-The payload audit confirmed the proof row was payload-ready. Final rehearsal correctly blocked the row because the master live-submit gate remains closed: enabled=false, mode disabled, adapter disabled, required acknowledgement absent, hard enable false, and no operator approval.
-
-No V0 laptop/manual helper files, live-submit enabling, EDXEIX calls, AADE behavior, production submission tables, cron schedules, or SQL schema are changed.
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, SQL schema, cron behavior, or PHP runtime code are changed.
 ```

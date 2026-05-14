@@ -1,4 +1,4 @@
-# gov.cabnet.app — V3 Handoff
+# HANDOFF — gov.cabnet.app V3 Bolt Pre-Ride Automation
 
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
@@ -7,9 +7,7 @@ You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge
 - Domain: https://gov.cabnet.app
 - GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
-
-Expected server layout:
+- Server layout:
 
 ```text
 /home/cabnet/public_html/gov.cabnet.app
@@ -19,42 +17,57 @@ Expected server layout:
 /home/cabnet/tools/firefox-edxeix-autofill-helper
 ```
 
-## Critical safety posture
-
-- V0 laptop/manual production helper is untouched and must remain untouched unless Andreas explicitly asks.
-- V3 is the PC/server-side automation development path.
-- Live EDXEIX submit remains disabled.
-- Do not enable live-submit without explicit approval from Andreas.
-- No AADE changes unless explicitly requested.
-- No real credentials may be requested, exposed, or committed.
-- Prefer read-only, dry-run, rehearsal, payload audit, and visibility screens.
-
-## Current V3 proof state
-
-As of 2026-05-14, V3 has successfully proven the forwarded-email readiness path.
-
-Proof path:
+The live server is not a cloned Git repo. The working flow is:
 
 ```text
-Gmail/manual forward
-→ server mailbox
-→ V3 intake
-→ parser
-→ driver / vehicle / lessor mapping
-→ future-safe guard
-→ verified starting-point guard
-→ submit_dry_run_ready
-→ live_submit_ready
+ChatGPT/Sophion patch zip → extract into local GitHub Desktop repo → upload manually to server → test → commit via GitHub Desktop
+```
+
+## Critical boundary
+
+V0 is installed on the laptop and is the current manual production helper. Do not touch V0, V0 dependencies, or the V0 workflow.
+
+V3 is installed on the PC/server path and is the development automation path.
+
+Andreas will use his own judgment during operations. Do not add software that decides whether he should use V0 or V3.
+
+## Safety rules
+
+- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit gate-opening update.
+- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
+- Demo/forwarded emails are valid for parser/readiness tests, not for opening the live-submit gate.
+- Never request or expose real API keys, DB passwords, tokens, cookies, session files, or private credentials.
+- Config examples may be committed; real config files remain server-only and ignored by Git.
+- Patch zips must not include secrets, logs, sessions, raw data dumps, cache files, or temporary public diagnostic scripts unless explicitly needed and safe.
+
+## Verified V3 state
+
+As of the v3.0.48/v3.0.49 planning checkpoint:
+
+```text
+V3 mail intake: proven
+V3 parser: proven
+V3 mapping: proven
+V3 future guard: proven
+V3 starting-point guard: proven
+V3 submit dry-run readiness: proven
+V3 live-readiness status: proven
+V3 payload audit: proven
+V3 final rehearsal: correctly blocked by closed master gate
+Live submit: disabled
+V0: untouched
 ```
 
 Proof row:
 
 ```text
-queue_id: 56
+id: 56
 queue_status: live_submit_ready
-customer: Arnaud BAGORO
-driver: Filippos Giannakopoulos
-vehicle: EHA2545
+customer_name: Arnaud BAGORO
+pickup_datetime: 2026-05-14 10:45:47
+driver_name: Filippos Giannakopoulos
+vehicle_plate: EHA2545
 lessor_id: 3814
 driver_id: 17585
 vehicle_id: 5949
@@ -62,25 +75,20 @@ starting_point_id: 6467495
 last_error: NULL
 ```
 
-Payload audit confirmed row 56 as payload-ready:
+Payload audit result:
 
 ```text
-Rows checked: 1
-Payload-ready: 1
-Blocked: 0
-Warnings: 0
-No EDXEIX call. No AADE call. No queue status change.
+PAYLOAD-READY
+lessor=3814
+driver=17585
+vehicle=5949
+start=6467495
 ```
 
-Final rehearsal correctly blocked the row because the master gate is closed:
+Final rehearsal result:
 
 ```text
-Master gate OK: no
-config_loaded: yes
-adapter: disabled
-hard_enabled: no
-Pre-live passed: 0
-Blocked: 1
+BLOCKED by master gate, as intended.
 ```
 
 Gate blocks:
@@ -94,74 +102,34 @@ hard_enable_live_submit is false
 approval: no valid operator approval found
 ```
 
-This is the correct safe result.
+## Key fixes completed
 
-## Important V3 patches verified
-
-- v3.0.39 — V3 storage check and V0/V3 boundary docs
-- v3.0.40 — Pulse lock ownership hardening
-- v3.0.41 — Compact V3 monitor
-- v3.0.42 — V3 queue focus page
-- v3.0.43 — V3 pulse focus page
-- v3.0.44 — V3 readiness focus page
-- v3.0.45 — V3 dashboard integration
-- v3.0.46 — Ops index V3 entry links
-- v3.0.47 — Live-readiness starting-point option alias fix
-
-## Runtime fixes confirmed
-
-The V3 pulse cron previously failed due to a root-owned lock file. It is now healthy.
-
-Correct lock file state:
+1. Pulse cron lock issue fixed.
 
 ```text
 /home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
-owner:group: cabnet:cabnet
+owner/group: cabnet:cabnet
 perms: 0660
 ```
 
-Do not test the pulse cron worker as root. Test it as cabnet:
+2. V3 storage check added and verified as `cabnet`.
 
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php"
-```
-
-## Lessor / starting point facts
-
-Lessor 3814 verified V3 option:
+3. Lessor 3814 starting-point option added to V3 verified options.
 
 ```text
-3814 / 6467495 = ΕΔΡΑ ΜΑΣ, Δήμος Μυκόνου, Περιφερειακή Ενότητα Μυκόνου, Περιφέρεια Νοτίου Αιγαίου, Αποκεντρωμένη Διοίκηση Αιγαίου, 846 00, Ελλάδα
+pre_ride_email_v3_starting_point_options:
+3814 / 6467495 / ΕΔΡΑ ΜΑΣ...
 ```
 
-Lessor 2307 verified V3 options:
+4. Live-readiness alias bug fixed.
 
 ```text
-1455969 = ΧΩΡΑ ΜΥΚΟΝΟΥ
-9700559 = ΕΠΑΝΩ ΔΙΑΚΟΦΤΗΣ
+pre_ride_email_v3_live_submit_readiness.php now uses:
+edxeix_lessor_id
+edxeix_starting_point_id
 ```
 
-Earlier invalid mapping:
-
-```text
-For lessor 2307, 6467495 was invalid/not present in EDXEIX form.
-```
-
-## EMT8640 permanent exemption
-
-Vehicle EMT8640 and Bolt vehicle identifier `f9170acc-3bc4-43c5-9eed-65d9cadee490` are permanently exempt.
-
-Rule:
-
-```text
-No voucher
-No driver email
-No invoice / AADE receipt
-No EDXEIX worker submission
-No V3 queue intake
-```
-
-## Main V3 Ops URLs
+## Current important URLs
 
 ```text
 https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
@@ -171,10 +139,47 @@ https://gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
 https://gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
 https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 https://gov.cabnet.app/ops/pre-ride-email-v3-live-submit-gate.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-payload-audit.php
 ```
 
-## Next safest step
+## Current next phase
 
-Commit the verified V3 readiness proof checkpoint.
+Proceed with:
 
-After commit, the next safe phase is to continue with live adapter design behind the closed gate only. Do not open the gate or enable live submit unless Andreas explicitly requests it.
+```text
+Phase V3.1 — Closed-Gate Live Adapter Preparation
+```
+
+Recommended next patch:
+
+```text
+v3.0.49-v3-proof-dashboard
+```
+
+Add:
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
+docs/V3_NEXT_PHASE_SCOPE.md
+docs/V3_EDXEIX_LIVE_ADAPTER_FIELD_MAP.md
+```
+
+No SQL. No live-submit enabling. No V0 changes.
+
+## Commit checkpoint title
+
+```text
+Prove V3 forwarded-email readiness path
+```
+
+## Commit checkpoint description
+
+```text
+Documents and preserves the verified V3 forwarded-email readiness proof.
+
+The test proved Gmail/manual forward → server mailbox → V3 intake → parser → mapping → future-safe guard → verified starting-point guard → submit_dry_run_ready → live_submit_ready.
+
+The payload audit confirmed the proof row was payload-ready. Final rehearsal correctly blocked the row because the master live-submit gate remains closed: enabled=false, mode disabled, adapter disabled, required acknowledgement absent, hard enable false, and no operator approval.
+
+No V0 laptop/manual helper files, live-submit enabling, EDXEIX calls, AADE behavior, production submission tables, cron schedules, or SQL schema are changed.
+```
