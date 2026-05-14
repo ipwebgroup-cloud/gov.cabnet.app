@@ -344,3 +344,35 @@ PATCH_README.md
 ```
 
 This first step is additive. It does not modify existing V3 workers, crons, gates, queue logic, mappings, or SQL.
+
+---
+
+## v3.0.38 UI Coherence Update
+
+The Ops Home page visual language is now the canonical shell for the V3 dashboard.
+
+The V3 dashboard should visually match:
+
+```text
+white top navigation
+EA/gov.cabnet.app brand area
+deep-blue sidebar
+light gray page background
+white metric and content cards
+simple tab row below the title
+clear green/amber/red status badges
+```
+
+The V3 dashboard must not become a separate visual system. Future V3 pages should gradually adopt the same shared shell after each page is verified.
+
+Patch `v3.0.38-ops-shell-unify-v3-dashboard` updates:
+
+```text
+public_html/gov.cabnet.app/ops/_ops-nav.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+docs/OPS_UI_STYLE_NOTES.md
+docs/OPS_SITEMAP_V3.md
+PATCH_README.md
+```
+
+No live-submit behavior, cron behavior, queue mutation, SQL, or mapping change is included.
