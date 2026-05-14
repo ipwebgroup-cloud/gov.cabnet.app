@@ -1,48 +1,52 @@
-# Patch README — v3.0.59 V3 Approval Rehearsal Proof Checkpoint
+# Patch: v3.0.60-v3-live-adapter-kill-switch-check
 
-## Purpose
+## What changed
 
-This is a commit-only documentation checkpoint preserving the verified V3 closed-gate approval rehearsal proof.
+Adds a V3-only read-only live adapter kill-switch checker.
 
 ## Files included
 
 ```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
+docs/V3_LIVE_ADAPTER_KILL_SWITCH_CHECK.md
+docs/V3_AUTOMATION_NEXT_STEPS.md
 HANDOFF.md
 CONTINUE_PROMPT.md
-docs/V3_APPROVAL_REHEARSAL_PROOF_CHECKPOINT.md
-docs/V3_AUTOMATION_PHASE_STATUS.md
-docs/V3_NEXT_PHASE_PLAN.md
 PATCH_README.md
 ```
 
-## Server upload
+## Upload paths
 
-No server upload required.
+```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
 
-Extract into the local GitHub Desktop repo root and commit.
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
+```
+
+Docs go to the local GitHub Desktop repo.
 
 ## SQL
 
 No SQL required.
 
-## Runtime changes
+## Verification
 
-None.
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
 
-This package does not change PHP runtime code, cron schedules, database schema, queue logic, V0, AADE, EDXEIX, or live-submit config.
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php"
 
-## Recommended commit title
-
-```text
-Document V3 closed-gate approval rehearsal proof
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php --json"
 ```
 
-## Recommended commit description
+## Expected result
 
-```text
-Documents the verified V3 closed-gate approval rehearsal proof.
+Current expected result is blocked / OK no, because live submit remains disabled.
 
-The test proved that a fresh future-safe row reached live_submit_ready, operator approval was inserted with the required closed-gate rehearsal phrase, payload audit passed, local package export wrote artifacts, final rehearsal blocked only on master-gate controls, and closed-gate adapter diagnostics confirmed selected_row_valid=yes.
+## Safety
 
-No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission table writes, cron schedules, or SQL schema are changed.
-```
+No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission tables, no V0 changes.

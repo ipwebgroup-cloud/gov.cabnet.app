@@ -1,119 +1,59 @@
-# HANDOFF — gov.cabnet.app V3 Automation
+# gov.cabnet.app — V3 Automation Handoff
 
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Latest checkpoint: `v3.0.60-v3-live-adapter-kill-switch-check`
 
-## Project identity
+## Current verified status
 
-- Domain: https://gov.cabnet.app
-- GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
-- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
-- Server layout:
-  - `/home/cabnet/public_html/gov.cabnet.app`
-  - `/home/cabnet/gov.cabnet.app_app`
-  - `/home/cabnet/gov.cabnet.app_config`
-  - `/home/cabnet/gov.cabnet.app_sql`
-  - `/home/cabnet/tools/firefox-edxeix-autofill-helper`
+V3 has proven the full closed-gate automation path:
 
-## Operational boundary
+- forwarded/server pre-ride email intake works
+- parser works
+- mapping works
+- future guard works
+- starting-point verification works
+- submit dry-run readiness works
+- live-submit readiness works
+- payload audit works
+- local live package export works
+- operator approval workflow works
+- final rehearsal blocks correctly behind the master gate
+- closed-gate adapter diagnostics work
+- future adapter skeleton exists
+- adapter contract probe passes
+- live adapter kill-switch check has been added
 
-- V0 is the laptop/manual production helper. Do not touch V0 or its dependencies unless Andreas explicitly asks.
-- V3 is the server/PC automation path.
-- Live submit remains disabled.
-- No EDXEIX live call is allowed unless Andreas explicitly asks for a live-submit update.
-- No AADE changes are part of this phase.
+## Safety state
 
-## Current verified V3 state
+- V0 laptop/manual helper is untouched.
+- Live EDXEIX submit is disabled.
+- AADE behavior is untouched.
+- No production submission tables are written by these V3 diagnostics.
+- Cron remains healthy.
+- Pulse lock is `cabnet:cabnet` and writable.
 
-As of `v3.0.59-v3-approval-rehearsal-proof-checkpoint`:
+## Latest important verified proof
 
-```text
-V3 readiness pipeline: proven
-Forwarded/future email intake: proven
-Parser/mapping/future guard: proven
-Starting-point verification: proven
-submit_dry_run_ready: proven
-live_submit_ready: proven
-Payload audit: proven
-Final rehearsal gate block: proven
-Local package export: proven
-Operator approval workflow: proven
-Closed-gate diagnostics: proven
-Future adapter skeleton: installed but not live-capable
-Adapter contract probe: proven
-Live EDXEIX submit: disabled
-V0: untouched
-```
+Row `418` reached `live_submit_ready`, received a valid closed-gate rehearsal approval, passed payload audit, exported package artifacts, and final rehearsal was blocked only by master-gate controls.
 
-## Important proof rows
+## Current live-submit gate posture
 
-### Row 418
+Expected blocked state:
 
-```text
-queue_status: live_submit_ready during test
-customer: Marina Ganejeva
-driver: Efthymios Giakis
-vehicle: ITK7702
-lessor_id: 2307
-driver_id: 17852
-vehicle_id: 11187
-starting_point_id: 1455969
-approval: inserted for closed_gate_rehearsal_only
-payload audit: OK
-package export: OK
-final rehearsal: blocked only by master gate
-```
+- `enabled=no`
+- `mode=disabled`
+- `adapter=disabled`
+- `hard_enable_live_submit=no`
+- live submit not allowed
 
-### Row 56
+## New v3.0.60 files
 
-Historical forwarded-email proof row. Reached `live_submit_ready`, then expired/blocked safely after pickup time passed.
+- `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php`
 
-## Critical data facts
+## Next step
 
-For lessor `2307`:
+Prepare real adapter design notes before any code that could eventually call EDXEIX.
 
-```text
-1455969 = ΧΩΡΑ ΜΥΚΟΝΟΥ
-9700559 = ΕΠΑΝΩ ΔΙΑΚΟΦΤΗΣ
-```
+Recommended next patch:
 
-For lessor `3814`:
-
-```text
-6467495 = ΕΔΡΑ ΜΑΣ, Δήμος Μυκόνου, Περιφερειακή Ενότητα Μυκόνου, Περιφέρεια Νοτίου Αιγαίου, Αποκεντρωμένη Διοίκηση Αιγαίου, 846 00, Ελλάδα
-```
-
-## Current important pages
-
-```text
-/ops/pre-ride-email-v3-dashboard.php
-/ops/pre-ride-email-v3-monitor.php
-/ops/pre-ride-email-v3-proof.php
-/ops/pre-ride-email-v3-queue-focus.php
-/ops/pre-ride-email-v3-pulse-focus.php
-/ops/pre-ride-email-v3-readiness-focus.php
-/ops/pre-ride-email-v3-storage-check.php
-/ops/pre-ride-email-v3-live-package-export.php
-/ops/pre-ride-email-v3-operator-approvals.php
-/ops/pre-ride-email-v3-operator-approval-workflow.php
-/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php
-/ops/pre-ride-email-v3-adapter-contract-probe.php
-```
-
-## Next safest step
-
-Build `v3.0.60-v3-live-adapter-kill-switch-check`.
-
-Scope:
-
-```text
-read-only CLI + Ops page
-prove whether live submit could run now
-show every block reason
-no live-submit enabling
-no EDXEIX call
-no AADE call
-no queue mutation
-no SQL schema change
-no V0 changes
-```
+`v3.0.61-v3-real-adapter-design-notes`
