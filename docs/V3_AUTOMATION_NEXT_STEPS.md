@@ -1,27 +1,34 @@
 # V3 Automation Next Steps
 
-Current checkpoint target: `v3.0.71-v3-pre-live-proof-bundle-export`
+Current checkpoint: `v3.0.72-v3-proof-bundle-runner-and-ops-hotfix`
 
-## Current state
+## Proven so far
 
-- V3 intake is proven.
-- V3 queue and live readiness are proven.
-- Operator approval is proven.
-- Package export is proven.
-- Pre-live switchboard is installed.
-- Kill-switch check is installed.
-- Adapter skeleton exists but is non-live-capable.
-- Adapter row simulation is proven safe.
-- Payload consistency harness is proven.
-- Live submit remains disabled.
+- Forwarded Gmail pre-ride emails can enter the V3 queue.
+- Future-safe rows can progress to `live_submit_ready`.
+- Expired/past rows are safely blocked by the V3 expiry guard.
+- Operator-verified starting-point options are enforced.
+- Closed-gate operator approval workflow exists and expires safely.
+- Future EDXEIX adapter skeleton exists and remains non-live-capable.
+- Adapter row simulation confirms `submitted=false`.
+- Payload consistency harness confirms DB-built payload, package artifact, and adapter hash match.
+- Pre-live proof bundle exporter collects the proof state into local private artifacts.
 
-## Next safest steps
+## Next safest phase
 
-1. Run the pre-live proof bundle exporter.
-2. Commit the proof bundle exporter patch.
-3. Document the proof output in a checkpoint package.
-4. Only after documentation, plan the first real adapter implementation phase.
+`v3.0.73-v3-proof-bundle-dashboard-polish`
 
-## Live submit remains blocked
+Recommended next work:
 
-Do not enable live submit until Andreas explicitly approves a live-submit update and all gates pass for a real eligible future trip.
+1. Verify the v3.0.72 CLI and Ops page on the live server.
+2. Confirm the proof bundle writes a safe local artifact and reports bundle-safe when the runner is healthy.
+3. Polish the Ops proof bundle page so the latest bundle summary is easier to read.
+4. Keep live submit disabled until Andreas explicitly requests a live-submit update.
+
+## Still blocked intentionally
+
+- Master live-submit gate remains disabled.
+- Adapter mode remains disabled unless explicitly changed later.
+- Hard enable remains false.
+- Real EDXEIX live adapter implementation is not enabled.
+- No automatic live submission is allowed yet.

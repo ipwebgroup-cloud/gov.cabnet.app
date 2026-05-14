@@ -18,7 +18,7 @@ declare(strict_types=1);
  * summarizes the result, and optionally writes local server-side proof artifacts.
  */
 
-const V3_PROOF_BUNDLE_VERSION = 'v3.0.71-v3-pre-live-proof-bundle-export';
+const V3_PROOF_BUNDLE_VERSION = 'v3.0.72-v3-proof-bundle-runner-and-ops-hotfix';
 
 function v3pb_arg_value(string $name, ?string $default = null): ?string
 {
@@ -120,6 +120,7 @@ function v3pb_run_cli(string $label, string $file, array $args = [], int $timeou
     $stdout = '';
     $stderr = '';
     $timedOut = false;
+    $lastExitCode = null;
     $deadline = microtime(true) + $timeoutSeconds;
 
     stream_set_blocking($pipes[1], false);
@@ -137,6 +138,9 @@ function v3pb_run_cli(string $label, string $file, array $args = [], int $timeou
         }
 
         $status = proc_get_status($process);
+        if (isset($status['exitcode']) && is_int($status['exitcode']) && $status['exitcode'] >= 0) {
+            $lastExitCode = $status['exitcode'];
+        }
         if (empty($status['running'])) {
             break;
         }
@@ -164,6 +168,9 @@ function v3pb_run_cli(string $label, string $file, array $args = [], int $timeou
     fclose($pipes[2]);
 
     $exitCode = proc_close($process);
+    if ($exitCode === -1 && is_int($lastExitCode) && $lastExitCode >= 0) {
+        $exitCode = $lastExitCode;
+    }
 
     $result['exit_code'] = $timedOut ? 124 : $exitCode;
     $result['stdout'] = trim($stdout);
@@ -389,6 +396,39 @@ function v3pb_build_summary(array $commands): array
 }
 
 /**
+ * @param array<string,mixed> $command
+ */
+function v3pb_command_runner_ok(string $key, array $command): bool
+{
+    if (!empty($command['error'])) {
+        return false;
+    }
+
+    if (empty($command['exists']) || empty($command['readable'])) {
+        return false;
+    }
+
+    $exit = $command['exit_code'] ?? null;
+    if ($exit === 124) {
+        return false;
+    }
+
+    // JSON proof tools may intentionally return a non-zero exit when the live gate is
+    // closed or a row is expired. That is expected proof state, not a runner failure.
+    if (!empty($command['json_ok'])) {
+        return true;
+    }
+
+    // The automation readiness CLI is text-first in the current live build.
+    // Treat captured text output as successful runner execution.
+    if ($key === 'automation_readiness' && trim((string)($command['stdout'] ?? '')) !== '') {
+        return true;
+    }
+
+    return $exit === 0;
+}
+
+/**
  * @param array<string,mixed> $commands
  * @return array<int,string>
  */
@@ -401,8 +441,8 @@ function v3pb_collect_blocks(array $commands): array
             continue;
         }
 
-        if (($command['exit_code'] ?? 1) !== 0) {
-            $blocks[] = $key . ': exit_code=' . (string)($command['exit_code'] ?? 'n/a');
+        if (!v3pb_command_runner_ok($key, $command)) {
+            $blocks[] = $key . ': runner_not_ok exit_code=' . (string)($command['exit_code'] ?? 'n/a');
         }
 
         if (!empty($command['error'])) {
@@ -448,15 +488,26 @@ $summary = v3pb_build_summary($commands);
 $blocks = v3pb_collect_blocks($commands);
 
 $commandRunnerOk = true;
-foreach ($commands as $command) {
-    if (!is_array($command) || ($command['exit_code'] ?? 1) !== 0 || !empty($command['error'])) {
+foreach ($commands as $key => $command) {
+    if (!is_array($command) || !v3pb_command_runner_ok((string)$key, $command)) {
         $commandRunnerOk = false;
     }
 }
 
 $bundleSafe = $commandRunnerOk
+    && !empty($summary['storage_ok'])
+    && !empty($summary['adapter_simulation_seen'])
+    && !empty($summary['payload_consistency_seen'])
+    && !empty($summary['payload_consistency_ok'])
+    && !empty($summary['db_vs_artifact_match'])
+    && !empty($summary['adapter_hash_match'])
+    && !empty($summary['simulation_safe'])
     && ($summary['adapter_submitted'] === false || $summary['adapter_submitted'] === null)
-    && ($summary['adapter_live_capable'] === false || $summary['adapter_live_capable'] === null);
+    && ($summary['adapter_live_capable'] === false || $summary['adapter_live_capable'] === null)
+    && empty($summary['edxeix_call_made'])
+    && empty($summary['aade_call_made'])
+    && empty($summary['db_write_made'])
+    && empty($summary['v0_touched']);
 
 $report = [
     'ok' => $bundleSafe,

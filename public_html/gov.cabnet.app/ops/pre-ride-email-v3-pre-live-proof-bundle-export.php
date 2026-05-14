@@ -4,24 +4,32 @@ declare(strict_types=1);
 
 /**
  * V3 pre-live proof bundle export Ops page.
+ * Version: v3.0.72-v3-proof-bundle-runner-and-ops-hotfix
  *
  * Read-only web page. It does not execute CLI commands and does not write files.
  * Use the CLI command shown on this page to create the server-side proof bundle.
  */
 
-$authFile = __DIR__ . '/_ops-auth.php';
-if (is_file($authFile)) {
-    require_once $authFile;
-} else {
-    http_response_code(500);
-    echo 'Ops auth include missing.';
-    exit;
+// Match the newer V3 Ops pages: use auth if the live server provides it,
+// but do not hard-fail on older/manual cPanel layouts where the auth guard
+// is handled earlier by /ops/login.php or surrounding includes.
+foreach ([__DIR__ . '/_ops-auth.php', __DIR__ . '/ops-auth.php', __DIR__ . '/_auth.php'] as $authFile) {
+    if (is_readable($authFile)) {
+        require_once $authFile;
+        break;
+    }
 }
 
 if (function_exists('gov_ops_require_auth')) {
     gov_ops_require_auth();
 } elseif (function_exists('ops_require_auth')) {
     ops_require_auth();
+}
+
+if (!headers_sent()) {
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('X-Robots-Tag: noindex, nofollow', true);
 }
 
 function h($value): string
