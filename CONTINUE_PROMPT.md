@@ -1,22 +1,23 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue the gov.cabnet.app Bolt → EDXEIX V3 automation project from v3.0.61.
 
-Continue from V3 checkpoint `v3.0.60-v3-live-adapter-kill-switch-check`.
+Current focus: V3 closed-gate live adapter preparation.
 
-Current state:
-- V3 readiness path is proven.
-- Row 418 proved live_submit_ready + operator approval + payload audit + package export + final rehearsal blocked only by master gate.
-- Future adapter skeleton exists and adapter contract probe passes.
-- Live adapter kill-switch check has been added.
-- Live submit remains disabled.
-- V0 laptop/manual helper is untouched.
+Verified so far:
+- V3 readiness path reached `live_submit_ready`.
+- Payload audit passed.
+- Package export passed.
+- Operator approval workflow passed with row 418.
+- Final rehearsal blocked only by master gate.
+- Closed-gate diagnostics passed as expected.
+- Adapter skeleton and contract probe passed.
 
-Critical safety:
-- Do not enable live submit unless Andreas explicitly asks.
-- Do not touch V0 production helper or dependencies.
+Latest issue/fix:
+- v3.0.60 live adapter kill-switch checker failed because `SHOW TABLES LIKE ?` caused a MariaDB syntax error.
+- v3.0.61 fixes the checker by using `INFORMATION_SCHEMA.TABLES`.
+
+Hard rules:
+- Do not touch V0 laptop/manual helper.
+- Do not enable live-submit unless Andreas explicitly asks.
 - Do not call EDXEIX live.
 - Do not call AADE.
-- Do not write production submission tables.
-- Keep all V3 work behind closed gate until explicitly approved.
-
-Next recommended task:
-Prepare `v3.0.61-v3-real-adapter-design-notes` before writing any code that could eventually make an EDXEIX call.
+- Keep work V3-only, closed-gate, read-only unless explicitly testing V3 approval table writes.

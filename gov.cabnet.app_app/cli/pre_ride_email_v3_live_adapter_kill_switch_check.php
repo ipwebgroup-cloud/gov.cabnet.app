@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 date_default_timezone_set('Europe/Athens');
 
-const V3_KILL_SWITCH_VERSION = 'v3.0.60-v3-live-adapter-kill-switch-check';
+const V3_KILL_SWITCH_VERSION = 'v3.0.61-v3-kill-switch-table-exists-fix';
 const V3_APPROVAL_SCOPE = 'closed_gate_rehearsal_only';
 const V3_EXPECTED_ADAPTER = 'edxeix_live';
 const V3_REQUIRED_APPROVAL_PHRASE = 'I APPROVE V3 ROW FOR CLOSED-GATE REHEARSAL ONLY';
@@ -33,11 +33,17 @@ function v3ks_has_arg(array $argv, string $name): bool
 
 function v3ks_table_exists(mysqli $db, string $table): bool
 {
-    $stmt = $db->prepare('SHOW TABLES LIKE ?');
+    // MariaDB on this cPanel host does not reliably accept placeholders in
+    // SHOW TABLES LIKE ?. Use INFORMATION_SCHEMA with prepared parameters.
+    $stmt = $db->prepare('SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
     $stmt->bind_param('s', $table);
     $stmt->execute();
     $result = $stmt->get_result();
-    return $result !== false && $result->num_rows > 0;
+    if ($result === false) {
+        return false;
+    }
+    $row = $result->fetch_assoc();
+    return (int)($row['c'] ?? 0) > 0;
 }
 
 function v3ks_fetch_one(mysqli $db, string $sql, array $params = []): ?array

@@ -1,32 +1,35 @@
-# Patch: v3.0.60-v3-live-adapter-kill-switch-check
+# Patch: v3.0.61-v3-kill-switch-table-exists-fix
 
 ## What changed
 
-Adds a V3-only read-only live adapter kill-switch checker.
+Fixes the V3 live adapter kill-switch checker table-existence query.
+
+The previous checker used:
+
+```sql
+SHOW TABLES LIKE ?
+```
+
+The live server returned a MariaDB syntax error near `?`. The checker now uses `INFORMATION_SCHEMA.TABLES` with a prepared parameter.
 
 ## Files included
 
 ```text
 gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
-docs/V3_LIVE_ADAPTER_KILL_SWITCH_CHECK.md
-docs/V3_AUTOMATION_NEXT_STEPS.md
+docs/V3_KILL_SWITCH_TABLE_EXISTS_FIX.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
 gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
 → /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
-
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
 ```
 
-Docs go to the local GitHub Desktop repo.
+Docs go into the local GitHub Desktop repo.
 
 ## SQL
 
@@ -36,7 +39,6 @@ No SQL required.
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php"
 
@@ -45,8 +47,8 @@ su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cl
 
 ## Expected result
 
-Current expected result is blocked / OK no, because live submit remains disabled.
+The checker should run and return `OK: no` because the live-submit gate is still intentionally closed. It should not show a SQL syntax error.
 
 ## Safety
 
-No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission tables, no V0 changes.
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission tables, cron schedules, or SQL schema are changed.
