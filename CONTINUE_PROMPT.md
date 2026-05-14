@@ -1,16 +1,28 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from V3 automation patch `v3.0.65-v3-pre-live-switchboard-web-direct-db-fix`.
+Continue from milestone v3.0.66-v3-real-adapter-design-spec.
 
-The pre-live switchboard CLI worked, but the web page could not use a command runner. The latest patch replaces the Ops switchboard page with a direct read-only DB/config renderer.
+Project constraints:
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload.
+- Do not introduce frameworks, Composer, Node, or heavy dependencies.
+- V0/manual laptop helper must remain untouched.
+- V3 live submit remains disabled.
+- Do not enable or implement real EDXEIX submission unless Andreas explicitly asks for a live-submit update.
+- Never request or expose real credentials.
 
-Preserve these rules:
+Latest verified V3 state:
+- V3 intake, mapping, starting-point guard, dry-run readiness, live-readiness, payload audit, package export, operator approval, final rehearsal, kill-switch, and pre-live switchboard are working.
+- Fresh rows reached live_submit_ready.
+- Closed-gate approvals were inserted and accepted by rehearsal/kill-switch.
+- Package artifacts were created.
+- Master gate remained closed.
+- No EDXEIX call, AADE call, V0 change, queue mutation, production submission table write, SQL schema change, or cron change was made.
 
-- V0 production/manual helper remains untouched.
-- Live EDXEIX submit remains disabled.
-- No Bolt, EDXEIX, or AADE calls from diagnostics/pages.
-- No queue mutation except explicit V3 approval workflow commands.
-- No SQL schema changes unless explicitly approved.
-- Use plain PHP/mysqli/cPanel-compatible code only.
+Current expected live-submit config state:
+- enabled=false
+- mode=disabled
+- adapter=disabled
+- hard_enable_live_submit=false
 
-Next likely step after verification: commit checkpoint, then decide whether to improve the switchboard UI/nav or prepare the eventual real adapter implementation plan behind disabled config.
+Next safe step:
+Prepare v3.0.67 adapter validation/simulation only. The future EdxeixLiveSubmitAdapterV3 must remain non-live-capable and must not make external network calls. It may only validate payloads, hash packages, and return blocked/simulated result envelopes.

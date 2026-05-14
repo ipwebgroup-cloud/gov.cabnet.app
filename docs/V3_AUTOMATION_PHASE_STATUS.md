@@ -1,74 +1,38 @@
 # V3 Automation Phase Status
 
-Version: `v3.0.59-v3-approval-rehearsal-proof-checkpoint`
+Version: v3.0.66-v3-real-adapter-design-spec
 
-## Completed
+## Verified completed
 
 - V3 queue tables installed.
-- V3 intake cron and pulse runner installed.
-- V3 pulse cron repaired and verified as `cabnet` user.
-- V3 storage and lock ownership checks installed.
-- V3 queue/readiness/pulse/operator monitoring pages installed.
-- V3 forwarded-email readiness path proven.
-- Lessor 3814 starting-point option added to V3 verified options.
-- Lessor 2307 corrected starting point verified as `1455969 = ΧΩΡΑ ΜΥΚΟΝΟΥ`.
-- V3 submit dry-run readiness proven.
-- V3 live-submit readiness proven.
-- V3 payload audit proven.
-- V3 final rehearsal correctly blocked by master gate.
-- V3 local live package export proven.
-- V3 operator approval workflow proven with row `418`.
-- V3 closed-gate adapter diagnostics proven.
-- V3 future live adapter skeleton installed but blocked/not live-capable.
-- V3 adapter contract probe proven.
+- V3 intake cron/worker working.
+- V3 fast pipeline and pulse runner working.
+- Storage/locks/logs checks working.
+- Starting-point options verified for lessors 2307 and 3814.
+- Submit dry-run readiness working.
+- Live-submit readiness working.
+- Payload audit working.
+- Local package export working.
+- Operator approval workflow working.
+- Final rehearsal accepts approval and blocks on master gate.
+- Closed-gate adapter diagnostics working.
+- Adapter contract probe working.
+- Future adapter skeleton present and non-live-capable.
+- Kill-switch checker working and approval-aligned.
+- Pre-live switchboard CLI working.
+- Pre-live switchboard Ops page working via direct DB/config renderer.
 
-## Still disabled
+## Current blocked state
 
-```text
-Live EDXEIX submit: disabled
-Adapter config: disabled
-Mode: disabled
-Hard enable: false
-Master gate OK: no
-```
-
-## Known safe proof rows
-
-### Row 56
-
-Historical forwarded-email proof row.
+Live submit is intentionally blocked by:
 
 ```text
-Reached: live_submit_ready
-Later: expired/blocked safely
-Purpose: forwarded-email proof + package export proof
+enabled=false
+mode=disabled
+adapter=disabled / not edxeix_live
+hard_enable_live_submit=false
 ```
 
-### Row 418
+## Current development recommendation
 
-Closed-gate operator approval rehearsal proof row.
-
-```text
-Reached: live_submit_ready
-Approval: inserted and valid during future-safe window
-Payload audit: OK
-Package export: OK
-Final rehearsal: blocked only by master gate
-Diagnostics: selected_row_valid=yes
-```
-
-### Row 427
-
-Additional live-ready row detected during proof session.
-
-```text
-Reached: live_submit_ready
-Approval: none
-Rehearsal correctly blocked on missing approval
-```
-
-## Next phase
-
-`v3.0.60-v3-live-adapter-kill-switch-check`
-
-Goal: add a formal read-only switchboard proving live submit is impossible unless all gate conditions are explicitly open.
+Proceed to adapter validation/simulation only. Do not implement real network submit behavior until Andreas explicitly approves a live-submit development phase.

@@ -1,46 +1,58 @@
-# Patch README — v3.0.65 V3 Pre-Live Switchboard Web Direct DB Fix
+# v3.0.66-v3-real-adapter-design-spec
+
+## Type
+
+Commit-only documentation checkpoint.
 
 ## What changed
 
-Updates only the Ops web page:
+Adds design documentation for the future V3 real EDXEIX adapter path, including:
+
+- real adapter design spec
+- implementation gate checklist
+- first live adapter dry-run plan
+- current automation phase status
+- handoff
+- continuation prompt
+
+## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+docs/V3_REAL_ADAPTER_DESIGN_SPEC.md
+docs/V3_REAL_ADAPTER_IMPLEMENTATION_GATES.md
+docs/V3_FIRST_LIVE_ADAPTER_DRY_RUN_PLAN.md
+docs/V3_AUTOMATION_PHASE_STATUS.md
 ```
 
-The page no longer depends on `shell_exec`, `exec`, or any local command runner. It reads the same V3 state directly from the database/config in read-only mode.
+## Upload paths
 
-## Upload path
+No server upload required.
 
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
-```
+Extract into the local GitHub Desktop repo root and commit.
 
 ## SQL
 
 No SQL required.
 
-## Verification
+## Runtime changes
 
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php --json"
-```
-
-Then open:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
-```
-
-## Expected result
-
-The page loads and shows V3 state without command-runner errors.
-
-Live submit remains blocked.
+None.
 
 ## Safety
 
-No V0 changes. No EDXEIX call. No AADE call. No DB writes. No queue mutation. No production submission tables. No cron changes.
+This package does not change PHP runtime code, cron schedules, database schema, queue logic, V0, AADE, EDXEIX, or live-submit config.
+
+## Commit title
+
+Document V3 real adapter design
+
+## Commit description
+
+Documents the future V3 real EDXEIX adapter design and implementation gates after the closed-gate automation path was proven.
+
+The documentation defines the required master gate, operator approval, future-safe row, payload, starting-point, package export, adapter live-capability, rollback, and emergency stop controls that must be satisfied before any real live-submit behavior can be considered.
+
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, DB writes, queue status changes, production submission table writes, cron schedules, SQL schema, or runtime PHP code are changed.
