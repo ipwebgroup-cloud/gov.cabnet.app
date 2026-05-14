@@ -1,7 +1,7 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
 Updated: 2026-05-14  
-Milestone: V3 closed-gate pre-live canary rehearsal validated
+Milestone: V3 closed-gate pre-live canary rehearsal validated; V3 live adapter contract test prepared
 
 ## Project identity
 
@@ -31,6 +31,7 @@ Workflow:
 
 ## Critical safety rules
 
+- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
 - Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
 - Live submission must remain blocked unless there is a real eligible future Bolt trip, preflight passes, and the trip is sufficiently in the future.
 - Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
@@ -39,8 +40,9 @@ Workflow:
 - Public endpoints must remain thin; reusable logic belongs in `/home/cabnet/gov.cabnet.app_app`.
 - Preserve plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
 - No frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
+- V0 / existing production workflows must remain untouched unless Andreas explicitly requests otherwise.
 
-## Latest validated milestone
+## Latest validated closed-gate milestone
 
 A V3 closed-gate canary rehearsal was completed successfully using queue row `#716`.
 
@@ -50,6 +52,7 @@ Canary row summary:
 queue_id: 716
 queue_status: live_submit_ready
 customer_name: V3 Canary Marina 1778760875
+pickup_datetime: 2026-05-14 16:34:35
 vehicle_plate: ITK7702
 driver_name: Efthymios Giakis
 lessor_id: 2307
@@ -59,6 +62,8 @@ starting_point_id: 1455969
 starting_point_label: ΧΩΡΑ ΜΥΚΟΝΟΥ
 approval_status: approved
 approval_scope: closed_gate_rehearsal_only
+approved_by: Andreas
+approval_expiry: 2026-05-14 16:16:00
 submitted_at: NULL
 failed_at: NULL
 last_error: NULL
@@ -80,7 +85,7 @@ Latest local live package artifacts for row `#716`:
 /home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages/queue_716_20260514_151600_safety_report.txt
 ```
 
-These server artifacts are intentionally not included in the commit package because they may contain payload details and operational data.
+These server artifacts are intentionally not included in commit packages because they may contain payload details and operational data.
 
 ## Validated V3 components
 
@@ -103,13 +108,19 @@ Confirmed working in closed-gate mode:
 - V3 proof bundle exporter
 - V3 live gate drift guard
 - V3 live operator console page
+- V3 live adapter contract test CLI and ops page
 
-## Live gate posture
+## Current live gate posture
 
-Current expected pre-live gate posture:
+Config path:
 
 ```text
-config_path: /home/cabnet/gov.cabnet.app_config/pre_ride_email_v3_live_submit.php
+/home/cabnet/gov.cabnet.app_config/pre_ride_email_v3_live_submit.php
+```
+
+Expected closed pre-live gate posture:
+
+```text
 config_loaded: yes
 enabled: false
 mode: disabled
@@ -146,127 +157,85 @@ class_exists: true
 instantiated: true
 name: edxeix_live_skeleton
 is_live_capable: false
-submit_called: true
 submitted: false
 blocked: true
 reason: edxeix_live_adapter_skeleton_not_implemented
 message: V3 EDXEIX live adapter skeleton is present, but real EDXEIX submission is not implemented or enabled. No EDXEIX call was made.
 ```
 
-## Proof bundle summary for row #716
+## New V3 live adapter contract test
 
-The latest validated proof bundle reported:
-
-```text
-OK: yes
-Bundle safe: yes
-storage_ok: yes
-automation_readiness_seen: yes
-switchboard_seen: yes
-adapter_simulation_seen: yes
-payload_consistency_seen: yes
-payload_consistency_ok: yes
-db_vs_artifact_match: yes
-adapter_hash_match: yes
-adapter_live_capable: no
-adapter_submitted: no
-simulation_safe: yes
-edxeix_call_made: no
-aade_call_made: no
-db_write_made: no
-v0_touched: no
-```
-
-Notes:
-
-- `pre_live_switchboard exit=1` is expected while the master live gate is intentionally disabled.
-- `closed_gate_diagnostics exit=1` is expected while the master live gate is intentionally disabled.
-- These exit codes represent safe live-submit blockers, not a failed proof bundle.
-
-## Ops pages verified
-
-Live operator console syntax and auth redirect verified:
+Patch prepared:
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
+gov_v3_live_adapter_contract_test_20260514.zip
 ```
 
-Unauthenticated check:
+New files:
 
 ```text
-curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+docs/V3_LIVE_ADAPTER_CONTRACT_TEST_20260514.md
 ```
 
-Expected:
+Purpose:
+
+- Build the would-be future EDXEIX request envelope from a selected queue row.
+- Display method, endpoint label, headers without secrets, timeout policy, idempotency shape, normalized payload, payload hash, future live preconditions, and response-normalization contract.
+- Confirm the current adapter class is present but non-live.
+- Do **not** call adapter `submit()`.
+- Do **not** make network calls.
+- Do **not** write DB rows.
+
+Expected safe values:
 
 ```text
-HTTP/1.1 302 Found
-Location: /ops/login.php?next=%2Fops%2Fpre-ride-email-v3-live-operator-console.php
+network_allowed=false
+adapter_submit_allowed=false
+adapter_submit_called=false
+edxeix_call_made=false
+adapter is_live_capable=false
+adapter submitted=false
 ```
 
-Authenticated view tested:
+Important note: `ok` may become `false` when row #716 is no longer future-safe or its closed-gate rehearsal approval expires. That is safe. The relevant contract safety values must remain non-network and non-submitting.
+
+## Ops pages
+
+Live operator console:
 
 ```text
 https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php?queue_id=716
 ```
 
-Observed badges:
+Live adapter contract test:
 
 ```text
-EXPECTED CLOSED PRE-LIVE GATE
-NO LIVE RISK DETECTED
-NO EDXEIX CALL
-NO DB WRITES
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php?queue_id=716
 ```
+
+Unauthenticated ops requests should redirect to `/ops/login.php`.
 
 ## Useful verification commands
 
 ```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+
+curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php"
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php --queue-id=716 --json"
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php --queue-id=716 --json"
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php --queue-id=716 --write"
-```
-
-Read-only queue verification:
-
-```sql
-SELECT
-  id,
-  queue_status,
-  customer_name,
-  pickup_datetime,
-  driver_name,
-  vehicle_plate,
-  lessor_id,
-  driver_id,
-  vehicle_id,
-  starting_point_id,
-  submitted_at,
-  failed_at,
-  last_error
-FROM pre_ride_email_v3_queue
-WHERE id = 716;
-
-SELECT
-  id,
-  queue_id,
-  approval_status,
-  approval_scope,
-  approved_by,
-  approved_at,
-  expires_at,
-  revoked_at
-FROM pre_ride_email_v3_live_submit_approvals
-WHERE queue_id = 716
-ORDER BY id DESC;
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php --queue-id=716 --json"
 ```
 
 ## Next safest step
 
-The next safe development step is to create a **non-submitting live adapter contract test** that defines the exact request body, headers, endpoint selection, timeout behavior, and response normalization for the future EDXEIX submitter, while keeping the adapter blocked by `is_live_capable=false` and while continuing to forbid network calls.
+After this contract test is uploaded and verified, the next safe step is to add a fixture-driven version of the contract test that can run without a live/future DB row. This preserves no-network/no-submit behavior and avoids depending on canary row #716 after it expires.
 
 Do not implement real EDXEIX network submission until Andreas explicitly requests it.

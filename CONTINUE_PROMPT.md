@@ -45,6 +45,7 @@ Live server is not a cloned Git repo. Workflow is:
 - Never request or expose real API keys, DB passwords, tokens, cookies, session files, or private credentials.
 - Config examples may be committed; real config files must remain server-only and ignored by Git.
 - Sanitize all downloadable zips: exclude secrets, logs, sessions, raw data dumps, cache files, and temporary public diagnostic scripts unless explicitly needed and safe.
+- V0 / existing production workflows must remain untouched unless Andreas explicitly requests otherwise.
 
 ## Latest milestone state
 
@@ -56,6 +57,7 @@ Validated row summary:
 queue_id: 716
 queue_status: live_submit_ready
 customer_name: V3 Canary Marina 1778760875
+pickup_datetime: 2026-05-14 16:34:35
 vehicle_plate: ITK7702
 driver_name: Efthymios Giakis
 lessor_id: 2307
@@ -65,19 +67,14 @@ starting_point_id: 1455969
 starting_point_label: ΧΩΡΑ ΜΥΚΟΝΟΥ
 approval_status: approved
 approval_scope: closed_gate_rehearsal_only
+approved_by: Andreas
+approval_expiry: 2026-05-14 16:16:00
 submitted_at: NULL
 failed_at: NULL
 last_error: NULL
 ```
 
-Latest proof bundle:
-
-```text
-/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles/bundle_20260514_125023_summary.json
-/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles/bundle_20260514_125023_summary.txt
-```
-
-Live gate posture remains intentionally disabled:
+The live gate remains intentionally disabled:
 
 ```text
 enabled=false
@@ -108,36 +105,69 @@ blocked=true
 reason=edxeix_live_adapter_skeleton_not_implemented
 ```
 
-## Ops UI status
+## Latest prepared patch
 
-The V3 live operator console exists and was verified behind ops login:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php?queue_id=716
-```
-
-Expected badges:
+Patch package:
 
 ```text
-EXPECTED CLOSED PRE-LIVE GATE
-NO LIVE RISK DETECTED
-NO EDXEIX CALL
-NO DB WRITES
+gov_v3_live_adapter_contract_test_20260514.zip
 ```
 
-## Next safest major step
-
-Proceed with a **non-submitting live adapter contract test**. The goal is to define and verify the exact future EDXEIX request contract without making any network calls.
-
-Scope for next patch:
+Scope:
 
 - Add a read-only CLI harness that builds the would-be EDXEIX request envelope from a selected queue row.
-- Include method, endpoint label, headers-without-secrets, timeout settings, payload hash, and response-normalization expectations.
+- Add an ops page for the same contract test.
+- Define method, endpoint label, headers-without-secrets, timeout policy, idempotency shape, payload hash, future live preconditions, and response-normalization expectations.
 - Keep adapter `is_live_capable=false`.
+- Do not call adapter `submit()`.
 - Do not call EDXEIX.
 - Do not write DB rows.
 - Do not modify queue status.
-- Add an ops read-only page if useful.
-- Package as a small cPanel/manual-upload zip with changed/added files only.
 
-Do not ask Andreas to confirm unless blocked by missing files. Inspect actual uploaded/server files first if available. Preserve existing filenames, includes, routes, mysqli style, and cPanel paths.
+Files:
+
+```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+docs/V3_LIVE_ADAPTER_CONTRACT_TEST_20260514.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
+
+Verification:
+
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+
+curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php --queue-id=716 --json"
+```
+
+Expected safe result:
+
+```text
+network_allowed=false
+adapter_submit_allowed=false
+adapter_submit_called=false
+edxeix_call_made=false
+adapter is_live_capable=false
+adapter submitted=false
+```
+
+`ok` may become false if queue #716 is no longer future-safe or the rehearsal approval has expired. That is acceptable and safe. The safety contract is still valid as long as the network and submit flags stay false.
+
+## Next safest major step
+
+After Andreas uploads and verifies the contract test patch, proceed with a fixture-driven contract test that can run without depending on an unexpired live DB row.
+
+Scope for next patch:
+
+- Add a sanitized fixture file or fixture builder for the V3 contract test.
+- Allow the CLI to run `--fixture=canary_safe` without DB writes and without external calls.
+- Confirm the request envelope remains stable even after row #716 expires.
+- Keep everything read-only and no-network.
+
+Do not implement real EDXEIX network submission until Andreas explicitly requests it.
