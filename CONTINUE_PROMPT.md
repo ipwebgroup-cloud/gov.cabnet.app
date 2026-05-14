@@ -1,7 +1,5 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from V3 patch `v3.0.74-v3-live-gate-drift-guard`.
-
 Project identity:
 - Domain: https://gov.cabnet.app
 - GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
@@ -13,47 +11,37 @@ Project identity:
   /home/cabnet/gov.cabnet.app_config
   /home/cabnet/gov.cabnet.app_sql
 
-Current state:
-- V3 forwarded-email automation can parse/intake Bolt pre-ride forwarded emails.
-- Future eligible rows can reach `live_submit_ready`.
-- Past/expired rows are blocked.
-- Starting-point guard is working.
-- Operator approval workflow exists for closed-gate rehearsal only.
-- Local EDXEIX package export writes private artifacts only.
-- Adapter contract probe is safe.
-- Future EDXEIX live adapter exists only as a skeleton and is not live-capable.
-- Adapter row simulation and payload consistency harness are safe/read-only.
-- Proof bundle exporter and proof ledger exist.
-- v3.0.74 adds a read-only live gate drift guard CLI/Ops page to detect accidental live-gate drift.
+Source-of-truth order:
+1. Latest uploaded files, pasted code, screenshots, SQL output, or live audit output in the current chat.
+2. HANDOFF.md and CONTINUE_PROMPT.md.
+3. README.md, SCOPE.md, DEPLOYMENT.md, SECURITY.md, docs/, and PROJECT_FILE_MANIFEST.md.
+4. GitHub repo.
+5. Prior memory/context only as background, never as proof of current code state.
 
-Critical safety:
+Current V3 milestone:
+- V3 closed-gate automation proof was validated with canary queue #716.
+- Queue #716 reached live_submit_ready.
+- Operator approval was inserted with scope closed_gate_rehearsal_only.
+- Local live package artifacts were exported.
+- Pre-live proof bundle was exported.
+- Drift guard confirmed no live risk.
+- EDXEIX call made: no.
+- AADE call made: no.
+- DB write by proof bundle: no.
+- V0 touched: no.
+
+Current patch:
+- Added /ops/pre-ride-email-v3-live-operator-console.php as a read-only dashboard.
+- It displays queue state, approval status, payload completeness, starting-point verification, package artifacts, proof bundles, gate posture, and adapter file drift indicators.
+
+Critical safety rules:
 - Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
-- No Bolt call, no EDXEIX call, no AADE call unless explicitly approved and safe.
-- Historical, cancelled, expired, invalid, or past Bolt rows must never be submitted.
-- Keep V0 untouched.
-- Never request or expose real secrets.
+- Live submission must remain blocked unless there is a real eligible future Bolt trip, preflight passes, and the trip is sufficiently in the future.
+- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted.
+- Never request or expose real API keys, DB passwords, tokens, cookies, session files, or private credentials.
+- Config examples may be committed; real config files must remain server-only and ignored by Git.
 
-Latest patch files:
-- gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-- public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-- docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
-- HANDOFF.md
-- CONTINUE_PROMPT.md
-- PATCH_README.md
-
-Verify v3.0.74 with:
-
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
-```
-
-Ops URL:
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-
-Next safe phase:
-Build a read-only final cutover checklist that requires a real future live-ready row, valid operator approval, starting-point verification, payload consistency, package export, proof bundle freshness, and a closed master gate until explicit live approval.
+Next safest step:
+- Verify the operator console on the live server.
+- Then use it to observe the next real future Bolt pre-ride row.
+- Do not build or enable a live-capable EDXEIX adapter until Andreas explicitly requests it.

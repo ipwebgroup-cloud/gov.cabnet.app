@@ -1,93 +1,116 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# gov.cabnet.app — Bolt → EDXEIX Bridge Handoff
 
-Updated: 2026-05-14 11:55 UTC  
-Current patch: `v3.0.74-v3-live-gate-drift-guard`
+## Current project state
 
-## Project identity
+Project: `gov.cabnet.app` Bolt pre-ride email V3 automation path.
 
-- Domain: `https://gov.cabnet.app`
-- Repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Expected server layout:
-  - `/home/cabnet/public_html/gov.cabnet.app`
-  - `/home/cabnet/gov.cabnet.app_app`
-  - `/home/cabnet/gov.cabnet.app_config`
-  - `/home/cabnet/gov.cabnet.app_sql`
+Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
 
-## Current V3 state
-
-V3 forwarded-email automation has proven the pre-live path:
-
-- Forwarded Bolt pre-ride emails are parsed and queued.
-- Future eligible rows can reach `live_submit_ready`.
-- Past/expired rows are blocked by the expiry guard.
-- Starting points are verified against `pre_ride_email_v3_starting_point_options`.
-- Operator approvals exist for closed-gate rehearsal only.
-- Package export writes local private artifacts only.
-- Adapter contract probe is safe.
-- Future real adapter file exists as a skeleton and is not live-capable.
-- Adapter simulation does not submit.
-- Payload consistency confirms DB payload, exported EDXEIX fields, and adapter simulation hash match.
-- Proof bundle export writes private summary artifacts.
-- Proof ledger indexes proof and package artifacts.
-- v3.0.74 adds a live gate drift guard to confirm the master gate remains closed.
-
-## Critical safety rules
-
-- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
-- Live submission must remain blocked unless a real eligible future Bolt trip exists, preflight passes, and the trip is sufficiently in the future.
-- Historical, cancelled, terminal, expired, invalid, or past Bolt rows must never be submitted to EDXEIX.
-- No real credentials should be requested or exposed.
-- Config examples may be committed; real config stays server-only.
-- Keep V0 untouched unless explicitly requested.
-
-## New files in v3.0.74
+Server layout:
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
+/home/cabnet/public_html/gov.cabnet.app
+/home/cabnet/gov.cabnet.app_app
+/home/cabnet/gov.cabnet.app_config
+/home/cabnet/gov.cabnet.app_sql
 ```
 
-## Verification after upload
+## Current verified milestone
 
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
+V3 closed-gate automation proof has been validated with canary queue `#716`.
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
-```
-
-Open:
+Known canary row:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
+id: 716
+queue_status: live_submit_ready
+customer_name: V3 Canary Marina 1778760875
+pickup_datetime: 2026-05-14 16:34:35
+driver_name: Efthymios Giakis
+vehicle_plate: ITK7702
+lessor_id: 2307
+driver_id: 17852
+vehicle_id: 11187
+starting_point_id: 1455969
+submitted_at: NULL
+failed_at: NULL
+last_error: NULL
 ```
 
-Expected result while gate is safely closed:
+Approval was inserted for closed-gate rehearsal only:
 
 ```text
-OK: yes
-Expected disabled pre-live posture: yes
-Live risk detected: no
-Full live switch looks open: no
+approval_status: approved
+approval_scope: closed_gate_rehearsal_only
+approved_by: Andreas
 ```
 
-## Next best step
+Latest known proof bundle from the live server:
 
-After this patch is verified, the next safest phase is a read-only final cutover checklist that combines:
+```text
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles/bundle_20260514_122344_summary.json
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles/bundle_20260514_122344_summary.txt
+```
 
-- current future `live_submit_ready` row
-- valid non-expired operator approval
-- starting-point verification
-- payload consistency hash
-- package export existence
-- proof bundle freshness
-- master gate still closed until explicit live approval
+## Current gate posture
 
-Do not implement live EDXEIX network submission yet.
+Live submission is intentionally blocked.
+
+Expected config posture:
+
+```text
+enabled=false
+mode=disabled
+adapter=disabled
+hard_enable_live_submit=false
+```
+
+The `EdxeixLiveSubmitAdapterV3.php` file exists but remains a non-live-capable skeleton.
+
+## This patch
+
+Adds:
+
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
+```
+
+The console is read-only and gives operators a single screen showing:
+
+- current V3 queue metrics;
+- active queue rows;
+- selected row status;
+- payload completeness;
+- approval status;
+- starting-point verification;
+- local live package artifacts;
+- proof bundles;
+- gate posture;
+- adapter drift signals.
+
+## Safety guarantees
+
+Do not enable live EDXEIX submission unless Andreas explicitly requests a live-submit update.
+
+Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted.
+
+The current patch does not:
+
+- call Bolt;
+- call EDXEIX;
+- call AADE;
+- write to DB;
+- change queue statuses;
+- write production submission tables;
+- touch V0.
+
+## Next safest step
+
+After this patch is uploaded and verified, use the new console to observe the next real future Bolt pre-ride row.
+
+Then proceed to one of these safe next phases:
+
+1. add a read-only one-click proof bundle link from the console;
+2. add read-only package preview panels inside the console;
+3. add a dedicated expired approval cleanup/report view;
+4. prepare, but do not enable, a formal live-submit readiness checklist.

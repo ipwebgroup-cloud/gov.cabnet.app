@@ -1,100 +1,124 @@
-# Patch README — v3.0.74 V3 Live Gate Drift Guard
+# gov.cabnet.app V3 Operator Console Patch
+
+## Version
+
+`v3.0.76-v3-live-operator-console`
 
 ## What changed
 
-Adds a read-only V3 live gate drift guard.
+Added a read-only V3 Live Operator Console for the Bolt pre-ride email automation workflow.
 
-The guard verifies that the V3 live-submit master gate remains in the expected disabled pre-live posture and detects accidental live-gate drift before any future real adapter phase.
+The console summarizes:
+
+- gate posture;
+- live-risk/drift posture;
+- current V3 queue metrics;
+- current active queue rows;
+- selected row payload fields;
+- approval validity;
+- starting-point verification;
+- local live package artifacts;
+- local proof bundles;
+- adapter file scan signals.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
+docs/V3_OPERATOR_CONSOLE_SCOPE.md
+docs/V3_AUTOMATION_README.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Exact upload paths
+
+Upload:
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
-
-docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
-→ repo docs/V3_AUTOMATION_PRE_LIVE_STATUS.md
-
-HANDOFF.md
-→ repo root HANDOFF.md
-
-CONTINUE_PROMPT.md
-→ repo root CONTINUE_PROMPT.md
-
-PATCH_README.md
-→ repo root PATCH_README.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
 ```
 
-## SQL
+to:
 
-No SQL changes.
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
+```
+
+Upload docs to the repository root for tracking:
+
+```text
+docs/V3_OPERATOR_CONSOLE_SCOPE.md
+docs/V3_AUTOMATION_README.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
+
+## SQL to run
+
+None.
 
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
+curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
 ```
 
-Ops URL:
+Expected Ops protection check:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-gate-drift-guard.php
+HTTP/1.1 302 Found
+Location: /ops/login.php?next=%2Fops%2Fpre-ride-email-v3-live-operator-console.php
+```
+
+After login, open:
+
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php?queue_id=716
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-operator-console.php?json=1&queue_id=716
 ```
 
 ## Expected result
 
-While live submit remains intentionally disabled:
+The page loads and shows:
 
 ```text
-OK: yes
-Expected disabled pre-live posture: yes
-Live risk detected: no
-Full live switch looks open: no
+EXPECTED CLOSED PRE-LIVE GATE
+NO LIVE RISK DETECTED
+NO EDXEIX CALL
+NO DB WRITES
 ```
 
-## Safety
+For queue `#716`, while it remains future-safe and approval-valid, it should show:
 
 ```text
-No Bolt call
-No EDXEIX call
-No AADE call
-No DB writes
-No queue status changes
-No production submission tables
-V0 untouched
+payload complete
+start verified
+approval valid
+closed-gate proof ready
 ```
+
+Live submission remains blocked by the master gate.
 
 ## Git commit title
 
 ```text
-Add V3 live gate drift guard
+Add V3 live operator console
 ```
 
 ## Git commit description
 
 ```text
-Adds a read-only V3 live gate drift guard CLI and Ops page.
+Adds a read-only V3 Live Operator Console for the Bolt pre-ride email automation workflow.
 
-The guard checks the server-only live submit gate config, detects accidental deviations from the expected disabled pre-live posture, scans adapter files for live/network-capable signals, and displays latest proof bundle/package artifact presence.
+The console displays gate posture, live-risk status, queue metrics, active V3 queue rows, approval validity, starting-point verification, payload completeness, package artifacts, proof bundles, and adapter file drift signals.
 
-No live submission is enabled. No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission table writes, and V0 remains untouched.
+The page is read-only and performs no Bolt calls, no EDXEIX calls, no AADE calls, no DB writes, no queue mutations, no production submission writes, and no V0 changes.
+
+Live submission remains intentionally blocked by the disabled master gate and the non-live-capable EDXEIX adapter skeleton.
 ```
