@@ -1,49 +1,55 @@
-# HANDOFF — gov.cabnet.app V3 Automation
+# HANDOFF — gov.cabnet.app V3 Bolt → EDXEIX bridge
 
-## Current checkpoint
+## Current verified state
 
-Latest package: `v3.0.54-v3-closed-gate-adapter-diagnostics`
+V3 readiness path has been proven using a forwarded Gmail/Bolt pre-ride email.
 
-## Verified V3 status
+Proof path:
 
-- V3 forwarded-email readiness path was proven.
-- Proof row reached `live_submit_ready` before expiry.
-- Payload audit returned `PAYLOAD-READY`.
-- Final rehearsal correctly blocked by the closed master gate.
-- Historical proof dashboard preserves the proof after expiry.
-- V3 local live package export works and writes JSON/TXT artifacts only.
-- V3 operator approval visibility page is installed.
-- V3 pulse cron is healthy.
-- V3 pulse lock file is `cabnet:cabnet` with `0660` permissions.
-- Live submit remains disabled.
+```text
+forwarded email
+→ server mailbox
+→ V3 intake
+→ parser
+→ mapping
+→ future-safe guard
+→ verified starting-point guard
+→ submit_dry_run_ready
+→ live_submit_ready
+→ payload audit payload-ready
+→ final rehearsal blocked by master gate
+→ local live package export artifacts written
+→ closed-gate adapter diagnostics verified
+```
+
+## Latest patch direction
+
+`v3.0.55-v3-closed-gate-real-adapter-skeleton` adds:
+
+```text
+gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
+```
+
+This is a closed-gate skeleton only. It is not live-capable and does not call EDXEIX.
+
+## Safety boundaries
+
 - V0 laptop/manual helper remains untouched.
+- Live EDXEIX submit remains disabled.
+- AADE behavior is untouched.
+- No queue mutation logic changes.
+- No SQL schema changes.
+- No cron schedule changes.
+- Master gate remains closed.
 
-## v3.0.54 purpose
+## Current recommended next step
 
-Adds read-only closed-gate diagnostics for the future live adapter path.
-
-New CLI:
-
-```text
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php
-```
-
-New page:
+Run diagnostics after installing v3.0.55 and confirm:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php
+future_real_adapter exists=yes
+selected adapter remains disabled
+eligible_for_live_submit_now=no
 ```
 
-It checks gate, adapter wiring, selected queue row, required fields, starting point, approval state, package export state, and final live-submit block reasons.
-
-## Critical safety rules
-
-- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit gate-opening update.
-- Do not touch V0 laptop/manual production helper or dependencies.
-- Do not submit historical, expired, cancelled, terminal, invalid, synthetic, or past rows.
-- Keep all new V3 work read-only, dry-run, package-export, diagnostic, approval-visible, or closed-gate until explicitly approved.
-- Never request or expose credentials.
-
-## Next safe step
-
-Verify v3.0.54, then consider a closed-gate live adapter skeleton that always returns blocked while the gate is closed.
+Then continue toward V3 automation with more closed-gate tests only.
