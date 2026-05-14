@@ -2,8 +2,10 @@
 /**
  * gov.cabnet.app — Ops Handoff Center
  *
- * Copy/paste continuity page and admin-only safe handoff ZIP builder.
+ * Copy/paste continuity page and admin-only handoff ZIP workflows.
  * The ZIP builder excludes real config/secrets and writes sanitized placeholders.
+ *
+ * V3 alignment: v3.0.75 closed-gate live adapter contract test verified.
  */
 
 declare(strict_types=1);
@@ -24,8 +26,16 @@ if (is_file($builderFile)) {
     require_once $builderFile;
 }
 
+const GOV_HANDOFF_CENTER_VERSION = 'v3.0.76-v3-handoff-center-alignment';
+const GOV_HANDOFF_CURRENT_MILESTONE = 'v3.0.75 live adapter contract test production-verified';
+const GOV_HANDOFF_QUEUE_ID = 716;
+const GOV_HANDOFF_PAYLOAD_HASH = 'e784e788532fc57824a46dad90debec9d0ad5a24f94679538c37d1d164e9f472';
+
 function handoff_safe_file_status(string $path): string
 {
+    if (is_dir($path)) {
+        return is_readable($path) ? 'present' : 'not readable';
+    }
     if (!is_file($path)) {
         return 'missing';
     }
@@ -53,11 +63,16 @@ function handoff_validate_csrf(string $token): bool
 function handoff_build_prompt(): string
 {
     $generatedAt = date('Y-m-d H:i:s T');
+    $version = GOV_HANDOFF_CENTER_VERSION;
+    $milestone = GOV_HANDOFF_CURRENT_MILESTONE;
+    $queueId = (string)GOV_HANDOFF_QUEUE_ID;
+    $payloadHash = GOV_HANDOFF_PAYLOAD_HASH;
 
     return <<<TEXT
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 Generated from /ops/handoff-center.php at: {$generatedAt}
+Handoff Center version: {$version}
 
 Project identity:
 - Domain: https://gov.cabnet.app
@@ -70,135 +85,162 @@ Project identity:
   /home/cabnet/gov.cabnet.app_config
   /home/cabnet/gov.cabnet.app_sql
   /home/cabnet/tools/firefox-edxeix-autofill-helper
-- Live server is not a cloned Git repo. Workflow remains: ChatGPT patch ZIP → local GitHub Desktop repo → manual cPanel/server upload → live test → GitHub Desktop commit.
+- Live server is not a cloned Git repo.
+- Workflow: ChatGPT/Sophion patch ZIP → local GitHub Desktop repo → manual server upload → live test → GitHub Desktop commit.
 
-Current operational priority:
-- The live production tool is:
-  https://gov.cabnet.app/ops/pre-ride-email-tool.php
-- This page is production-critical and actively used by staff.
-- Do not modify it directly unless Andreas explicitly asks for a production hotfix.
-- Use /ops/pre-ride-email-toolv2.php or separate development routes for staged changes.
+Source-of-truth order:
+1. Latest uploaded files, pasted code, screenshots, SQL output, or live audit output in the current chat.
+2. HANDOFF.md and CONTINUE_PROMPT.md.
+3. README.md, SCOPE.md, DEPLOYMENT.md, SECURITY.md, docs/, and PROJECT_FILE_MANIFEST.md.
+4. GitHub repo.
+5. Prior memory/context only as background, never as proof of current code state.
 
-Current access/security state:
-- The old IP-only restriction has been replaced by the ops login system.
-- /ops/pre-ride-email-tool.php redirects unauthenticated users to /ops/login.php.
-- Server-only config files under /home/cabnet/gov.cabnet.app_config must not be committed.
-- Real config, API keys, DB passwords, tokens, cookies, sessions, AADE credentials, and raw private data must never be exposed or committed.
-- Config examples may be committed only when sanitized and placeholder-based.
+Current V3 milestone:
+- {$milestone}
+- Latest validated canary queue row: #{$queueId}
+- Queue status at validation: live_submit_ready
+- Payload hash: {$payloadHash}
+- Live operator console verified behind ops login.
+- Live adapter contract test verified with ok=true and contract_safe=true.
+- Adapter remains edxeix_live_skeleton and is_live_capable=false.
 
-Current mapping governance status:
-- Mappings are a confirmed failure point and now have their own governance subsystem.
-- Important mapping routes:
-  /ops/mapping-center.php
-  /ops/company-mapping-control.php
-  /ops/company-mapping-detail.php?lessor=1756
-  /ops/starting-point-control.php
-  /ops/mapping-health.php
-  /ops/mapping-audit.php
-  /ops/mapping-resolver-test.php
-  /ops/mapping-exceptions.php
-  /ops/mapping-verification.php
-  /ops/mapping-control.php
-  /ops/mappings.php
-- WHITEBLUE / lessor 1756 was verified in live EDXEIX:
-  driver Georgios Tsatsas → 4382
-  vehicle XZO1837 → 4327
-  starting point Ομβροδέκτης / Mykonos → 612164
-- The wrong starting point issue was found and fixed: the resolver had been falling back to a global starting point. EdxeixMappingLookup now resolves lessor first, then prefers mapping_lessor_starting_points before global fallback.
-- Any lessor without a lessor-specific starting point override must be treated as a mapping risk.
-- Before live submission, use mapping governance pages or /ops/mapping-resolver-test.php to verify lessor, driver, vehicle, and starting point.
+Current V3 safety posture:
+- Live EDXEIX gate remains closed.
+- Config path: /home/cabnet/gov.cabnet.app_config/pre_ride_email_v3_live_submit.php
+- Expected config posture:
+  enabled=false
+  mode=disabled
+  adapter=disabled
+  hard_enable_live_submit=false
+- No Bolt call was made by the V3 proof/contract tools.
+- No EDXEIX call was made.
+- No AADE call was made.
+- No DB writes were made by read-only proof/contract tools.
+- No V0 workflow was touched.
+- Queue row #716 remains unsubmitted and not failed.
 
-Mobile development direction:
-- Mobile must eventually be able to submit, otherwise it is not operationally complete.
-- Do not rely on mobile Firefox extensions as the final architecture.
-- Target architecture: authenticated mobile web app + controlled server-side EDXEIX submitter.
-- Current mobile submit dev route: /ops/mobile-submit-dev.php
-- Current server-side submit research routes:
-  /ops/edxeix-submit-research.php
-  /ops/edxeix-submit-capture.php
-  /ops/edxeix-submit-dry-run.php
-  /ops/edxeix-submit-preflight-gate.php
-- No live server-side EDXEIX submit is enabled yet.
-- Next mobile work should integrate parser, mapping resolver, lessor-specific starting point verification, dry-run payload, and preflight gate into the mobile submit dev flow while keeping final submit disabled.
+Latest V3 verification commands:
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php --queue-id=716 --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php --queue-id=716 --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php --queue-id=716 --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php --queue-id=716 --write"
 
-Current handoff package subsystem:
-- /ops/handoff-center.php has an admin-only immediate Safe Handoff ZIP download builder.
-- /ops/handoff-package-tools.php is the admin hub for the handoff package subsystem.
-- /ops/handoff-package-inspector.php checks readiness without building a ZIP.
-- /ops/handoff-package-cli.php documents CLI build/cleanup commands.
-- /ops/handoff-package-archive.php lists, downloads, deletes, and now builds archived ZIPs from the GUI with or without DATABASE_EXPORT.sql.
-- /ops/handoff-package-validator.php validates generated ZIPs without extracting them or displaying database contents.
-- CLI builder:
-  php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json
-- CLI validator:
-  php /home/cabnet/gov.cabnet.app_app/cli/validate_safe_handoff_package.php --latest
-- Build CLI packages as user cabnet when possible:
-  su -s /bin/bash cabnet -c 'php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json'
-- The ZIP includes live project files, a database SQL export when requested, sanitized config placeholders, docs, SQL files, tools, and handoff files.
-- The ZIP must be treated as private operational material when DATABASE_EXPORT.sql is included.
-- Real config values are not included; sanitized examples are generated under gov.cabnet.app_config_examples/.
-- Runtime storage/artifacts/log/temp/var paths and generated handoff packages are excluded from future package builds.
+Important V3 routes:
+- /ops/pre-ride-email-v3-live-operator-console.php
+- /ops/pre-ride-email-v3-live-adapter-contract-test.php
+- /ops/pre-ride-email-v3-live-gate-drift-guard.php
+- /ops/pre-ride-email-v3-pre-live-switchboard.php
+- /ops/pre-ride-email-v3-adapter-payload-consistency.php
+- /ops/pre-ride-email-v3-adapter-row-simulation.php
+- /ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+
+Important V3 private files:
+- /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
+- /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php
+- /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php
+- /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php
+- /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
+- /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+- /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/LiveSubmitAdapterV3.php
+- /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/DisabledLiveSubmitAdapterV3.php
+- /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/DryRunLiveSubmitAdapterV3.php
+- /home/cabnet/gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
 
 Critical safety rules:
-- Do not enable automatic live EDXEIX submission unless Andreas explicitly asks.
-- EDXEIX submission must remain operator-confirmed.
+- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
+- Live submission must remain blocked unless there is a real eligible future Bolt trip, preflight passes, and the trip is sufficiently in the future.
 - Historical, cancelled, terminal, expired, invalid, duplicate, unmapped, or past Bolt orders must never be submitted to EDXEIX.
-- Do not submit old test rides.
-- Pre-ride email parsing must not issue AADE receipts.
-- AADE receipt issuing remains separate from the pre-ride workflow.
-- Prefer read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
-- Before EDXEIX save, verify exact pickup map point/coordinates; dropdown IDs alone are not enough.
+- V0 / existing production workflows must remain untouched unless Andreas explicitly requests otherwise.
+- Never request or expose real API keys, DB passwords, tokens, cookies, session files, private credentials, AADE credentials, or real EDXEIX credentials.
+- Config examples may be committed; real config files must remain server-only and ignored by Git.
+- Sanitized patch zips must exclude secrets, logs, sessions, raw data dumps, mailboxes, cache files, storage artifacts, generated proof bundles, generated handoff packages, and temporary public diagnostic scripts unless explicitly needed and safe.
 
-Current live workflow for staff:
-1. Open https://gov.cabnet.app/ops/pre-ride-email-tool.php
-2. Load latest server email or paste the Bolt pre-ride email.
-3. Confirm IDs READY.
-4. Click Save + open EDXEIX.
-5. On EDXEIX page, keep both Firefox helper extensions loaded.
-6. Click Fill using exact IDs.
-7. Verify company/lessor, passenger, driver, vehicle, starting point, pickup, drop-off, start/end time, and price.
-8. Click/select the exact pickup point on the EDXEIX map.
-9. Submit only if the ride is real, future, mapped, and safe.
-10. Never submit old/completed rides.
+Handoff package rules:
+- /ops/handoff-center.php has two package modes:
+  1. Private Operational ZIP: may include DATABASE_EXPORT.sql; admin-only; never commit to GitHub.
+  2. Git-Safe Continuity ZIP: DB-free; admin-only; intended for local repo continuity review; validate before commit.
+- Treat storage artifacts under /home/cabnet/gov.cabnet.app_app/storage/artifacts as private operational evidence. Do not include them in Git commits.
+- The grep output from storage/artifacts can include customer/trip/email data. Do not paste or commit raw artifacts unless intentionally sanitized.
 
-Current Firefox helper rule:
-- Keep both temporary Firefox helper extensions loaded for now:
-  1. Cabnet EDXEIX Session + Payload Fill
-  2. Gov Cabnet EDXEIX Autofill Helper
-- Future improvement: merge both into one signed/self-distributed XPI or enterprise-managed extension.
-- Mobile/tablet can be used for review only until the server-side mobile submitter is complete.
+Current production V0 / staff workflow:
+- Production tool: https://gov.cabnet.app/ops/pre-ride-email-tool.php
+- Do not modify production V0 directly unless Andreas explicitly asks for a production hotfix.
+- Use separate V3 routes for staged work.
+- Current Firefox helper workflow may remain in place while V3 closed-gate readiness continues.
 
-Current shared GUI direction:
-- A shared /ops shell has been added for the uniform EDXEIX-style operator GUI.
-- User/profile pages, preferences, activity logs, system status, deployment center, guides, tool inventory, mapping governance, handoff package tools, mobile dev, and submit research pages have been added.
-- The production pre-ride tool remains intentionally stable unless a production hotfix is explicitly approved.
+Mapping governance reminder:
+- Lessors, drivers, vehicles, and starting points are safety-critical.
+- Any lessor without lessor-specific starting point verification is a mapping risk.
+- Before any live submit work, verify lessor, driver, vehicle, starting point, route, time, price, and map point.
 
 Development workflow:
-1. Code with ChatGPT/Sophion.
-2. Download zip patch.
-3. Extract into local GitHub Desktop repo.
-4. Upload manually to server.
-5. Test on server.
-6. Commit via GitHub Desktop after production confirmation.
+1. Inspect first, patch second.
+2. Prefer small, production-safe patches over rewrites.
+3. Preserve existing routes, filenames, includes, database compatibility, and cPanel paths.
+4. Keep public endpoints thin; reusable logic belongs in /home/cabnet/gov.cabnet.app_app.
+5. Use mysqli prepared statements, defensive input validation, output escaping, and clear error handling.
+6. For every patch/update provide: changed files, exact upload paths, SQL, verification commands, expected result, commit title, and commit description.
 
-Patch packaging rule:
-- Zip root must mirror live/repo structure directly.
-- Do not wrap files in an extra package folder.
-- Include only changed/added files unless Andreas asks for a full archive.
-- Exclude secrets, logs, sessions, cache, mailboxes, raw dumps, and generated private packages from patch ZIPs.
-
-Expected response style:
-- Be direct, practical, implementation-focused.
-- Show exact upload paths, SQL, verification commands, expected results, and commit title/description.
-- Preserve plain PHP/mysqli/cPanel/manual upload workflow.
-- Keep production pre-ride tool stable unless a production hotfix is explicitly requested.
+Recommended next safest step:
+Improve V3 closed-gate operator visibility and Git-safe package hygiene. Do not enable live submission.
 TEXT;
 }
 
-$downloadError = '';
-$downloadNotice = '';
+function handoff_append_git_safe_zip_notice(string $zipPath): void
+{
+    if (!class_exists(ZipArchive::class) || !is_file($zipPath) || !is_writable($zipPath)) {
+        return;
+    }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'build_safe_handoff_zip') {
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath) !== true) {
+        return;
+    }
+
+    if ($zip->locateName('DATABASE_EXPORT.sql') !== false) {
+        $zip->deleteName('DATABASE_EXPORT.sql');
+    }
+
+    $notice = <<<MD
+# Git-Safe Continuity Package Notice
+
+This package was built from `/ops/handoff-center.php` using DB-free mode.
+
+Expected safety posture:
+
+- `DATABASE_EXPORT.sql` is not included.
+- Real files from `gov.cabnet.app_config/` are not included.
+- Sanitized placeholders are generated under `gov.cabnet.app_config_examples/`.
+- Runtime storage artifacts, proof bundles, logs, sessions, cache, mailboxes, archives, and temporary data are excluded by the builder.
+- No Bolt, EDXEIX, or AADE calls are made by the package builder.
+
+Before committing to GitHub, still inspect the ZIP tree and validate it with the package validator.
+MD;
+
+    $zip->addFromString('GIT_SAFE_CONTINUITY_NOTICE.md', $notice);
+    $zip->close();
+}
+
+function handoff_stream_zip(string $zipPath, string $downloadName): void
+{
+    header_remove('Content-Type');
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+    header('Content-Length: ' . (string)filesize($zipPath));
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    readfile($zipPath);
+    @unlink($zipPath);
+}
+
+$downloadError = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['action'] ?? ''), ['build_private_operational_zip', 'build_git_safe_continuity_zip'], true)) {
     try {
         if (!opsui_is_admin()) {
             http_response_code(403);
@@ -223,17 +265,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
             'bootstrap' => $homeRoot . '/gov.cabnet.app_app/src/bootstrap.php',
         ]);
 
-        $zipPath = $builder->build(['include_database' => true]);
-        $downloadName = 'gov_cabnet_safe_handoff_' . date('Ymd_His') . '.zip';
+        $action = (string)$_POST['action'];
+        if ($action === 'build_git_safe_continuity_zip') {
+            $zipPath = $builder->build(['include_database' => false]);
+            handoff_append_git_safe_zip_notice($zipPath);
+            handoff_stream_zip($zipPath, 'gov_cabnet_git_safe_continuity_' . date('Ymd_His') . '.zip');
+            exit;
+        }
 
-        header_remove('Content-Type');
-        header('Content-Type: application/zip');
-        header('Content-Disposition: attachment; filename="' . $downloadName . '"');
-        header('Content-Length: ' . (string)filesize($zipPath));
-        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-        header('Pragma: no-cache');
-        readfile($zipPath);
-        @unlink($zipPath);
+        $zipPath = $builder->build(['include_database' => true]);
+        handoff_stream_zip($zipPath, 'gov_cabnet_private_operational_handoff_' . date('Ymd_His') . '.zip');
         exit;
     } catch (Throwable $e) {
         $downloadError = $e->getMessage();
@@ -254,25 +295,35 @@ $sqlRoot = $homeRoot . '/gov.cabnet.app_sql';
 $toolsRoot = $homeRoot . '/tools';
 
 $checks = [
-    'Production pre-ride tool' => $publicRoot . '/ops/pre-ride-email-tool.php',
-    'Pre-ride V2 development route' => $publicRoot . '/ops/pre-ride-email-toolv2.php',
+    'Production pre-ride tool / V0' => $publicRoot . '/ops/pre-ride-email-tool.php',
+    'Handoff Center' => $publicRoot . '/ops/handoff-center.php',
     'Shared ops shell' => $publicRoot . '/ops/_shell.php',
-    'Ops auth prepend' => $publicRoot . '/_auth_prepend.php',
     'Safe handoff package builder' => $appRoot . '/src/Support/SafeHandoffPackageBuilder.php',
     'Safe handoff package validator' => $appRoot . '/src/Support/SafeHandoffPackageValidator.php',
     'CLI handoff package builder' => $appRoot . '/cli/build_safe_handoff_package.php',
     'CLI handoff package validator' => $appRoot . '/cli/validate_safe_handoff_package.php',
-    'Handoff package tools page' => $publicRoot . '/ops/handoff-package-tools.php',
-    'Handoff package archive page' => $publicRoot . '/ops/handoff-package-archive.php',
-    'Handoff package validator page' => $publicRoot . '/ops/handoff-package-validator.php',
-    'Private app bootstrap' => $appRoot . '/src/bootstrap.php',
-    'OpsAuth class' => $appRoot . '/src/Auth/OpsAuth.php',
-    'Pre-ride parser' => $appRoot . '/src/BoltMail/BoltPreRideEmailParser.php',
-    'Mapping lookup' => $appRoot . '/src/BoltMail/EdxeixMappingLookup.php',
-    'Maildir loader' => $appRoot . '/src/BoltMail/MaildirPreRideEmailLoader.php',
+    'V3 live operator console' => $publicRoot . '/ops/pre-ride-email-v3-live-operator-console.php',
+    'V3 live adapter contract test page' => $publicRoot . '/ops/pre-ride-email-v3-live-adapter-contract-test.php',
+    'V3 live adapter contract test CLI' => $appRoot . '/cli/pre_ride_email_v3_live_adapter_contract_test.php',
+    'V3 live gate drift guard CLI' => $appRoot . '/cli/pre_ride_email_v3_live_gate_drift_guard.php',
+    'V3 pre-live switchboard CLI' => $appRoot . '/cli/pre_ride_email_v3_pre_live_switchboard.php',
+    'V3 payload consistency CLI' => $appRoot . '/cli/pre_ride_email_v3_adapter_payload_consistency.php',
+    'V3 proof bundle exporter CLI' => $appRoot . '/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php',
+    'V3 LiveSubmitAdapter interface' => $appRoot . '/src/BoltMailV3/LiveSubmitAdapterV3.php',
+    'V3 EDXEIX live skeleton adapter' => $appRoot . '/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php',
     'Server-only config directory' => $configRoot,
     'SQL directory' => $sqlRoot,
     'Tools directory' => $toolsRoot,
+];
+
+$v3Links = [
+    'Live Operator Console' => '/ops/pre-ride-email-v3-live-operator-console.php?queue_id=716',
+    'Live Adapter Contract Test' => '/ops/pre-ride-email-v3-live-adapter-contract-test.php?queue_id=716',
+    'Live Gate Drift Guard' => '/ops/pre-ride-email-v3-live-gate-drift-guard.php',
+    'Pre-Live Switchboard' => '/ops/pre-ride-email-v3-pre-live-switchboard.php?queue_id=716',
+    'Payload Consistency' => '/ops/pre-ride-email-v3-adapter-payload-consistency.php?queue_id=716',
+    'Adapter Row Simulation' => '/ops/pre-ride-email-v3-adapter-row-simulation.php?queue_id=716',
+    'Proof Bundle Export' => '/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php?queue_id=716',
 ];
 
 $csrf = handoff_csrf_token();
@@ -283,17 +334,19 @@ opsui_shell_begin([
     'page_title' => 'Handoff Center',
     'active_section' => 'Deployment',
     'breadcrumbs' => 'Αρχική / Διαχειριστικό / Handoff Center',
-    'safe_notice' => 'Continuity page and admin-only safe handoff ZIP builder. Current-state prompt includes mapping governance, mobile submit direction, and handoff package tools. Real config values are never copied into the ZIP.',
+    'safe_notice' => 'SAFE OPS SHELL. Updated for V3 closed-gate milestone v3.0.75. Live EDXEIX submit remains disabled. Private packages and Git-safe continuity packages are separated.',
 ]);
 ?>
 <section class="card hero neutral">
     <h1>New session handoff</h1>
-    <p>This page gives Andreas a current copy/paste prompt and an admin-only safe handoff ZIP workflow for continuity without exposing real server-only config values.</p>
+    <p>This page gives Andreas a current copy/paste prompt and admin-only handoff ZIP workflows without exposing real server-only config values.</p>
     <div>
         <?= opsui_badge('PROMPT READY', 'good') ?>
-        <?= opsui_badge('SAFE ZIP BUILDER', $builderInstalled ? 'good' : 'warn') ?>
-        <?= opsui_badge('CONFIG SANITIZED', 'good') ?>
+        <?= opsui_badge('V3.0.75 VERIFIED', 'good') ?>
+        <?= opsui_badge('LIVE GATE CLOSED', 'good') ?>
         <?= opsui_badge('NO EDXEIX CALL', 'good') ?>
+        <?= opsui_badge('NO AADE CALL', 'good') ?>
+        <?= opsui_badge('V0 UNTOUCHED', 'good') ?>
     </div>
     <div class="actions">
         <a class="btn" href="/ops/handoff-center.php?format=text" target="_blank" rel="noopener">Open plain text</a>
@@ -305,34 +358,79 @@ opsui_shell_begin([
     </div>
 </section>
 
+<section class="card" style="border-left:6px solid #2f6fdd;">
+    <h2>Current V3 milestone</h2>
+    <p><strong><?= opsui_h(GOV_HANDOFF_CURRENT_MILESTONE) ?></strong></p>
+    <div class="grid two-col" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+        <div class="safety"><strong>Queue row:</strong> #<?= (int)GOV_HANDOFF_QUEUE_ID ?> — closed-gate canary, live_submit_ready at validation</div>
+        <div class="safety"><strong>Payload hash:</strong> <code><?= opsui_h(GOV_HANDOFF_PAYLOAD_HASH) ?></code></div>
+        <div class="safety"><strong>Adapter:</strong> edxeix_live_skeleton, is_live_capable=false</div>
+        <div class="safety"><strong>Gate:</strong> enabled=false, mode=disabled, adapter=disabled, hard_enable_live_submit=false</div>
+    </div>
+    <ul class="list" style="margin-top:14px;">
+        <li>Contract test passed with <code>ok=true</code>, <code>contract_safe=true</code>, and <code>final_blocks=[]</code>.</li>
+        <li>The contract test does not call adapter <code>submit()</code>, does not open network access, and does not write to the database.</li>
+        <li>Storage proof bundles may contain operational/customer data and must remain private.</li>
+    </ul>
+</section>
+
 <?php if ($downloadError !== ''): ?>
 <section class="card" style="border-left:6px solid #b42318;">
-    <h2>Safe ZIP builder error</h2>
+    <h2>ZIP builder error</h2>
     <p class="badline"><strong><?= opsui_h($downloadError) ?></strong></p>
-    <p class="small">If this persists, run the PHP syntax checks and inspect the Apache/PHP error log. No package was downloaded.</p>
+    <p class="small">No package was downloaded.</p>
 </section>
 <?php endif; ?>
 
-<section class="card">
-    <h2>Safe handoff ZIP download</h2>
-    <p>This creates a private handoff package from the live server layout. It includes project files, a database SQL export, documentation, and sanitized config placeholders. It excludes obvious logs, sessions, cache, mailboxes, temporary files, backups, archives, and real config values.</p>
-    <div class="safety" style="margin:12px 0;">
-        <strong>PRIVATE OPERATIONAL PACKAGE.</strong>
-        The database export may contain operational/customer data. Download only as admin, keep it private, and do not commit the database export to GitHub unless intentionally sanitized.
+<section class="two">
+    <div class="card">
+        <h2>Private Operational ZIP</h2>
+        <p>This package may include <code>DATABASE_EXPORT.sql</code>. Use it only for private server continuity/recovery. Do not commit it to GitHub.</p>
+        <div class="safety" style="margin:12px 0;">
+            <strong>PRIVATE OPERATIONAL PACKAGE.</strong> Database export may contain customer, trip, email, queue, and operational data.
+        </div>
+        <form method="post" action="/ops/handoff-center.php" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <input type="hidden" name="csrf" value="<?= opsui_h($csrf) ?>">
+            <input type="hidden" name="action" value="build_private_operational_zip">
+            <button class="btn green" type="submit" <?= (!$builderInstalled || !opsui_is_admin()) ? 'disabled' : '' ?>>Build Private Operational ZIP</button>
+            <?= opsui_is_admin() ? opsui_badge('ADMIN', 'good') : opsui_badge('ADMIN REQUIRED', 'warn') ?>
+            <?= $builderInstalled ? opsui_badge('BUILDER INSTALLED', 'good') : opsui_badge('BUILDER MISSING', 'warn') ?>
+        </form>
+        <ul class="list" style="margin-top:14px;">
+            <li>Includes database export when builder succeeds.</li>
+            <li>Real config files are replaced with sanitized placeholders.</li>
+            <li>No Bolt, EDXEIX, or AADE calls are made.</li>
+        </ul>
     </div>
-    <form method="post" action="/ops/handoff-center.php" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="hidden" name="csrf" value="<?= opsui_h($csrf) ?>">
-        <input type="hidden" name="action" value="build_safe_handoff_zip">
-        <button class="btn green" type="submit" <?= (!$builderInstalled || !opsui_is_admin()) ? 'disabled' : '' ?>>Build / Download Safe Handoff ZIP</button>
-        <?= opsui_is_admin() ? opsui_badge('ADMIN', 'good') : opsui_badge('ADMIN REQUIRED', 'warn') ?>
-        <?= $builderInstalled ? opsui_badge('BUILDER INSTALLED', 'good') : opsui_badge('BUILDER MISSING', 'warn') ?>
-    </form>
-    <ul class="list" style="margin-top:14px;">
-        <li>ZIP is generated in a temporary private server location and streamed to the browser.</li>
-        <li>Real files from <code>gov.cabnet.app_config</code> are not copied; sanitized placeholders are generated under <code>gov.cabnet.app_config_examples/</code>.</li>
-        <li>Database export is generated through the private app mysqli connection; no DB password is placed in the ZIP.</li>
-        <li>No Bolt, EDXEIX, or AADE calls are made.</li>
-    </ul>
+
+    <div class="card">
+        <h2>Git-Safe Continuity ZIP</h2>
+        <p>This package is DB-free and intended for local repo continuity review before committing via GitHub Desktop.</p>
+        <div class="safety" style="margin:12px 0;">
+            <strong>DB-FREE PACKAGE.</strong> Still validate the ZIP before commit and inspect for temporary diagnostics or operational files.
+        </div>
+        <form method="post" action="/ops/handoff-center.php" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <input type="hidden" name="csrf" value="<?= opsui_h($csrf) ?>">
+            <input type="hidden" name="action" value="build_git_safe_continuity_zip">
+            <button class="btn" type="submit" <?= (!$builderInstalled || !opsui_is_admin()) ? 'disabled' : '' ?>>Build Git-Safe Continuity ZIP</button>
+            <?= opsui_is_admin() ? opsui_badge('ADMIN', 'good') : opsui_badge('ADMIN REQUIRED', 'warn') ?>
+            <?= $builderInstalled ? opsui_badge('DB EXPORT OFF', 'good') : opsui_badge('BUILDER MISSING', 'warn') ?>
+        </form>
+        <ul class="list" style="margin-top:14px;">
+            <li>Builds with <code>include_database=false</code>.</li>
+            <li>Deletes <code>DATABASE_EXPORT.sql</code> defensively if found.</li>
+            <li>Adds <code>GIT_SAFE_CONTINUITY_NOTICE.md</code> to the ZIP.</li>
+        </ul>
+    </div>
+</section>
+
+<section class="card">
+    <h2>V3 verification links</h2>
+    <div class="actions">
+        <?php foreach ($v3Links as $label => $href): ?>
+            <a class="btn dark" href="<?= opsui_h($href) ?>"><?= opsui_h($label) ?></a>
+        <?php endforeach; ?>
+    </div>
 </section>
 
 <section class="card">
@@ -350,7 +448,7 @@ opsui_shell_begin([
             </thead>
             <tbody>
             <?php foreach ($checks as $label => $path): ?>
-                <?php $status = is_dir($path) ? 'present' : handoff_safe_file_status($path); ?>
+                <?php $status = handoff_safe_file_status($path); ?>
                 <tr>
                     <td><strong><?= opsui_h($label) ?></strong></td>
                     <td><?= opsui_badge(strtoupper($status), $status === 'present' ? 'good' : 'warn') ?></td>
@@ -371,8 +469,8 @@ opsui_shell_begin([
             <li><code>gov.cabnet.app_sql/...</code></li>
             <li><code>docs/...</code> when present</li>
             <li><code>tools/firefox*/...</code> and EDXEIX helper folders when present</li>
-            <li><code>DATABASE_EXPORT.sql</code></li>
             <li><code>gov.cabnet.app_config_examples/...</code> sanitized placeholders only</li>
+            <li><code>DATABASE_EXPORT.sql</code> only in Private Operational ZIP mode</li>
         </ul>
     </div>
     <div class="card">
@@ -380,6 +478,7 @@ opsui_shell_begin([
         <ul class="list">
             <li>Real server-only config values</li>
             <li>Logs, caches, sessions, mailboxes, temp files</li>
+            <li>Runtime storage artifacts and proof bundles</li>
             <li>Backup/archive files such as zip/tar/gz/bak</li>
             <li>Private keys, cookie/session dumps, raw secret files</li>
             <li>Any live EDXEIX/Bolt/AADE interaction</li>

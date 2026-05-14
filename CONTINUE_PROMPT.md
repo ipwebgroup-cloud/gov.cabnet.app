@@ -28,7 +28,7 @@ Live server is not a cloned Git repo. Workflow is:
 5. Test on server.
 6. Commit via GitHub Desktop after production confirmation.
 
-## Source of truth priority
+## Source-of-truth priority
 
 1. Latest uploaded files, pasted code, screenshots, SQL output, or live audit output in the current chat.
 2. `HANDOFF.md` and this `CONTINUE_PROMPT.md`.
@@ -36,138 +36,60 @@ Live server is not a cloned Git repo. Workflow is:
 4. GitHub repo.
 5. Prior memory/context only as background, never as proof of current code state.
 
-## Critical safety rules
-
-- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
-- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
-- Live submission must remain blocked unless there is a real eligible future Bolt trip, preflight passes, and the trip is sufficiently in the future.
-- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
-- Never request or expose real API keys, DB passwords, tokens, cookies, session files, or private credentials.
-- Config examples may be committed; real config files must remain server-only and ignored by Git.
-- Sanitize all downloadable zips: exclude secrets, logs, sessions, raw data dumps, cache files, and temporary public diagnostic scripts unless explicitly needed and safe.
-- V0 / existing production workflows must remain untouched unless Andreas explicitly requests otherwise.
-
-## Latest milestone state
-
-A closed-gate pre-live V3 canary rehearsal has been validated using queue row `#716`.
-
-Validated row summary:
+## Current verified V3 milestone
 
 ```text
+version: v3.0.75-v3-live-adapter-contract-test
 queue_id: 716
-queue_status: live_submit_ready
-customer_name: V3 Canary Marina 1778760875
-pickup_datetime: 2026-05-14 16:34:35
-vehicle_plate: ITK7702
-driver_name: Efthymios Giakis
-lessor_id: 2307
-driver_id: 17852
-vehicle_id: 11187
-starting_point_id: 1455969
-starting_point_label: ΧΩΡΑ ΜΥΚΟΝΟΥ
-approval_status: approved
-approval_scope: closed_gate_rehearsal_only
-approved_by: Andreas
-approval_expiry: 2026-05-14 16:16:00
-submitted_at: NULL
-failed_at: NULL
-last_error: NULL
+payload_hash: e784e788532fc57824a46dad90debec9d0ad5a24f94679538c37d1d164e9f472
+contract_test_ok: true
+contract_safe: true
+final_blocks: []
 ```
 
-The live gate remains intentionally disabled:
+The Handoff Center was aligned in `v3.0.76-v3-handoff-center-alignment` so it displays the latest V3 milestone and separates package downloads into:
+
+- Private Operational ZIP — may include database export; never commit.
+- Git-Safe Continuity ZIP — DB-free, adds `GIT_SAFE_CONTINUITY_NOTICE.md`, validate before commit.
+
+## Safety posture
+
+Live EDXEIX submission remains disabled:
 
 ```text
 enabled=false
 mode=disabled
 adapter=disabled
 hard_enable_live_submit=false
-expected_closed_pre_live=true
-live_risk_detected=false
-adapter_looks_live_capable=false
-full_live_switch_looks_open=false
+adapter=edxeix_live_skeleton
+adapter_live_capable=false
+edxeix_call_made=false
+aade_call_made=false
+db_write_made=false
+v0_touched=false
 ```
 
-The `edxeix_live` adapter exists but is skeleton-only/non-live:
+## Critical safety rules
 
-```text
-/home/cabnet/gov.cabnet.app_app/src/BoltMailV3/EdxeixLiveSubmitAdapterV3.php
-```
+- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
+- Historical, cancelled, terminal, expired, invalid, duplicate, unmapped, or past Bolt orders must never be submitted to EDXEIX.
+- V0 / existing production workflows must remain untouched unless Andreas explicitly requests otherwise.
+- Never request or expose real API keys, DB passwords, tokens, cookies, session files, private credentials, AADE credentials, or EDXEIX credentials.
+- Config examples may be committed; real config files must remain server-only and ignored by Git.
+- Runtime storage artifacts and proof bundles may contain customer/trip/email data; do not commit them unless intentionally sanitized.
 
-Validated adapter facts:
-
-```text
-class_exists=true
-instantiated=true
-name=edxeix_live_skeleton
-is_live_capable=false
-submitted=false
-blocked=true
-reason=edxeix_live_adapter_skeleton_not_implemented
-```
-
-## Latest prepared patch
-
-Patch package:
-
-```text
-gov_v3_live_adapter_contract_test_20260514.zip
-```
-
-Scope:
-
-- Add a read-only CLI harness that builds the would-be EDXEIX request envelope from a selected queue row.
-- Add an ops page for the same contract test.
-- Define method, endpoint label, headers-without-secrets, timeout policy, idempotency shape, payload hash, future live preconditions, and response-normalization expectations.
-- Keep adapter `is_live_capable=false`.
-- Do not call adapter `submit()`.
-- Do not call EDXEIX.
-- Do not write DB rows.
-- Do not modify queue status.
-
-Files:
-
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
-docs/V3_LIVE_ADAPTER_CONTRACT_TEST_20260514.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
-
-Verification:
+## Latest useful verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
-
-curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+curl -I https://gov.cabnet.app/ops/handoff-center.php
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php --queue-id=716 --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_gate_drift_guard.php --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_payload_consistency.php --queue-id=716 --json"
 ```
-
-Expected safe result:
-
-```text
-network_allowed=false
-adapter_submit_allowed=false
-adapter_submit_called=false
-edxeix_call_made=false
-adapter is_live_capable=false
-adapter submitted=false
-```
-
-`ok` may become false if queue #716 is no longer future-safe or the rehearsal approval has expired. That is acceptable and safe. The safety contract is still valid as long as the network and submit flags stay false.
 
 ## Next safest major step
 
-After Andreas uploads and verifies the contract test patch, proceed with a fixture-driven contract test that can run without depending on an unexpired live DB row.
-
-Scope for next patch:
-
-- Add a sanitized fixture file or fixture builder for the V3 contract test.
-- Allow the CLI to run `--fixture=canary_safe` without DB writes and without external calls.
-- Confirm the request envelope remains stable even after row #716 expires.
-- Keep everything read-only and no-network.
-
-Do not implement real EDXEIX network submission until Andreas explicitly requests it.
+Continue improving V3 closed-gate operator visibility and package hygiene. Do not enable live submission.

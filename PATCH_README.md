@@ -1,105 +1,104 @@
-# Patch README — V3 Live Adapter Contract Test
-
-Package: `gov_v3_live_adapter_contract_test_20260514.zip`
+# Patch README — V3 Handoff Center Alignment
 
 ## What changed
 
-Adds a read-only, non-submitting V3 live adapter contract harness.
+This patch updates the Ops Handoff Center so it reflects the latest V3 closed-gate progress:
 
-The harness builds the would-be future EDXEIX request envelope from a selected V3 queue row and displays:
-
-- Method and endpoint label.
-- Headers without secrets.
-- Timeout policy.
-- Idempotency/request ID shape.
-- Normalized EDXEIX payload.
-- Payload SHA-256.
-- Future live preconditions.
-- Response-normalization contract.
-- Adapter class posture without calling `submit()`.
-
-Live submission remains disabled.
+- `v3.0.75-v3-live-adapter-contract-test` production verified.
+- Queue `#716` validated as closed-gate canary proof row.
+- Payload hash recorded without exposing raw proof bundle contents.
+- Live EDXEIX gate remains disabled.
+- Adds separate package modes:
+  - Private Operational ZIP: may include `DATABASE_EXPORT.sql`; never commit to GitHub.
+  - Git-Safe Continuity ZIP: DB-free, adds `GIT_SAFE_CONTINUITY_NOTICE.md`, and defensively removes `DATABASE_EXPORT.sql` if found.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
-docs/V3_LIVE_ADAPTER_CONTRACT_TEST_20260514.md
+public_html/gov.cabnet.app/ops/handoff-center.php
+docs/V3_HANDOFF_CENTER_ALIGNMENT_20260514.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Exact upload paths
+## Upload paths
 
-Upload/extract the files to these paths:
+Upload only this deployable file to the server:
 
 ```text
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
+/home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
 ```
 
-The documentation and continuity files are for the local GitHub Desktop repo/commit package. They are not required on the live server for the ops page to function.
-
-For the local GitHub Desktop repo, keep these paths at repo root:
+The following are repository/docs files for the local GitHub Desktop repo:
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
-docs/V3_LIVE_ADAPTER_CONTRACT_TEST_20260514.md
+docs/V3_HANDOFF_CENTER_ALIGNMENT_20260514.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## SQL to run
+## SQL
 
 None.
 
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
-
-curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php --queue-id=716"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_contract_test.php --queue-id=716 --json"
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+curl -I https://gov.cabnet.app/ops/handoff-center.php
 ```
 
-## Verification URL
+Expected unauthenticated curl result:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-adapter-contract-test.php?queue_id=716
+HTTP/1.1 302 Found
+Location: /ops/login.php?next=%2Fops%2Fhandoff-center.php
 ```
 
-Unauthenticated request should redirect to `/ops/login.php`.
+After login, open:
+
+```text
+https://gov.cabnet.app/ops/handoff-center.php
+```
+
+Expected visible badges:
+
+```text
+PROMPT READY
+V3.0.75 VERIFIED
+LIVE GATE CLOSED
+NO EDXEIX CALL
+NO AADE CALL
+V0 UNTOUCHED
+```
+
+Optional grep check:
+
+```bash
+grep -n "v3.0.75\|GOV_HANDOFF_PAYLOAD_HASH\|Git-Safe Continuity ZIP\|Private Operational ZIP" \
+  /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+```
 
 ## Expected result
 
-Expected safe posture:
-
-```text
-network_allowed=false
-adapter_submit_allowed=false
-adapter_submit_called=false
-edxeix_call_made=false
-adapter is_live_capable=false
-adapter submitted=false
-```
-
-`ok` may be false if queue #716 is no longer future-safe or the closed-gate rehearsal approval has expired. That is safe and expected. The important result is that the contract test remains non-network, non-submitting, and blocks expired/ineligible rows.
+The Handoff Center becomes aligned with the latest V3 closed-gate milestone and clearly separates private operational packages from DB-free continuity packages.
 
 ## Git commit title
 
-Add V3 live adapter contract test
+```text
+Align Handoff Center with V3 contract test milestone
+```
 
 ## Git commit description
 
-Adds a read-only V3 live adapter contract test for the future EDXEIX submitter.
-The new CLI and ops page build the would-be request envelope, headers-without-secrets, timeout policy, idempotency shape, payload hash, future live preconditions, and response-normalization contract from a selected queue row.
-The harness does not call Bolt, EDXEIX, AADE, database write paths, production submission tables, V0 workflows, or adapter submit().
-Live EDXEIX submission remains disabled and the current edxeix_live adapter remains skeleton-only/non-live.
+```text
+Updates the Ops Handoff Center for the verified V3 closed-gate live adapter contract test milestone.
+
+Records v3.0.75, queue #716, the verified payload hash, the closed live gate posture, and non-live EDXEIX adapter status.
+
+Separates handoff downloads into Private Operational ZIP and Git-Safe Continuity ZIP modes. The Git-safe mode builds without database export, defensively removes DATABASE_EXPORT.sql if present, and adds a continuity notice.
+
+Live EDXEIX submission remains disabled. No SQL changes are required.
+```
