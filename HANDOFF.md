@@ -1,35 +1,19 @@
-# HANDOFF — gov.cabnet.app V3 Ops Monitoring
+# HANDOFF — gov.cabnet.app V3 Current State
 
-Current verified state after `v3.0.46-ops-index-v3-entry`:
+V3 forwarded-email test proved intake/parser/mapping/future guard/starting-point guard/dry-run readiness.
 
-- V0 laptop/manual production helper remains untouched.
-- V3 server-side monitoring path is active.
-- Live EDXEIX submission remains disabled.
-- Pulse cron is healthy as the `cabnet` user.
-- Pulse lock file is verified as `cabnet:cabnet` with `0660` permissions.
-- V3 storage check is OK.
-- `/ops/index.php` now clearly links the verified V3 monitoring pages.
+Rows 41 and 56 reached `submit_dry_run_ready` after inserting lessor 3814 start option 6467495 into `pre_ride_email_v3_starting_point_options`.
 
-Verified V3 pages:
+Remaining blocker found:
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-monitor.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-queue-focus.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
+pre_ride_email_v3_live_submit_readiness.php
+ERROR: Unknown column 'lessor_id' in 'WHERE'
 ```
 
-Main Ops entry:
+Cause: live-readiness worker still queries `pre_ride_email_v3_starting_point_options` using old alias columns `lessor_id` / `starting_point_id` instead of real columns `edxeix_lessor_id` / `edxeix_starting_point_id`.
 
-```text
-https://gov.cabnet.app/ops/index.php
-```
+Patch v3.0.47 adds a V3-only maintenance script to patch that file.
 
-Safety boundary:
-
-- Do not touch V0 production helper unless Andreas explicitly asks.
-- Do not enable live EDXEIX submission.
-- Keep V3 changes read-only/visibility-first unless explicitly approved.
-- Manual pulse cron-worker testing should be done as `cabnet`, not root.
+Live submit remains disabled.
+V0 laptop/manual production helper remains untouched.

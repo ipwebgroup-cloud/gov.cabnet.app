@@ -1,27 +1,21 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+You are Sophion assisting Andreas with gov.cabnet.app Bolt → EDXEIX bridge.
 
-Continue from verified state `v3.0.46-ops-index-v3-entry`.
+Current point:
+- V3 forwarded Gmail demo email test worked.
+- V3 queue rows 41 and 56 reached `submit_dry_run_ready`.
+- Lessor 3814 start option 6467495 was added to `pre_ride_email_v3_starting_point_options`.
+- Live-readiness worker then failed with `Unknown column 'lessor_id' in 'WHERE'`.
+- Patch v3.0.47 adds `/home/cabnet/gov.cabnet.app_app/cli/fix_v3_live_readiness_start_options_aliases.php` to patch `pre_ride_email_v3_live_submit_readiness.php` to use `edxeix_lessor_id` and `edxeix_starting_point_id`.
 
-Project constraints:
-- Plain PHP/mysqli/MariaDB/cPanel manual-upload workflow.
-- Do not introduce frameworks, Composer, Node, or heavy dependencies.
-- Do not touch V0 laptop/manual production helper or its dependencies unless Andreas explicitly asks.
-- Live EDXEIX submit remains disabled.
-- V3 work remains read-only/visibility-first unless explicitly approved.
+Rules:
+- V0 laptop/manual helper must not be touched.
+- Live submit must remain disabled.
+- No EDXEIX calls, AADE calls, cron schedule changes, queue manual edits, or SQL schema changes unless Andreas explicitly asks.
 
-Verified state:
-- V3 pulse cron healthy as `cabnet`.
-- V3 pulse lock file is `cabnet:cabnet` and `0660`.
-- V3 storage check OK.
-- `/ops/index.php` integrates V3 monitoring entry links.
-- V3 monitoring pages installed and linked:
-  - `/ops/pre-ride-email-v3-dashboard.php`
-  - `/ops/pre-ride-email-v3-monitor.php`
-  - `/ops/pre-ride-email-v3-queue-focus.php`
-  - `/ops/pre-ride-email-v3-pulse-focus.php`
-  - `/ops/pre-ride-email-v3-readiness-focus.php`
-  - `/ops/pre-ride-email-v3-storage-check.php`
-
-Next safe work:
-- Commit checkpoint for v3.0.39–v3.0.46.
-- Then continue polishing V3 pages only, or wait for the next real future-safe Bolt pre-ride email to validate queue flow.
+Next verification:
+1. Lint fix script.
+2. Run fix script with `--check` as cabnet.
+3. Run fix script with `--apply` as cabnet.
+4. Lint `pre_ride_email_v3_live_submit_readiness.php`.
+5. Run V3 fast pipeline as cabnet.
+6. Confirm rows 41/56 become `live_submit_ready` while master gate remains disabled.
