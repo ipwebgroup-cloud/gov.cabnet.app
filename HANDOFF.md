@@ -1,85 +1,49 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX V3
+# HANDOFF — gov.cabnet.app V3 Automation
 
-You are Sophion assisting Andreas with the `gov.cabnet.app` Bolt → EDXEIX bridge project.
+## Current checkpoint
 
-## Project identity
+Latest package: `v3.0.54-v3-closed-gate-adapter-diagnostics`
 
-- Domain: `https://gov.cabnet.app`
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
-- V0 laptop/manual helper is production fallback and must not be touched while developing V3.
+## Verified V3 status
 
-## Current verified V3 state
+- V3 forwarded-email readiness path was proven.
+- Proof row reached `live_submit_ready` before expiry.
+- Payload audit returned `PAYLOAD-READY`.
+- Final rehearsal correctly blocked by the closed master gate.
+- Historical proof dashboard preserves the proof after expiry.
+- V3 local live package export works and writes JSON/TXT artifacts only.
+- V3 operator approval visibility page is installed.
+- V3 pulse cron is healthy.
+- V3 pulse lock file is `cabnet:cabnet` with `0660` permissions.
+- Live submit remains disabled.
+- V0 laptop/manual helper remains untouched.
 
-V3 readiness pipeline is proven using a forwarded Gmail/Bolt pre-ride email:
+## v3.0.54 purpose
 
-```text
-Gmail/manual forward
-→ server mailbox
-→ V3 intake
-→ parser
-→ mapping
-→ future-safe guard
-→ verified starting-point guard
-→ submit_dry_run_ready
-→ live_submit_ready
-→ payload audit ready
-→ final rehearsal blocked by master gate
-→ local live package export
-```
+Adds read-only closed-gate diagnostics for the future live adapter path.
 
-## Verified proof row
-
-- Queue ID: `56`
-- Customer: `Arnaud BAGORO`
-- Driver: `Filippos Giannakopoulos`
-- Vehicle: `EHA2545`
-- Lessor: `3814`
-- Driver ID: `17585`
-- Vehicle ID: `5949`
-- Starting point: `6467495`
-- Starting point label: `ΕΔΡΑ ΜΑΣ...`
-- Historical proof: row reached `live_submit_ready`
-- Later expiry guard correctly blocked the row after pickup time passed.
-
-## Current live-submit posture
-
-Live EDXEIX submission remains disabled:
+New CLI:
 
 ```text
-enabled = false
-mode = disabled
-adapter = disabled
-hard_enable_live_submit = false
-required acknowledgement phrase absent or not active
-operator approval required
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php
 ```
 
-## Recent verified packages
-
-- `v3.0.47-live-readiness-start-options-alias-fix`
-- `v3.0.48-v3-forwarded-email-proof-checkpoint`
-- `v3.0.50-v3-proof-dashboard`
-- `v3.0.51-v3-proof-dashboard-history-fix`
-- `v3.0.52-v3-live-package-export`
-- `v3.0.53-v3-operator-approval-visibility`
-
-## v3.0.53 addition
-
-Adds:
+New page:
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php
 ```
 
-This is a read-only page for inspecting V3 operator approval visibility, approval table state, latest approval records, queue rows, and master gate blocks.
+It checks gate, adapter wiring, selected queue row, required fields, starting point, approval state, package export state, and final live-submit block reasons.
 
-## Next recommended phase
+## Critical safety rules
 
-Continue closed-gate live adapter preparation:
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit gate-opening update.
+- Do not touch V0 laptop/manual production helper or dependencies.
+- Do not submit historical, expired, cancelled, terminal, invalid, synthetic, or past rows.
+- Keep all new V3 work read-only, dry-run, package-export, diagnostic, approval-visible, or closed-gate until explicitly approved.
+- Never request or expose credentials.
 
-1. Verify operator approval visibility page.
-2. Add approval audit/export if needed.
-3. Build closed-gate live adapter skeleton that cannot submit while gate is closed.
-4. Test with another future forwarded email.
-5. Keep V0 untouched and live submit disabled until Andreas explicitly approves a live-submit update.
+## Next safe step
+
+Verify v3.0.54, then consider a closed-gate live adapter skeleton that always returns blocked while the gate is closed.

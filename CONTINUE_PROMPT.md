@@ -1,24 +1,30 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from this state:
+Continue from the verified V3 automation state:
 
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
-- V0 laptop/manual helper is production fallback. Do not touch V0 or its dependencies.
 - V3 forwarded-email readiness path is proven.
-- Queue row 56 reached `live_submit_ready` and payload audit passed.
-- Final rehearsal correctly blocked row 56 because the master live-submit gate remains closed.
-- Local live package export works and creates JSON/TXT artifacts under `/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages/`.
-- Live EDXEIX submit remains disabled.
-- No EDXEIX calls or AADE calls are allowed unless Andreas explicitly asks for a live-submit update.
+- Proof row reached `live_submit_ready` before expiry.
+- Payload audit was payload-ready.
+- Final rehearsal correctly blocked by master gate.
+- Historical proof dashboard preserves proof after expiry.
+- V3 local live package export works.
+- V3 operator approval visibility is installed.
+- Latest patch to verify: `v3.0.54-v3-closed-gate-adapter-diagnostics`.
 
-Latest package: `v3.0.53-v3-operator-approval-visibility`.
+Do not touch V0 laptop/manual production helper or dependencies.
+Do not enable live submit.
+Do not call EDXEIX.
+Do not call AADE.
+Do not change SQL unless explicitly needed and approved.
 
-New page:
+Next expected verification commands:
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php --json"
 ```
 
-Purpose: read-only approval visibility for V3 rows, approval table records, and closed master gate state.
-
-Next safest step after verification: build a closed-gate live adapter skeleton or approval audit/export page. Keep all work V3-only and read-only/closed-gate unless explicitly approved otherwise.
+Expected result: diagnostics show live submit remains blocked by master gate and missing approval while V3 package/export/field readiness is visible.
