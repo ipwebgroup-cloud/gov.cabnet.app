@@ -1,27 +1,19 @@
-# gov.cabnet.app — V3 Handoff
+# gov.cabnet.app V3 Handoff — v3.0.44
 
-Current V3 state after v3.0.43:
+Current focus: V3 pre-ride email automation monitoring and readiness visibility.
 
+Latest verified baseline before this patch:
+
+- V3 storage check as `cabnet`: OK.
+- Pulse lock file: OK, `cabnet:cabnet`, `0660`.
+- Pulse cron: healthy, `cycles_run=5 ok=5 failed=0`, `exit_code=0`.
 - V0 laptop/manual production helper remains untouched.
-- V3 pulse cron storage/lock ownership issue was repaired and verified as cabnet.
-- V3 pulse cron is healthy: cycles_run=5 ok=5 failed=0 exit_code=0.
-- V3 storage check reports pulse lock file owner/group cabnet:cabnet and perms 0660.
 - Live EDXEIX submit remains disabled.
-- V3 compact monitor exists at `/ops/pre-ride-email-v3-monitor.php`.
-- V3 queue focus page exists at `/ops/pre-ride-email-v3-queue-focus.php`.
-- V3 pulse focus page exists at `/ops/pre-ride-email-v3-pulse-focus.php`.
 
-Important operator note:
+This patch adds:
 
-- Do not manually run the V3 pulse cron worker as root; it may create root-owned lock files.
-- Test it as cabnet:
+- `/ops/pre-ride-email-v3-readiness-focus.php`
+- Updated shared Ops nav.
+- V3 readiness focus documentation.
 
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php"
-```
-
-Next safe work:
-
-- Continue polishing V3 visibility pages only.
-- Do not touch V0 production helper or dependencies.
-- Do not enable live-submit.
+Patch is read-only UI/visibility only. No SQL. No V0. No queue mutation. No EDXEIX/AADE calls.

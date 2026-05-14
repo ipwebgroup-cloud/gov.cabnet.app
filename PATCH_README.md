@@ -1,23 +1,21 @@
-# Patch v3.0.43 — V3 Pulse Focus
+# v3.0.44 — V3 Readiness Focus
 
 ## What changed
 
-Adds a V3-only read-only pulse focus page:
+Adds a read-only V3 readiness focus page:
 
 ```text
-/ops/pre-ride-email-v3-pulse-focus.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
 ```
 
-The page shows pulse cron health, latest pulse summary, latest cron start/finish, last exit code, pulse lock owner/perms, recent errors, recent pulse events, and raw recent log tail.
-
-It also updates the shared Ops sidebar navigation to include `V3 Pulse Focus`.
+It summarizes pulse health, queue status, newest queue row, mapping facts, recent error reasons, and the locked live-submit gate state.
 
 ## Files included
 
 ```text
 public_html/gov.cabnet.app/ops/_ops-nav.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
-docs/V3_PULSE_FOCUS.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
+docs/V3_READINESS_FOCUS.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -29,47 +27,47 @@ PATCH_README.md
 public_html/gov.cabnet.app/ops/_ops-nav.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
 ```
 
-Keep docs in the local GitHub Desktop repo.
+Docs should be kept in the local GitHub Desktop repo.
 
 ## SQL
 
 No SQL required.
 
-## Verification commands
+## Verification
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
 
 tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline_pulse.log | egrep "cron start|ERROR|Pulse summary|finish exit_code" || true
 ```
 
+Open:
+
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
+```
+
 ## Expected result
 
-After login, open:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
-```
-
-Expected posture:
-
-```text
-Pulse health: OK
-Last exit code: 0
-Pulse lock: OK
-Owner/group: cabnet:cabnet
-V0 untouched
-V3 only
-Live submit disabled
-```
+- Page loads after Ops login.
+- Pulse health shows OK if cron remains healthy.
+- V3 queue and mapping facts are visible.
+- Live submit remains disabled.
+- V0 remains untouched.
 
 ## Safety
 
-No V0 helper files, live-submit behavior, EDXEIX calls, AADE behavior, queue mutation logic, or SQL schema are changed.
+- No V0 changes.
+- No SQL.
+- No DB writes.
+- No Bolt calls.
+- No EDXEIX calls.
+- No AADE calls.
+- No live-submit enablement.
