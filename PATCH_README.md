@@ -1,66 +1,56 @@
-# Patch README — v3.0.70-v3-payload-consistency-proof-checkpoint
-
-## Type
-
-Commit-only documentation checkpoint.
-
-## Upload
-
-No server upload required.
-
-Extract this archive into the local GitHub Desktop repo root and commit.
+# Patch README — v3.0.71 V3 Pre-live Proof Bundle Export
 
 ## Files included
 
 ```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+docs/V3_PRE_LIVE_PROOF_BUNDLE_EXPORT.md
+docs/V3_AUTOMATION_NEXT_STEPS.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
-docs/V3_PAYLOAD_CONSISTENCY_PROOF_CHECKPOINT.md
-docs/V3_AUTOMATION_PHASE_STATUS.md
-docs/V3_NEXT_PHASE_PLAN.md
 ```
+
+## Upload paths
+
+```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
+```
+
+Keep documentation files in the local GitHub Desktop repo.
 
 ## SQL
 
 No SQL required.
 
-## Runtime changes
+## Verification
 
-None.
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
 
-## Verified state
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php"
 
-v3.0.69 adapter payload consistency harness was verified on the server.
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php --json"
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php --write"
+```
+
+## Expected result
 
 ```text
 OK: yes
-Simulation safe: yes
-DB payload hash matched artifact hash
-Adapter payload hash matched expected DB payload hash
-Adapter live_capable=no
-Adapter submitted=no
-No Bolt call
-No EDXEIX call
-No AADE call
-No DB writes
-No queue status changes
-V0 untouched
+Bundle safe: yes
+adapter_live_capable: no
+adapter_submitted: no
+simulation_safe: yes
 ```
 
-## Recommended commit title
+## Safety
 
-```text
-Document V3 payload consistency proof
-```
-
-## Recommended commit description
-
-```text
-Documents the verified V3 adapter payload consistency harness proof.
-
-The harness compared the DB-built EDXEIX field package, latest package export artifact, and future adapter skeleton payload hash for a selected V3 queue row. The hashes matched, the adapter remained non-live-capable, and submitted=false was confirmed.
-
-No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, DB writes, queue status changes, production submission table writes, cron schedules, SQL schema, or runtime PHP code are changed.
-```
-
+No Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue status changes, no production submission tables, no V0 changes.

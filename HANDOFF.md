@@ -1,67 +1,46 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app V3 Automation
 
-Version: v3.0.70-v3-payload-consistency-proof-checkpoint
-Date: 2026-05-14
+Current version target: `v3.0.71-v3-pre-live-proof-bundle-export`
 
-## Project identity
+## Project
 
-Domain: https://gov.cabnet.app
-Repository: https://github.com/ipwebgroup-cloud/gov.cabnet.app
-Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
+- Domain: `https://gov.cabnet.app`
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload
+- Live submit remains disabled.
+- V0 must remain untouched.
 
-Expected server layout:
+## Verified state
+
+V3 has proven:
+
+- future-safe queue intake
+- submit dry-run readiness
+- live-submit readiness
+- starting-point guard
+- payload audit
+- package export
+- operator approval
+- final rehearsal
+- kill-switch approval alignment
+- pre-live switchboard
+- adapter row simulation
+- payload consistency harness
+
+## Current patch
+
+Adds a read-only proof bundle exporter:
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app
-/home/cabnet/gov.cabnet.app_app
-/home/cabnet/gov.cabnet.app_config
-/home/cabnet/gov.cabnet.app_sql
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_proof_bundle_export.php
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php
 ```
 
-## Current V3 state
-
-V3 closed-gate automation proof is complete through payload consistency harness verification.
-
-Verified v3.0.69 result:
-
-```text
-OK: yes
-Simulation safe: yes
-DB payload hash matches latest package artifact hash
-Adapter payload hash matches DB-built payload hash
-Adapter live_capable=no
-Adapter submitted=no
-No Bolt call
-No EDXEIX call
-No AADE call
-No DB writes
-No queue status changes
-No production submission tables
-V0 untouched
-```
-
-## Verified row
-
-Queue row `427` was used as a historical/expired proof row after it had already safely moved to blocked. The payload and package artifacts remained consistent.
-
-## Critical safety rules
-
-- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
-- Live submission must remain blocked unless there is a real eligible future Bolt trip, all preflight checks pass, operator approval exists, and the trip is sufficiently in the future.
-- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
-- V0 production and dependencies must not be touched.
-- AADE receipt issuing must not be changed by V3 automation work.
-- Never request or expose real API keys, DB passwords, tokens, cookies, sessions, or private credentials.
-
-## Next recommended phase
-
-`v3.0.71-v3-pre-live-proof-bundle-export`
-
-Create a read-only proof bundle exporter that writes local JSON/TXT artifacts under:
+The CLI can write local proof artifacts only under:
 
 ```text
 /home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_pre_live_proof_bundles
 ```
 
-The exporter should gather V3 switchboard, payload consistency, adapter simulation, readiness, storage, and final block status into one audit package.
+## Safety
 
+No Bolt calls, no EDXEIX calls, no AADE calls, no DB writes, no queue status changes, no production submission table writes, no V0 changes.
