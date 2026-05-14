@@ -1,45 +1,63 @@
-# v3.0.38 — Ops Shell Unify V3 Dashboard
-
-## Purpose
-
-Polish the V3 Pre-Ride Automation dashboard so it matches the existing gov.cabnet.app Ops Home visual language.
-
-This is a UI-only, read-only patch.
+# v3.0.39 — V3 Storage Check and V0/V3 Boundary
 
 ## What changed
 
-- Restyled `/ops/pre-ride-email-v3-dashboard.php` to match the established Ops shell shown on `/ops/home.php`.
-- Updated `_ops-nav.php` with the canonical top navigation and deep-blue sidebar structure.
-- Added `docs/OPS_UI_STYLE_NOTES.md`.
-- Updated `docs/OPS_SITEMAP_V3.md` with the v3.0.38 UI coherence direction.
+This is a V3-only operational hardening patch.
+
+It adds a simple storage prerequisite check for the V3 pulse runner after the live test exposed a missing/unwritable lock directory:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
+```
+
+It also documents the V0/V3 boundary:
+
+- V0 remains the laptop/manual production helper.
+- V3 remains the PC/server-side development/test automation path.
+- This patch does not touch V0 production files or dependencies.
+- No software fallback decision logic is added.
 
 ## Files included
 
 ```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
+gov.cabnet.app_app/storage/locks/.gitkeep
 public_html/gov.cabnet.app/ops/_ops-nav.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-docs/OPS_UI_STYLE_NOTES.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 docs/OPS_SITEMAP_V3.md
+docs/V0_V3_OPERATIONS_BOUNDARY.md
+docs/V3_STORAGE_AND_PULSE_CHECK.md
+HANDOFF.md
+CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Exact upload paths
 
 ```text
+gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
+
+gov.cabnet.app_app/storage/locks/.gitkeep
+→ /home/cabnet/gov.cabnet.app_app/storage/locks/.gitkeep
+
 public_html/gov.cabnet.app/ops/_ops-nav.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-
-docs/OPS_UI_STYLE_NOTES.md
-→ repo root: docs/OPS_UI_STYLE_NOTES.md
-
-docs/OPS_SITEMAP_V3.md
-→ repo root: docs/OPS_SITEMAP_V3.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 ```
 
-The docs files are intended for the local GitHub Desktop repo unless you intentionally want them uploaded to the server.
+Docs should be kept in the local GitHub Desktop repo:
+
+```text
+docs/OPS_SITEMAP_V3.md
+docs/V0_V3_OPERATIONS_BOUNDARY.md
+docs/V3_STORAGE_AND_PULSE_CHECK.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
 
 ## SQL
 
@@ -48,83 +66,65 @@ No SQL required.
 ## Verification commands
 
 ```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-
-php -d display_errors=1 /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php > /tmp/v3_dashboard_render_test.html
-head -n 5 /tmp/v3_dashboard_render_test.html
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 ```
 
-Unauthenticated curl should still redirect to login:
+Run the read-only CLI check:
 
 ```bash
-curl -I https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --json
 ```
 
-Expected unauthenticated result:
+Optional repair mode if needed:
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --fix --owner=cabnet --group=cabnet
+```
+
+Ops URL:
 
 ```text
-HTTP/1.1 302 Found
-Location: /ops/login.php?next=%2Fops%2Fpre-ride-email-v3-dashboard.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 ```
 
-## Verification URL
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-```
+Unauthenticated requests should redirect to Ops login if access control is active.
 
 ## Expected result
 
-After login, the V3 dashboard should visually match the existing Ops Home shell:
+The storage check should show:
 
 ```text
-white top bar
-deep-blue left sidebar
-light gray content background
-white cards
-blue headings
-simple tab row
-consistent green/amber/red safety badges
+storage: ok
+storage/locks: ok
+logs: ok
+pulse cli: ok
+pulse cron worker: ok
 ```
 
-Live-submit posture should remain closed:
+Live-submit posture remains unchanged:
 
 ```text
-Live submit disabled
-Gate closed
-Adapter disabled
-OK for future live submit: no
-```
-
-## Risk notes
-
-This patch does not change:
-
-```text
-SQL schema
-cron behavior
-V3 intake
-V3 queue mutation
-starting-point guard logic
-expiry guard logic
-live readiness logic
-live-submit gate logic
-EDXEIX adapter behavior
+Live EDXEIX submit: disabled
+V0 production/manual helper: untouched
 ```
 
 ## Git commit title
 
 ```text
-Unify V3 dashboard with Ops shell
+Add V3 storage check and boundary docs
 ```
 
 ## Git commit description
 
 ```text
-Restyles the V3 Pre-Ride Automation Control Center to match the established gov.cabnet.app Ops Home shell and palette.
+Adds a V3-only storage prerequisite checker and read-only Ops page to verify the pulse runner lock/log directories and pulse files.
 
-Adds canonical Ops UI style notes and updates the V3 sitemap with the UI coherence direction.
+Documents the operational boundary between V0 laptop/manual production helper and V3 PC/server-side automation development.
 
-This is a read-only UI patch only. No SQL, cron, queue mutation, mapping, live-submit gate, EDXEIX adapter, or submission behavior is changed.
+Includes a storage/locks .gitkeep so the lock directory is preserved in packages.
+
+No V0 files, live-submit behavior, queue mutation logic, AADE calls, EDXEIX calls, production submission tables, or SQL schema are changed.
 ```

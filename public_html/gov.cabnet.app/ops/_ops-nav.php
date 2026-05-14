@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.0.38 aligns the new V3 dashboard with the established Ops Home shell:
+ * v3.0.39 keeps the V3-only diagnostics navigation and aligns the new V3 dashboard with the established Ops Home shell:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */
@@ -97,6 +97,7 @@ if (!function_exists('gov_ops_side_nav_sections')) {
                 'items' => [
                     ['key' => 'cron_health', 'label' => 'Cron Health', 'href' => '/ops/pre-ride-email-v3-cron-health.php'],
                     ['key' => 'fast_pipeline', 'label' => 'Fast Pipeline', 'href' => '/ops/pre-ride-email-v3-fast-pipeline.php'],
+                    ['key' => 'v3_storage_check', 'label' => 'V3 Storage Check', 'href' => '/ops/pre-ride-email-v3-storage-check.php'],
                     ['key' => 'queue', 'label' => 'V3 Queue', 'href' => '/ops/pre-ride-email-v3-queue.php'],
                     ['key' => 'readiness_json', 'label' => 'Readiness JSON', 'href' => '/bolt_readiness_audit.php'],
                     ['key' => 'preflight_json', 'label' => 'Preflight JSON', 'href' => '/bolt_edxeix_preflight.php?limit=30'],

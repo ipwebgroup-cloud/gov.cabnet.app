@@ -376,3 +376,30 @@ PATCH_README.md
 ```
 
 No live-submit behavior, cron behavior, queue mutation, SQL, or mapping change is included.
+
+## v3.0.39 Update — V0/V3 boundary and V3 storage check
+
+V0 and V3 remain intentionally separate:
+
+- V0 is the laptop/manual production helper.
+- V3 is the PC/server-side automation development path.
+- V3 patches must not touch V0 production files or dependencies.
+- Andreas uses operator judgment for real-time fallback decisions.
+
+Added V3 diagnostics page:
+
+```text
+/ops/pre-ride-email-v3-storage-check.php
+```
+
+Purpose:
+
+- Show whether V3 storage, logs, and lock directories are present/readable/writable.
+- Show whether the V3 pulse runner and cron worker files exist.
+- Prevent the pulse lock-directory issue from being missed again.
+
+This page belongs under:
+
+```text
+Evidence & Diagnostics → V3 Storage Check
+```
