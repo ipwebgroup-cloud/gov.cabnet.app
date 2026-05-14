@@ -1,66 +1,53 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app V3 automation
 
-Current milestone: v3.0.66-v3-real-adapter-design-spec
+## Current status
 
-## Project identity
+V3 closed-gate automation path has been proven through:
 
-- Domain: https://gov.cabnet.app
-- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
-- Server layout:
-  - /home/cabnet/public_html/gov.cabnet.app
-  - /home/cabnet/gov.cabnet.app_app
-  - /home/cabnet/gov.cabnet.app_config
-  - /home/cabnet/gov.cabnet.app_sql
-  - /home/cabnet/tools/firefox-edxeix-autofill-helper
+- email intake
+- V3 queue creation
+- starting-point guard
+- submit dry-run readiness
+- live-submit readiness
+- payload audit
+- local package export
+- operator approval workflow
+- final rehearsal
+- kill-switch checker
+- pre-live switchboard
+- future adapter skeleton
+- adapter contract probe
 
-## Critical safety state
+Live submit remains disabled.
 
-- V0/manual helper must remain untouched.
-- Live submit remains disabled.
-- Do not enable real EDXEIX submission unless Andreas explicitly asks for a live-submit update.
-- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted.
-- No real credentials should be requested, exposed, or committed.
+V0 remains untouched.
 
-## Latest verified V3 status
+## Latest patch
 
-V3 closed-gate automation path is proven:
+`v3.0.67-v3-adapter-row-simulation`
 
-- future-safe rows reached `live_submit_ready`
-- operator approvals were inserted for closed-gate rehearsal
-- payload audit passed
-- package export wrote artifacts
-- final rehearsal accepted approval and blocked only by master gate
-- kill-switch accepted approval and blocked on gate/adapter
-- pre-live switchboard page loads and renders from DB/config without command runner
+Adds a read-only simulation layer that builds an EDXEIX field package from a real V3 queue row and calls the local `EdxeixLiveSubmitAdapterV3` skeleton.
 
-## Current config posture
-
-Server-only config:
+Expected safe result:
 
 ```text
-/home/cabnet/gov.cabnet.app_config/pre_ride_email_v3_live_submit.php
-```
-
-Expected closed state:
-
-```text
-enabled=false
-mode=disabled
-adapter=disabled
-hard_enable_live_submit=false
-```
-
-## Current safe next phase
-
-Next safe runtime development phase is adapter validation/simulation only, still with:
-
-```text
-isLiveCapable=false
 submitted=false
-No EDXEIX call
-No AADE call
-No V0 changes
+isLiveCapable=false
+simulation_safe=yes
 ```
 
-Do not write real network submit behavior yet unless Andreas explicitly approves.
+## New URLs
+
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
+```
+
+## New CLI
+
+```bash
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
+```
+
+## Safety boundary
+
+No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.

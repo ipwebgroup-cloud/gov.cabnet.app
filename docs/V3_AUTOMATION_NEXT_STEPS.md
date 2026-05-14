@@ -1,20 +1,13 @@
 # V3 Automation Next Steps
 
-Current state after v3.0.63:
+Current next safe path after `v3.0.67-v3-adapter-row-simulation`:
 
-- V3 readiness pipeline proven.
-- Payload audit proven.
-- Package export proven.
-- Operator approval workflow proven.
-- Final rehearsal accepts approval and blocks only on master gate.
-- Adapter skeleton and contract probe proven.
-- Kill-switch checker aligned with approval logic.
-- Pre-live switchboard added.
-- Live submit remains disabled.
-- V0 laptop/manual helper remains untouched.
+1. Verify the adapter row simulation on the live server.
+2. Confirm the future adapter skeleton remains non-live-capable and returns `submitted=false`.
+3. Commit the V3 simulation checkpoint.
+4. Prepare a documentation checkpoint for the closed-gate pre-live surface.
+5. Only after explicit approval, design the real adapter internals behind the disabled gate.
 
-## Next safe phase
+Live submit remains disabled.
 
-`v3.0.64` should be a checkpoint package preserving the pre-live switchboard proof.
-
-After that, the next implementation phase can begin planning the real adapter internals behind disabled config. Do not enable live submit until Andreas explicitly requests a live-submit gate-opening update.
+Do not change V0, AADE, EDXEIX live submit behavior, cron schedules, or production submission tables.
