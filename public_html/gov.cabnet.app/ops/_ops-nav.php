@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.0.39 keeps the V3-only diagnostics navigation and aligns the new V3 dashboard with the established Ops Home shell:
+ * v3.0.41 keeps the V3-only diagnostics navigation and aligns the new V3 dashboard with the established Ops Home shell:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */
@@ -62,6 +62,7 @@ if (!function_exists('gov_ops_side_nav_sections')) {
                 'items' => [
                     ['key' => 'ops_home', 'label' => 'Ops Home', 'href' => '/ops/home.php', 'hint' => 'Safe Bolt → EDXEIX operator landing page'],
                     ['key' => 'v3_dashboard', 'label' => 'V3 Control Center', 'href' => '/ops/pre-ride-email-v3-dashboard.php', 'hint' => 'Current pre-ride automation monitor'],
+                    ['key' => 'v3_monitor', 'label' => 'V3 Compact Monitor', 'href' => '/ops/pre-ride-email-v3-monitor.php', 'hint' => 'Fast read-only V3 status view'],
                     ['key' => 'queue_watch', 'label' => 'Queue Watch', 'href' => '/ops/pre-ride-email-v3-queue-watch.php'],
                     ['key' => 'pulse_runner', 'label' => 'Pulse Runner', 'href' => '/ops/pre-ride-email-v3-fast-pipeline-pulse.php'],
                     ['key' => 'automation_readiness', 'label' => 'Automation Readiness', 'href' => '/ops/pre-ride-email-v3-automation-readiness.php'],

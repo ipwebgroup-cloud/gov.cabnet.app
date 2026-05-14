@@ -1,60 +1,31 @@
-# gov.cabnet.app — V3 Handoff
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-Current focus: Bolt pre-ride email V3 automation path for gov.cabnet.app.
+Current state after v3.0.41:
 
-## Operating boundary
-
-- V0 is installed on the laptop and remains the manual/production helper.
-- V3 is installed on the PC/server-side path and remains the automation development path.
-- Do not touch V0 production files or dependencies while continuing V3.
-- Andreas uses operator judgment during live rides.
+- V0 laptop/manual production helper remains untouched.
+- V3 PC/server automation path continues in safe read-only/dry-run mode.
 - Live EDXEIX submit remains disabled.
+- V3 pulse cron lock ownership issue was fixed on server: `pre_ride_email_v3_fast_pipeline_pulse.lock` is now `cabnet:cabnet` with `0660` permissions.
+- V3 storage check v3.0.40 verifies lock/log/pulse prerequisites and warns not to run the V3 pulse cron worker as root.
+- v3.0.41 adds a compact read-only V3 monitor page:
+  `/ops/pre-ride-email-v3-monitor.php`
 
-## Latest state
+Operational rule:
 
-v3.0.40 hardens the V3 pulse storage check after discovering that the pulse cron failed because the lock file was owned by `root:root`.
+- Andreas may use V0 manually when needed. No software decision layer should decide that.
+- V3 pages should provide visibility only unless explicitly asked otherwise.
+- Do not touch V0 production or dependencies.
+- Do not enable live submit.
 
-Correct pulse lock file:
+Key monitoring URLs:
 
-```text
-/home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
-owner:group = cabnet:cabnet
-mode = 0660
-```
+- `/ops/pre-ride-email-v3-monitor.php`
+- `/ops/pre-ride-email-v3-dashboard.php`
+- `/ops/pre-ride-email-v3-queue-watch.php`
+- `/ops/pre-ride-email-v3-fast-pipeline-pulse.php`
+- `/ops/pre-ride-email-v3-storage-check.php`
 
-Healthy pulse log markers:
+Next safe work:
 
-```text
-Pulse summary: cycles_run=5 ok=5 failed=0
-V3 fast pipeline pulse cron finish exit_code=0
-```
-
-Avoid running this as root:
-
-```text
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php
-```
-
-Manual test should run as `cabnet`:
-
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php"
-```
-
-## Important URLs
-
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline-pulse.php
-https://gov.cabnet.app/ops/pre-ride-email-v3-automation-readiness.php
-```
-
-## Safety posture
-
-- No live EDXEIX submit.
-- No AADE changes.
-- No V0 changes.
-- No SQL in v3.0.40.
-- Storage check is read-only by default.
+- Continue V3-only UI polish and visibility.
+- Polish existing Queue Watch / Pulse Monitor / Automation Readiness pages only after inspecting their current server code or replacing them with additive read-only pages.
