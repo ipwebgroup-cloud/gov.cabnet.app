@@ -1,66 +1,49 @@
-# HANDOFF — gov.cabnet.app V3 Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app V3 Automation
 
-## Current status
+Current checkpoint: `v3.0.52-v3-live-package-export`
 
-V3 readiness path has been proven using a forwarded Gmail/Bolt-style pre-ride email.
+## Verified state
 
-The test proved:
+- V3 forwarded-email readiness path was proven.
+- Proof row `56` reached `live_submit_ready` before later being blocked by expiry guard after pickup passed.
+- Payload audit reported `PAYLOAD-READY`.
+- Final rehearsal correctly blocked by the master gate.
+- Live submit remains disabled.
+- V0 laptop/manual helper remains untouched.
 
-```text
-server mailbox
-→ V3 intake
-→ parser
-→ mapping
-→ future-safe guard
-→ verified starting-point guard
-→ submit_dry_run_ready
-→ live_submit_ready
-→ payload audit ready
-→ final rehearsal blocked by master gate
-```
+## Current safety posture
 
-Live EDXEIX submit remains disabled.
+- No EDXEIX live submit enabled.
+- No AADE changes.
+- No production submission table writes.
+- V3 pulse cron is healthy.
+- Pulse lock file is `cabnet:cabnet` / `0660`.
 
-V0 laptop/manual helper remains untouched.
+## Latest addition
 
-## Important proof detail
-
-The proof row later became `blocked` because the pickup time passed. This is expected and safe. The expiry guard did its job.
-
-Patch v3.0.51 updates the proof dashboard so it can show historical live-ready proof using V3 queue event history when no current live-ready row remains.
-
-## Current safe gate posture
+Added V3 live package export:
 
 ```text
-enabled = false
-mode = disabled
-adapter = disabled
-hard_enable_live_submit = false
-operator approval = absent
-OK for future live submit = no
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
 ```
 
-## Current main V3 pages
+The CLI exports local artifacts only:
 
 ```text
-/ops/pre-ride-email-v3-proof.php
-/ops/pre-ride-email-v3-monitor.php
-/ops/pre-ride-email-v3-queue-focus.php
-/ops/pre-ride-email-v3-pulse-focus.php
-/ops/pre-ride-email-v3-readiness-focus.php
-/ops/pre-ride-email-v3-storage-check.php
-/ops/pre-ride-email-v3-dashboard.php
+/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages/
 ```
 
-## Next phase
+It does not call EDXEIX, does not call AADE, and does not change queue status.
 
-Closed-gate live adapter preparation only:
+## Next safest phase
 
-1. preserve proof dashboard and docs
-2. finalize V3 → EDXEIX field map
-3. add local package export artifacts
-4. improve operator approval visibility
-5. build live adapter skeleton behind closed gate
-6. test again with a future forwarded email
+Continue closed-gate live adapter preparation:
 
-Do not enable live submit unless Andreas explicitly asks.
+1. Verify the package exporter with historical proof row `56`.
+2. Review exported JSON/TXT artifacts.
+3. Add an operator approval visibility page.
+4. Add closed-gate adapter skeleton.
+5. Test again with a fresh future forwarded email.
+
+Do not enable live submit unless Andreas explicitly requests a live-submit gate opening update.

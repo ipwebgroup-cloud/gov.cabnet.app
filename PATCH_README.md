@@ -1,29 +1,29 @@
-# v3.0.51 — V3 Proof Dashboard Historical Proof Fix
+# Patch v3.0.52 — V3 Live Package Export
 
 ## What changed
 
-Updates `/ops/pre-ride-email-v3-proof.php` so the proof dashboard preserves historical live-readiness proof after the proof row is later blocked by the expiry guard.
-
-The previous dashboard selected only a current `live_submit_ready` row. After pickup time passed, row 56 was safely changed to `blocked`, so the page showed "no current live-ready row" even though the proof had already succeeded.
-
-The updated dashboard now uses V3 queue event history to show historical live-ready proof when no current live-ready row remains.
+Adds a V3-only CLI and read-only Ops page for exporting local live-submit package artifacts from a V3 proof row.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
-docs/V3_PROOF_DASHBOARD.md
-docs/V3_EDXEIX_LIVE_ADAPTER_FIELD_MAP_DRAFT.md
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
+docs/V3_LIVE_PACKAGE_EXPORT.md
+docs/V3_EDXEIX_LIVE_ADAPTER_FIELD_MAP.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload path
+## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
+gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
+→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
+
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
 ```
 
 Docs go into the local GitHub Desktop repo.
@@ -32,36 +32,47 @@ Docs go into the local GitHub Desktop repo.
 
 No SQL required.
 
-## Verification
+## Verification commands
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php --queue-id=56 --allow-historical-proof"
 
-tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline_pulse.log | egrep "cron start|ERROR|Pulse summary|finish exit_code" || true
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php --queue-id=56 --allow-historical-proof --write"
+
+ls -la /home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages/ | tail
 ```
 
-Open:
+## Verification URL
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-proof.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
 ```
 
 ## Expected result
 
-If the proof row has expired, the page should show historical proof rather than implying the proof failed.
+- CLI dry-run previews the package.
+- CLI `--write` creates local JSON/TXT artifacts only.
+- Ops page loads and shows the exact command.
+- No EDXEIX call.
+- No AADE call.
+- No queue status change.
+- V0 untouched.
 
-Expected safe posture:
+## Git commit title
 
 ```text
-Historical live-ready proof found
-No current live-ready row
-Master gate closed
-No live EDXEIX call
-V0 untouched
+Add V3 live package export
 ```
 
-## Safety
+## Git commit description
 
-No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue mutation logic, cron schedules, or SQL schema are changed.
+```text
+Adds a V3-only local live package exporter and read-only Ops page for closed-gate live adapter preparation.
+
+The exporter builds payload, EDXEIX field, and safety report artifacts under storage/artifacts/v3_live_submit_packages without calling EDXEIX, calling AADE, changing queue status, writing production submission tables, or touching V0.
+
+Also documents the V3-to-EDXEIX field map and updates handoff/continuation notes.
+```
