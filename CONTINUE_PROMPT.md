@@ -1,32 +1,33 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Current instruction:
-- Continue V3 development only.
-- Do not touch V0 production/manual helper files or dependencies.
-- V0 is installed on the laptop and is the current manual production helper.
-- V3 is installed on the PC/server side and remains the development/test automation path.
-- Andreas will use operational judgment during real rides; do not build software that decides whether to use V0/manual.
+Continue V3 development only. Do not touch V0 laptop/manual production helper or its dependencies.
 
-Current V3 state:
-- V3 queue/intake/guard/dry-run/readiness/payload-audit/live-submit scaffold exist.
-- Live submit is disabled and must remain disabled.
-- V3 fast pipeline and pulse runner exist.
-- A real-ride test on 2026-05-14 exposed a pulse cron storage problem: missing/unwritable lock directory.
-- The server was repaired manually with:
-  install -d -o cabnet -g cabnet -m 750 /home/cabnet/gov.cabnet.app_app/storage/locks
-  install -d -o cabnet -g cabnet -m 750 /home/cabnet/gov.cabnet.app_app/logs
-- After repair, pulse cron worker ran OK again.
+Current boundary:
+- V0 = laptop/manual production helper.
+- V3 = PC/server-side automation development path.
+- Andreas uses operator judgment during live rides.
+- No software should decide fallback to V0.
+- Live EDXEIX submit remains disabled.
 
-Latest V3-only patch direction:
-- Add CLI storage check: gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
-- Add Ops storage check page: public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
-- Add storage/locks/.gitkeep so the directory is preserved in Git/packages.
-- Add docs for V0/V3 boundary and V3 storage/pulse checks.
+Latest operational finding:
+- V3 pulse cron failed because `/home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock` was owned by `root:root`.
+- It was repaired to `cabnet:cabnet` with mode `0660`.
+- Manual tests of the pulse cron worker must run as `cabnet`, not root.
 
-Safety:
-- No SQL unless explicitly needed.
-- No live EDXEIX submission.
-- No AADE calls.
-- No production submission table writes.
-- No secrets in packages.
-- Preserve plain PHP/mysqli/cPanel workflow.
+Latest patch:
+- v3.0.40-pulse-lock-owner-hardening
+- Updates V3 storage check CLI and Ops page to include pulse lock file owner/writability.
+- Adds docs for V3 storage/pulse check and V0/V3 boundary.
+- No SQL, no V0 changes, no live-submit changes.
+
+Key URLs:
+- https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+- https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
+- https://gov.cabnet.app/ops/pre-ride-email-v3-queue-watch.php
+- https://gov.cabnet.app/ops/pre-ride-email-v3-fast-pipeline-pulse.php
+
+Next safe V3 work:
+- polish Queue Watch / Pulse Monitor / Automation Readiness using the same Ops shell style,
+- keep visibility fast and simple,
+- do not introduce decision software,
+- do not enable live submit.

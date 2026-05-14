@@ -1,43 +1,38 @@
-# gov.cabnet.app — V0 / V3 Operations Boundary
+# V0 / V3 Operations Boundary
 
-## Current operating rule
+Version: v3.0.40
 
-V0 and V3 are intentionally separate during this stage.
+## Operating model
 
-- **V0** is installed on the laptop and remains the current manual/production helper.
-- **V3** is installed on the PC/server path and remains the development/test automation path.
-- Do not modify V0 production files, browser helper dependencies, or the operator's current working laptop setup as part of V3 patches.
-- Do not make V3 responsible for deciding whether the operator should use V0. Andreas uses operational judgment.
+- V0 is installed on the laptop and remains the manual/production helper.
+- V3 is installed on the PC/server-side path and remains the automation development path.
+- Andreas uses operator judgment during live rides.
+- V3 should provide visibility and dry-run readiness, not make live-production fallback decisions.
 
-## V3 purpose right now
+## Hard boundary
 
-V3 should continue moving toward safe automation:
+This patch does not touch V0 production or V0 dependencies.
 
-```text
-Bolt pre-ride email intake
-→ V3 queue
-→ starting-point guard
-→ submit dry-run readiness
-→ live readiness
-→ payload audit
-→ locked live-submit scaffold
-```
+V3 work must not modify:
 
-Live EDXEIX submission remains disabled unless Andreas explicitly requests a live-submit gate change.
+- V0 laptop helper files
+- V0 browser/tool dependencies
+- current manual production upload flow
+- live-submit enablement
+- AADE production behavior
 
-## V3 safety posture
+## V3 scope
 
-V3 patches must remain safe by default:
+V3 may continue improving:
 
-- no live EDXEIX submission
-- no AADE calls
-- no production submission table writes
-- no secrets in Git/package files
-- no changes to V0 helper files/dependencies
-- no automatic decision-making that replaces operator judgment
+- monitoring visibility
+- queue state readability
+- storage/cron health diagnostics
+- starting-point guards
+- expiry guards
+- dry-run readiness
+- payload audit behind a closed live-submit gate
 
-## Operational fallback rule
+## Live submit posture
 
-During real rides, the business must continue functioning. If V3 is not immediately useful, Andreas may use V0/manual without waiting for V3 diagnostics.
-
-V3 should be improved in the background as a separate, safe automation track.
+Live EDXEIX submission remains disabled unless Andreas explicitly asks to open that gate in a future update.

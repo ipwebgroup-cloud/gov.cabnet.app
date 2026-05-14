@@ -1,34 +1,18 @@
-# v3.0.39 — V3 Storage Check and V0/V3 Boundary
+# v3.0.40 — V3 Pulse Lock Owner Hardening
 
 ## What changed
 
-This is a V3-only operational hardening patch.
+This patch hardens the V3 storage check after a real operational finding: the pulse cron was failing because the pulse lock file was owned by `root:root`, while the normal cPanel cron runs as `cabnet`.
 
-It adds a simple storage prerequisite check for the V3 pulse runner after the live test exposed a missing/unwritable lock directory:
-
-```text
-/home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
-```
-
-It also documents the V0/V3 boundary:
-
-- V0 remains the laptop/manual production helper.
-- V3 remains the PC/server-side development/test automation path.
-- This patch does not touch V0 production files or dependencies.
-- No software fallback decision logic is added.
+The patch remains V3-only and read-only by default.
 
 ## Files included
 
 ```text
 gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
-gov.cabnet.app_app/storage/locks/.gitkeep
-public_html/gov.cabnet.app/ops/_ops-nav.php
 public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
-docs/OPS_SITEMAP_V3.md
-docs/V0_V3_OPERATIONS_BOUNDARY.md
 docs/V3_STORAGE_AND_PULSE_CHECK.md
-HANDOFF.md
-CONTINUE_PROMPT.md
+docs/V0_V3_OPERATIONS_BOUNDARY.md
 PATCH_README.md
 ```
 
@@ -38,26 +22,11 @@ PATCH_README.md
 gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
 → /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
 
-gov.cabnet.app_app/storage/locks/.gitkeep
-→ /home/cabnet/gov.cabnet.app_app/storage/locks/.gitkeep
-
-public_html/gov.cabnet.app/ops/_ops-nav.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-
 public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 ```
 
-Docs should be kept in the local GitHub Desktop repo:
-
-```text
-docs/OPS_SITEMAP_V3.md
-docs/V0_V3_OPERATIONS_BOUNDARY.md
-docs/V3_STORAGE_AND_PULSE_CHECK.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+Keep docs in the local GitHub Desktop repo unless intentionally publishing docs.
 
 ## SQL
 
@@ -67,64 +36,60 @@ No SQL required.
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
-```
 
-Run the read-only CLI check:
-
-```bash
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --json
 ```
 
-Optional repair mode if needed:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --fix --owner=cabnet --group=cabnet
-```
-
-Ops URL:
+## Ops URL
 
 ```text
 https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 ```
 
-Unauthenticated requests should redirect to Ops login if access control is active.
-
 ## Expected result
 
-The storage check should show:
+The storage check should show the pulse lock file as present, writable, and owned by `cabnet:cabnet`.
+
+The pulse log should show:
 
 ```text
-storage: ok
-storage/locks: ok
-logs: ok
-pulse cli: ok
-pulse cron worker: ok
+Pulse summary: cycles_run=5 ok=5 failed=0
+V3 fast pipeline pulse cron finish exit_code=0
 ```
 
-Live-submit posture remains unchanged:
+## Important operator note
 
-```text
-Live EDXEIX submit: disabled
-V0 production/manual helper: untouched
+Do not run the V3 pulse cron worker as root. Test it as `cabnet`:
+
+```bash
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php"
 ```
+
+## Safety
+
+- No V0 files touched.
+- No live-submit changes.
+- No EDXEIX call.
+- No AADE call.
+- No queue mutation logic changed.
+- No SQL.
 
 ## Git commit title
 
 ```text
-Add V3 storage check and boundary docs
+Harden V3 pulse lock ownership checks
 ```
 
 ## Git commit description
 
 ```text
-Adds a V3-only storage prerequisite checker and read-only Ops page to verify the pulse runner lock/log directories and pulse files.
+Adds V3-only detection for pulse lock file owner and writability after the pulse cron was blocked by a root-owned lock file.
 
-Documents the operational boundary between V0 laptop/manual production helper and V3 PC/server-side automation development.
+Updates the storage check CLI and Ops page to report the pulse lock file, expected cabnet:cabnet ownership, permissions, and remediation steps.
 
-Includes a storage/locks .gitkeep so the lock directory is preserved in packages.
+Documents that the V3 pulse cron worker should be manually tested as the cabnet user, not root.
 
-No V0 files, live-submit behavior, queue mutation logic, AADE calls, EDXEIX calls, production submission tables, or SQL schema are changed.
+No V0 production helper files, live-submit behavior, EDXEIX calls, AADE behavior, queue mutation logic, or SQL schema are changed.
 ```

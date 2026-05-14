@@ -3,6 +3,7 @@
  * gov.cabnet.app — V3 Storage Check
  *
  * Read-only Ops page for V3 pulse/storage prerequisites.
+ * v3.0.40 also checks the pulse lock file owner and writability.
  * Does not call Bolt, EDXEIX, AADE, Gmail, or production submission tables.
  */
 
@@ -48,11 +49,18 @@ function gov_v3_storage_owner_group(string $path): string
     return $ownerName . ':' . $groupName;
 }
 
-function gov_v3_storage_status(string $path, string $kind, bool $needsWritable): array
+function gov_v3_storage_status(string $path, string $kind, bool $needsWritable, bool $expectCabnetOwner = false): array
 {
     $exists = $kind === 'dir' ? is_dir($path) : is_file($path);
     $readable = $exists && is_readable($path);
     $writable = $exists && is_writable($path);
+    $ownerGroup = $exists ? gov_v3_storage_owner_group($path) : 'n/a';
+    $ownerGroupOk = !$expectCabnetOwner || $ownerGroup === 'cabnet:cabnet';
+    $notes = [];
+    if (!$exists) { $notes[] = 'missing'; }
+    if ($exists && !$readable) { $notes[] = 'not readable'; }
+    if ($exists && $needsWritable && !$writable) { $notes[] = 'not writable'; }
+    if ($exists && !$ownerGroupOk) { $notes[] = 'expected cabnet:cabnet'; }
 
     return [
         'path' => $path,
@@ -62,19 +70,22 @@ function gov_v3_storage_status(string $path, string $kind, bool $needsWritable):
         'writable' => $writable,
         'needs_writable' => $needsWritable,
         'perms' => $exists ? gov_v3_storage_perms($path) : 'n/a',
-        'owner_group' => $exists ? gov_v3_storage_owner_group($path) : 'n/a',
-        'ok' => $exists && $readable && (!$needsWritable || $writable),
+        'owner_group' => $ownerGroup,
+        'owner_group_ok' => $ownerGroupOk,
+        'notes' => $notes,
+        'ok' => $exists && $readable && (!$needsWritable || $writable) && $ownerGroupOk,
     ];
 }
 
 $appRoot = dirname(__DIR__, 3) . '/gov.cabnet.app_app';
 $rows = [
-    'App root' => gov_v3_storage_status($appRoot, 'dir', false),
-    'Storage directory' => gov_v3_storage_status($appRoot . '/storage', 'dir', true),
-    'V3 lock directory' => gov_v3_storage_status($appRoot . '/storage/locks', 'dir', true),
-    'Logs directory' => gov_v3_storage_status($appRoot . '/logs', 'dir', true),
-    'Pulse CLI' => gov_v3_storage_status($appRoot . '/cli/pre_ride_email_v3_fast_pipeline_pulse.php', 'file', false),
-    'Pulse cron worker' => gov_v3_storage_status($appRoot . '/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php', 'file', false),
+    'App root' => gov_v3_storage_status($appRoot, 'dir', false, false),
+    'Storage directory' => gov_v3_storage_status($appRoot . '/storage', 'dir', true, true),
+    'V3 lock directory' => gov_v3_storage_status($appRoot . '/storage/locks', 'dir', true, true),
+    'Logs directory' => gov_v3_storage_status($appRoot . '/logs', 'dir', true, true),
+    'Pulse CLI' => gov_v3_storage_status($appRoot . '/cli/pre_ride_email_v3_fast_pipeline_pulse.php', 'file', false, false),
+    'Pulse cron worker' => gov_v3_storage_status($appRoot . '/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php', 'file', false, false),
+    'Pulse lock file' => gov_v3_storage_status($appRoot . '/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock', 'file', true, true),
 ];
 
 $allOk = true;
@@ -125,7 +136,7 @@ $tabs = [
             <h2>Current status</h2>
             <div class="ops-grid">
                 <div class="ops-metric <?= $allOk ? 'good' : 'warn' ?>"><strong><?= $allOk ? 'OK' : 'CHECK' ?></strong><span>Overall storage prerequisite status</span></div>
-                <div class="ops-metric <?= !empty($rows['V3 lock directory']['ok']) ? 'good' : 'bad' ?>"><strong><?= !empty($rows['V3 lock directory']['ok']) ? 'OK' : 'NO' ?></strong><span>Pulse lock directory writable</span></div>
+                <div class="ops-metric <?= (!empty($rows['V3 lock directory']['ok']) && !empty($rows['Pulse lock file']['ok'])) ? 'good' : 'bad' ?>"><strong><?= (!empty($rows['V3 lock directory']['ok']) && !empty($rows['Pulse lock file']['ok'])) ? 'OK' : 'NO' ?></strong><span>Pulse lock directory and lock file writable</span></div>
                 <div class="ops-metric <?= !empty($rows['Pulse cron worker']['ok']) ? 'good' : 'bad' ?>"><strong><?= !empty($rows['Pulse cron worker']['ok']) ? 'OK' : 'NO' ?></strong><span>Pulse cron worker file present</span></div>
             </div>
         </section>
@@ -134,7 +145,7 @@ $tabs = [
             <h2>Paths</h2>
             <div class="ops-table-wrap">
                 <table class="ops-table">
-                    <thead><tr><th>Check</th><th>Status</th><th>Path</th><th>Exists</th><th>Readable</th><th>Writable</th><th>Perms</th><th>Owner:Group</th></tr></thead>
+                    <thead><tr><th>Check</th><th>Status</th><th>Path</th><th>Exists</th><th>Readable</th><th>Writable</th><th>Perms</th><th>Owner:Group</th><th>Notes</th></tr></thead>
                     <tbody>
                     <?php foreach ($rows as $label => $row): ?>
                         <tr>
@@ -146,6 +157,7 @@ $tabs = [
                             <td><?= !empty($row['writable']) ? gov_ops_badge('yes', 'good') : (empty($row['needs_writable']) ? gov_ops_badge('not required', 'neutral') : gov_ops_badge('no', 'bad')) ?></td>
                             <td><?= gov_ops_h($row['perms']) ?></td>
                             <td><?= gov_ops_h($row['owner_group']) ?></td>
+                            <td><?= !empty($row['notes']) ? gov_ops_h(implode('; ', $row['notes'])) : gov_ops_badge('clear', 'good') ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -159,6 +171,9 @@ $tabs = [
                 <p>Run this as root if the lock/log directories are missing or not writable by the cabnet account.</p>
                 <code class="ops-code">install -d -o cabnet -g cabnet -m 750 /home/cabnet/gov.cabnet.app_app/storage/locks
 install -d -o cabnet -g cabnet -m 750 /home/cabnet/gov.cabnet.app_app/logs
+touch /home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
+chown cabnet:cabnet /home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
+chmod 660 /home/cabnet/gov.cabnet.app_app/storage/locks/pre_ride_email_v3_fast_pipeline_pulse.lock
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --json</code>
             </section>
         <?php endif; ?>
@@ -168,12 +183,13 @@ install -d -o cabnet -g cabnet -m 750 /home/cabnet/gov.cabnet.app_app/logs
             <p>These commands are V3-only and do not touch V0 production, EDXEIX live submission, AADE, or production submission tables.</p>
             <code class="ops-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --fix --owner=cabnet --group=cabnet</code>
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php --fix --owner=cabnet --group=cabnet
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_fast_pipeline_pulse_cron_worker.php"</code>
         </section>
 
         <section class="ops-alert good">
             <strong>Boundary reminder</strong>
-            <p>V0 remains the active laptop/manual production helper. This V3 page is only for PC-side development/test operations and storage health. Operator judgment remains the fallback decision path.</p>
+            <p>V0 remains the active laptop/manual production helper. This V3 page is only for PC-side development/test operations and storage health. Operator judgment remains the fallback decision path.</p><p><strong>Important:</strong> do not run the V3 pulse cron worker as root. Test it as <code>cabnet</code>, otherwise the pulse lock file can become root-owned and block the normal cPanel cron.</p>
         </section>
     </main>
 </div>
