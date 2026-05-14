@@ -3,44 +3,90 @@
 declare(strict_types=1);
 
 /**
- * V3 Pre-Live Switchboard
+ * V3 Pre-Live Switchboard — Ops 500 hotfix
  *
- * Read-only Ops page.
- * Runs the matching CLI in JSON mode and renders the consolidated closed-gate state.
+ * Read-only Ops page. Executes the matching CLI in JSON mode when allowed and
+ * renders a defensive consolidated state. This page must never 500 just because
+ * a local command runner is unavailable or the JSON payload is unexpectedly large.
  */
 
-$cli = '/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php';
-$queueId = isset($_GET['queue_id']) ? preg_replace('/[^0-9]/', '', (string)$_GET['queue_id']) : '';
-$args = $queueId !== '' ? ' --queue-id=' . escapeshellarg($queueId) : '';
-$cmd = '/usr/local/bin/php ' . escapeshellarg($cli) . ' --json' . $args . ' 2>&1';
-$json = shell_exec($cmd);
-$data = json_decode((string)$json, true);
-if (!is_array($data)) {
-    $data = [
-        'ok' => false,
-        'version' => 'v3.0.63-v3-pre-live-switchboard',
-        'mode' => 'ops_page_error',
-        'safety' => 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.',
-        'events' => [['level' => 'error', 'message' => 'Could not decode CLI JSON output']],
-        'raw_output' => (string)$json,
-        'final_blocks' => ['system: could not decode CLI JSON output'],
-    ];
-}
+$version = 'v3.0.64-v3-pre-live-switchboard-ops-500-hotfix';
+$safety = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.';
 
 function h(mixed $v): string
 {
+    if (is_array($v) || is_object($v)) {
+        $v = json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
     return htmlspecialchars((string)($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-function yesno(bool $v): string
+function yn(bool $v): string
 {
     return $v ? 'yes' : 'no';
 }
 
-function badge(bool $ok, string $yes = 'OK', string $no = 'BLOCKED'): string
+function pill(bool $ok, string $yes = 'OK', string $no = 'BLOCKED'): string
 {
-    $class = $ok ? 'badge text-bg-success' : 'badge text-bg-danger';
-    return '<span class="' . $class . '">' . h($ok ? $yes : $no) . '</span>';
+    $class = $ok ? 'ok' : 'bad';
+    return '<span class="pill ' . $class . '">' . h($ok ? $yes : $no) . '</span>';
+}
+
+/** @return array{raw:string, method:string, error:string} */
+function run_switchboard_cli(string $cli, string $queueId): array
+{
+    if (!is_file($cli) || !is_readable($cli)) {
+        return ['raw' => '', 'method' => 'none', 'error' => 'CLI file is missing or unreadable: ' . $cli];
+    }
+
+    $arg = $queueId !== '' ? ' --queue-id=' . escapeshellarg($queueId) : '';
+    $cmd = '/usr/local/bin/php ' . escapeshellarg($cli) . ' --json' . $arg . ' 2>&1';
+
+    if (function_exists('shell_exec')) {
+        $out = shell_exec($cmd);
+        return ['raw' => is_string($out) ? $out : '', 'method' => 'shell_exec', 'error' => ''];
+    }
+
+    if (function_exists('exec')) {
+        $lines = [];
+        $exit = 0;
+        exec($cmd, $lines, $exit);
+        return ['raw' => implode("\n", $lines), 'method' => 'exec', 'error' => $exit === 0 ? '' : 'exec exit code ' . $exit];
+    }
+
+    return ['raw' => '', 'method' => 'none', 'error' => 'No allowed local command runner is available for this PHP context.'];
+}
+
+$cli = '/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php';
+$queueId = isset($_GET['queue_id']) ? preg_replace('/[^0-9]/', '', (string)$_GET['queue_id']) : '';
+$exec = ['raw' => '', 'method' => 'not_run', 'error' => ''];
+$data = [];
+
+try {
+    $exec = run_switchboard_cli($cli, $queueId);
+    $decoded = json_decode($exec['raw'], true);
+    if (is_array($decoded)) {
+        $data = $decoded;
+    } else {
+        $data = [
+            'ok' => false,
+            'version' => $version,
+            'mode' => 'ops_page_cli_decode_error',
+            'safety' => $safety,
+            'events' => [['level' => 'error', 'message' => 'Could not decode CLI JSON output. ' . $exec['error']]],
+            'final_blocks' => ['ops_page: could not decode CLI JSON output'],
+            'raw_output_preview' => mb_substr($exec['raw'], 0, 4000),
+        ];
+    }
+} catch (Throwable $e) {
+    $data = [
+        'ok' => false,
+        'version' => $version,
+        'mode' => 'ops_page_exception',
+        'safety' => $safety,
+        'events' => [['level' => 'error', 'message' => $e->getMessage()]],
+        'final_blocks' => ['ops_page: ' . $e->getMessage()],
+    ];
 }
 
 $row = is_array($data['selected_queue_row'] ?? null) ? $data['selected_queue_row'] : [];
@@ -51,6 +97,34 @@ $approval = is_array($data['approval'] ?? null) ? $data['approval'] : [];
 $adapter = is_array($data['adapter'] ?? null) ? $data['adapter'] : [];
 $pkg = is_array($data['package_export'] ?? null) ? $data['package_export'] : [];
 $blocks = is_array($data['final_blocks'] ?? null) ? $data['final_blocks'] : [];
+$events = is_array($data['events'] ?? null) ? $data['events'] : [];
+$missing = is_array($payload['missing'] ?? null) ? $payload['missing'] : [];
+$artifacts = is_array($pkg['latest_queue_artifacts'] ?? null) ? $pkg['latest_queue_artifacts'] : [];
+
+$compact = [
+    'ok' => !empty($data['ok']),
+    'version' => (string)($data['version'] ?? $version),
+    'mode' => (string)($data['mode'] ?? ''),
+    'queue_id' => (string)($row['id'] ?? ''),
+    'queue_status' => (string)($row['queue_status'] ?? ''),
+    'pickup_datetime' => (string)($row['pickup_datetime'] ?? ''),
+    'minutes_until_now' => (string)($row['minutes_until_now'] ?? ''),
+    'gate' => [
+        'loaded' => !empty($gate['loaded']),
+        'enabled' => !empty($gate['enabled']),
+        'mode' => (string)($gate['mode'] ?? ''),
+        'adapter' => (string)($gate['adapter'] ?? ''),
+        'hard_enable_live_submit' => !empty($gate['hard_enable_live_submit']),
+        'acknowledgement_phrase_present' => !empty($gate['acknowledgement_phrase_present']),
+    ],
+    'approval_valid' => !empty($approval['valid']),
+    'payload_complete' => !empty($payload['complete']),
+    'starting_point_ok' => !empty($start['ok']),
+    'adapter_selected' => (string)($adapter['selected_adapter'] ?? ''),
+    'adapter_live_capable' => !empty($adapter['is_live_capable']),
+    'package_artifact_count' => (int)($pkg['queue_artifact_count'] ?? 0),
+    'final_blocks' => $blocks,
+];
 
 ?><!doctype html>
 <html lang="en">
@@ -59,140 +133,56 @@ $blocks = is_array($data['final_blocks'] ?? null) ? $data['final_blocks'] : [];
   <title>V3 Pre-Live Switchboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root {
-      --bg:#f5f7fb; --panel:#ffffff; --ink:#1f2937; --muted:#6b7280;
-      --line:#e5e7eb; --blue:#174ea6; --green:#0f766e; --red:#b42318; --amber:#b45309;
-    }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
-    .wrap { max-width:1180px; margin:0 auto; padding:22px; }
-    .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:18px; }
-    h1 { margin:0; font-size:26px; }
-    .sub { color:var(--muted); margin-top:5px; }
-    .grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; margin:16px 0; }
-    .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
-    .card h2 { font-size:15px; margin:0 0 10px; color:#111827; }
-    .metric { font-size:22px; font-weight:700; margin-top:4px; }
-    .small { font-size:13px; color:var(--muted); }
-    .badge { display:inline-block; padding:4px 9px; border-radius:999px; font-size:12px; font-weight:700; }
-    .text-bg-success { background:#dcfce7; color:#166534; }
-    .text-bg-danger { background:#fee2e2; color:#991b1b; }
-    .text-bg-warning { background:#fef3c7; color:#92400e; }
-    table { width:100%; border-collapse:collapse; font-size:13px; }
-    th,td { padding:8px 9px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
-    th { color:#374151; background:#f9fafb; }
-    code, pre { background:#0f172a; color:#e5e7eb; border-radius:10px; }
-    pre { padding:12px; overflow:auto; font-size:12px; }
-    .links a { display:inline-block; margin:4px 8px 4px 0; text-decoration:none; color:#174ea6; font-weight:600; }
-    .alert { border-radius:14px; padding:14px; border:1px solid var(--line); background:#fff; margin:12px 0; }
-    .alert-danger { border-color:#fecaca; background:#fff1f2; color:#991b1b; }
-    .alert-success { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
-    .alert-warning { border-color:#fde68a; background:#fffbeb; color:#92400e; }
-    @media (max-width:900px){ .grid{ grid-template-columns:1fr 1fr; } .top{display:block;} }
-    @media (max-width:560px){ .grid{ grid-template-columns:1fr; } .wrap{padding:14px;} }
+    :root{--bg:#eef2f7;--panel:#fff;--ink:#061b44;--muted:#52607a;--line:#d5deec;--nav:#2f3a62;--ok:#166534;--bad:#991b1b;--warn:#92400e;--blue:#4f5fb8;}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px}.layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}.side{background:var(--nav);color:#fff;padding:18px}.side h1{font-size:18px;margin:0 0 8px}.side p{font-size:13px;line-height:1.4;color:#e0e6ff}.side a{display:block;color:#fff;text-decoration:none;padding:9px 10px;border-radius:8px;margin:5px 0}.side a.active,.side a:hover{background:rgba(255,255,255,.14)}.main{padding:24px}.hero,.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}.hero{padding:22px;margin-bottom:16px;border-left:6px solid <?= !empty($data['ok']) ? '#16a34a' : '#d97706' ?>}.hero h2{font-size:28px;margin:0 0 8px}.sub{color:var(--muted);line-height:1.5}.actions a{display:inline-block;margin:12px 8px 0 0;background:var(--blue);color:#fff;text-decoration:none;border-radius:10px;padding:10px 13px;font-weight:700}.actions a.green{background:#38a169}.actions a.dark{background:#172554}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}.card{padding:16px;margin-bottom:14px}.card h3{margin:0 0 10px;font-size:18px}.metric{font-size:26px;font-weight:800}.small{font-size:12px;color:var(--muted);line-height:1.4}.pill{display:inline-block;border-radius:999px;padding:4px 10px;font-weight:800;font-size:12px}.pill.ok{background:#dcfce7;color:var(--ok)}.pill.bad{background:#fee2e2;color:var(--bad)}.pill.warn{background:#fef3c7;color:var(--warn)}table{width:100%;border-collapse:collapse}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f8fafc;color:#344269;width:220px}.blocks{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:14px;padding:14px}.blocks ul{margin:8px 0 0 18px;padding:0}pre{white-space:pre-wrap;overflow:auto;background:#0f172a;color:#e5e7eb;border-radius:12px;padding:12px;font-size:12px;max-height:380px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.muted{color:var(--muted)}@media(max-width:1000px){.layout{grid-template-columns:1fr}.side{position:relative}.grid,.two{grid-template-columns:1fr 1fr}}@media(max-width:640px){.grid,.two{grid-template-columns:1fr}.main{padding:14px}}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <div>
-      <h1>V3 Pre-Live Switchboard</h1>
-      <div class="sub">Read-only consolidated view before any future live adapter implementation.</div>
-    </div>
-    <div><?= badge(!empty($data['ok']), 'LIVE ELIGIBLE', 'LIVE BLOCKED') ?></div>
-  </div>
-
-  <div class="alert alert-warning">
-    <strong>Safety:</strong> <?= h($data['safety'] ?? '') ?>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <h2>Master gate</h2>
-      <div class="metric"><?= h(($gate['mode'] ?? '-') . ' / ' . ($gate['adapter'] ?? '-')) ?></div>
-      <div class="small">
-        enabled=<?= yesno(!empty($gate['enabled'])) ?>,
-        hard=<?= yesno(!empty($gate['hard_enable_live_submit'])) ?>,
-        ack=<?= yesno(!empty($gate['acknowledgement_phrase_present'])) ?>
+<div class="layout">
+  <aside class="side">
+    <h1>V3 Automation</h1>
+    <p>Read-only pre-live switchboard. Live submit remains disabled.</p>
+    <a href="/ops/pre-ride-email-v3-pre-live-switchboard.php" class="active">Pre-Live Switchboard</a>
+    <a href="/ops/pre-ride-email-v3-proof.php">Proof Dashboard</a>
+    <a href="/ops/pre-ride-email-v3-live-package-export.php">Package Export</a>
+    <a href="/ops/pre-ride-email-v3-operator-approval-workflow.php">Operator Approval</a>
+    <a href="/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php">Kill-Switch Check</a>
+    <a href="/ops/pre-ride-email-v3-monitor.php">Compact Monitor</a>
+  </aside>
+  <main class="main">
+    <section class="hero">
+      <div><?= pill(!empty($data['ok']), 'LIVE ELIGIBLE', 'LIVE BLOCKED') ?> <?= pill(!empty($approval['valid']), 'APPROVAL VALID', 'NO VALID APPROVAL') ?> <?= pill(!empty($start['ok']), 'START VERIFIED', 'START NOT VERIFIED') ?> <?= pill(!empty($adapter['is_live_capable']), 'LIVE ADAPTER CAPABLE', 'ADAPTER NOT LIVE') ?></div>
+      <h2>V3 Pre-Live Switchboard</h2>
+      <div class="sub"><?= h($data['safety'] ?? $safety) ?></div>
+      <div class="actions">
+        <a class="green" href="?queue_id=<?= h($row['id'] ?? '') ?>">Refresh selected row</a>
+        <a href="/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php<?= !empty($row['id']) ? '?queue_id=' . h($row['id']) : '' ?>">Adapter Diagnostics</a>
+        <a class="dark" href="/ops/pre-ride-email-v3-storage-check.php">Storage Check</a>
       </div>
-    </div>
-    <div class="card">
-      <h2>Selected row</h2>
-      <div class="metric">#<?= h($row['id'] ?? '-') ?></div>
-      <div class="small"><?= h($row['queue_status'] ?? '-') ?> · pickup <?= h($row['pickup_datetime'] ?? '-') ?></div>
-    </div>
-    <div class="card">
-      <h2>Approval</h2>
-      <div class="metric"><?= !empty($approval['valid']) ? 'valid' : 'not valid' ?></div>
-      <div class="small"><?= h($approval['reason'] ?? '') ?></div>
-    </div>
-    <div class="card">
-      <h2>Adapter</h2>
-      <div class="metric"><?= h($adapter['selected_adapter'] ?? '-') ?></div>
-      <div class="small">live-capable=<?= yesno(!empty($adapter['is_live_capable'])) ?></div>
-    </div>
-  </div>
+    </section>
 
-  <?php if ($blocks === []): ?>
-    <div class="alert alert-success"><strong>No blocks.</strong> This should only happen when all future live gates are deliberately open.</div>
-  <?php else: ?>
-    <div class="alert alert-danger">
-      <strong>Final blocks:</strong>
-      <ul>
-        <?php foreach ($blocks as $block): ?><li><?= h($block) ?></li><?php endforeach; ?>
-      </ul>
-    </div>
-  <?php endif; ?>
+    <?php if ($events !== []): ?>
+      <div class="card"><h3>Events</h3><ul><?php foreach ($events as $event): ?><li><?= h($event['level'] ?? '') ?>: <?= h($event['message'] ?? $event) ?></li><?php endforeach; ?></ul></div>
+    <?php endif; ?>
 
-  <div class="card">
-    <h2>Queue row</h2>
-    <table>
-      <tr><th>Customer</th><td><?= h($row['customer_name'] ?? '') ?></td></tr>
-      <tr><th>Driver / Vehicle</th><td><?= h(($row['driver_name'] ?? '') . ' / ' . ($row['vehicle_plate'] ?? '')) ?></td></tr>
-      <tr><th>IDs</th><td>lessor=<?= h($row['lessor_id'] ?? '') ?> driver=<?= h($row['driver_id'] ?? '') ?> vehicle=<?= h($row['vehicle_id'] ?? '') ?> start=<?= h($row['starting_point_id'] ?? '') ?></td></tr>
-      <tr><th>Pickup</th><td><?= h($row['pickup_datetime'] ?? '') ?> · minutes_until=<?= h($row['minutes_until_now'] ?? '') ?></td></tr>
-      <tr><th>Route</th><td><?= h(($row['pickup_address'] ?? '') . ' → ' . ($row['dropoff_address'] ?? '')) ?></td></tr>
-    </table>
-  </div>
+    <div class="grid">
+      <div class="card"><h3>Master Gate</h3><div class="metric"><?= h(($gate['mode'] ?? '-') . ' / ' . ($gate['adapter'] ?? '-')) ?></div><div class="small">loaded=<?= yn(!empty($gate['loaded'])) ?> enabled=<?= yn(!empty($gate['enabled'])) ?> hard=<?= yn(!empty($gate['hard_enable_live_submit'])) ?> ack=<?= yn(!empty($gate['acknowledgement_phrase_present'])) ?></div></div>
+      <div class="card"><h3>Selected Row</h3><div class="metric">#<?= h($row['id'] ?? '-') ?></div><div class="small"><?= h($row['queue_status'] ?? '-') ?> · pickup <?= h($row['pickup_datetime'] ?? '-') ?> · minutes <?= h($row['minutes_until_now'] ?? '-') ?></div></div>
+      <div class="card"><h3>Approval</h3><div class="metric"><?= !empty($approval['valid']) ? 'valid' : 'not valid' ?></div><div class="small"><?= h($approval['reason'] ?? '') ?></div></div>
+      <div class="card"><h3>Artifacts</h3><div class="metric"><?= h($pkg['queue_artifact_count'] ?? '0') ?></div><div class="small">local package exports for selected row</div></div>
+    </div>
 
-  <div class="grid">
-    <div class="card">
-      <h2>Payload</h2>
-      <div><?= badge(!empty($payload['complete']), 'complete', 'missing') ?></div>
-      <div class="small">Missing: <?= h(implode(', ', (array)($payload['missing'] ?? [])) ?: 'none') ?></div>
-    </div>
-    <div class="card">
-      <h2>Starting point</h2>
-      <div><?= badge(!empty($start['ok']), 'verified', 'not verified') ?></div>
-      <div class="small"><?= h($start['reason'] ?? '') ?></div>
-    </div>
-    <div class="card">
-      <h2>Package export</h2>
-      <div class="metric"><?= h($pkg['queue_artifact_count'] ?? '0') ?></div>
-      <div class="small">artifacts for selected row</div>
-    </div>
-    <div class="card">
-      <h2>Version</h2>
-      <div class="small"><?= h($data['version'] ?? '') ?></div>
-      <div class="small"><?= h($data['finished_at'] ?? '') ?></div>
-    </div>
-  </div>
+    <div class="blocks"><strong>Final blocks</strong><ul><?php foreach ($blocks as $block): ?><li><?= h($block) ?></li><?php endforeach; ?><?php if ($blocks === []): ?><li>No blocks reported.</li><?php endif; ?></ul></div>
 
-  <div class="card">
-    <h2>Quick links</h2>
-    <div class="links">
-      <a href="/ops/pre-ride-email-v3-proof.php">Proof Dashboard</a>
-      <a href="/ops/pre-ride-email-v3-live-package-export.php">Package Export</a>
-      <a href="/ops/pre-ride-email-v3-operator-approval-workflow.php">Operator Approval</a>
-      <a href="/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php">Adapter Diagnostics</a>
-      <a href="/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php">Kill-Switch Check</a>
-      <a href="/ops/pre-ride-email-v3-monitor.php">Compact Monitor</a>
+    <div class="two">
+      <div class="card"><h3>Queue Row</h3><table><tr><th>Customer</th><td><?= h(($row['customer_name'] ?? '') . (!empty($row['customer_phone']) ? ' / ' . $row['customer_phone'] : '')) ?></td></tr><tr><th>Driver / Vehicle</th><td><?= h(($row['driver_name'] ?? '') . ' / ' . ($row['vehicle_plate'] ?? '')) ?></td></tr><tr><th>EDXEIX IDs</th><td>lessor=<?= h($row['lessor_id'] ?? '') ?> driver=<?= h($row['driver_id'] ?? '') ?> vehicle=<?= h($row['vehicle_id'] ?? '') ?> start=<?= h($row['starting_point_id'] ?? '') ?></td></tr><tr><th>Route</th><td><?= h(($row['pickup_address'] ?? '') . ' → ' . ($row['dropoff_address'] ?? '')) ?></td></tr><tr><th>Last error</th><td><?= h($row['last_error'] ?? '') ?></td></tr></table></div>
+      <div class="card"><h3>Checks</h3><table><tr><th>Payload</th><td><?= pill(!empty($payload['complete']), 'complete', 'missing') ?> <span class="small"><?= h($missing ? implode(', ', array_map('strval', $missing)) : 'none missing') ?></span></td></tr><tr><th>Starting point</th><td><?= pill(!empty($start['ok']), 'verified', 'not verified') ?> <?= h($start['reason'] ?? '') ?></td></tr><tr><th>Adapter</th><td><?= h($adapter['selected_adapter'] ?? '') ?> · expected <?= h($adapter['expected_adapter'] ?? 'edxeix_live') ?> · live-capable=<?= yn(!empty($adapter['is_live_capable'])) ?> · <?= h($adapter['reason'] ?? '') ?></td></tr><tr><th>Command method</th><td><?= h($exec['method'] ?? '') ?> <?= h($exec['error'] ?? '') ?></td></tr><tr><th>Version</th><td><?= h($data['version'] ?? $version) ?></td></tr></table></div>
     </div>
-  </div>
 
-  <div class="card">
-    <h2>Raw JSON</h2>
-    <pre><?= h(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
-  </div>
+    <div class="card"><h3>Latest package artifacts</h3><?php if ($artifacts === []): ?><p class="muted">No artifacts for selected row.</p><?php else: ?><ul><?php foreach ($artifacts as $artifact): ?><li><code><?= h($artifact) ?></code></li><?php endforeach; ?></ul><?php endif; ?></div>
+
+    <div class="card"><h3>Compact JSON</h3><pre><?= h(json_encode($compact, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre></div>
+  </main>
 </div>
 </body>
 </html>
