@@ -70,6 +70,58 @@ function v3p_fetch_one(mysqli $db, string $sql): ?array
     return $rows[0] ?? null;
 }
 
+function v3p_fetch_historical_live_ready_proof(mysqli $db): ?array
+{
+    if (!v3p_table_exists($db, 'pre_ride_email_v3_queue_events')) {
+        return null;
+    }
+    if (!v3p_column_exists($db, 'pre_ride_email_v3_queue_events', 'queue_id')) {
+        return null;
+    }
+
+    $hasId = v3p_column_exists($db, 'pre_ride_email_v3_queue_events', 'id');
+    $hasType = v3p_column_exists($db, 'pre_ride_email_v3_queue_events', 'event_type');
+    $hasMessage = v3p_column_exists($db, 'pre_ride_email_v3_queue_events', 'message');
+    $hasCreated = v3p_column_exists($db, 'pre_ride_email_v3_queue_events', 'created_at');
+
+    $where = [];
+    if ($hasType) {
+        $where[] = "LOWER(COALESCE(e.event_type,'')) LIKE '%live%'";
+        $where[] = "LOWER(COALESCE(e.event_type,'')) LIKE '%readiness%'";
+    }
+    if ($hasMessage) {
+        $where[] = "LOWER(COALESCE(e.message,'')) LIKE '%live-ready%'";
+        $where[] = "LOWER(COALESCE(e.message,'')) LIKE '%live_submit_ready%'";
+        $where[] = "LOWER(COALESCE(e.message,'')) LIKE '%live readiness%'";
+        $where[] = "LOWER(COALESCE(e.message,'')) LIKE '%marked live%'";
+    }
+    if (!$where) {
+        return null;
+    }
+
+    $eventIdExpr = $hasId ? 'e.id' : '0';
+    $eventCreatedExpr = $hasCreated ? 'e.created_at' : 'NULL';
+    $eventTypeExpr = $hasType ? 'e.event_type' : "''";
+    $eventMessageExpr = $hasMessage ? 'e.message' : "''";
+    $orderExpr = $hasId ? 'e.id DESC' : ($hasCreated ? 'e.created_at DESC' : 'q.updated_at DESC');
+
+    return v3p_fetch_one($db, "
+        SELECT q.id, q.dedupe_key, q.queue_status, q.customer_name, q.customer_phone, q.pickup_datetime,
+               q.estimated_end_datetime, q.driver_name, q.vehicle_plate, q.lessor_id, q.driver_id,
+               q.vehicle_id, q.starting_point_id, q.pickup_address, q.dropoff_address, q.price_text,
+               q.price_amount, q.last_error, q.created_at, q.updated_at,
+               " . $eventIdExpr . " AS proof_event_id,
+               " . $eventCreatedExpr . " AS proof_event_at,
+               " . $eventTypeExpr . " AS proof_event_type,
+               " . $eventMessageExpr . " AS proof_event_message
+        FROM pre_ride_email_v3_queue q
+        INNER JOIN pre_ride_email_v3_queue_events e ON e.queue_id = q.id
+        WHERE (" . implode(' OR ', $where) . ")
+        ORDER BY " . $orderExpr . "
+        LIMIT 1
+    ");
+}
+
 function v3p_load_gate_config(string $path): array
 {
     $state = [
@@ -128,6 +180,9 @@ $queueMetrics = [
 ];
 $latestRows = [];
 $proofRow = null;
+$currentLiveProofRow = null;
+$historicalLiveProof = false;
+$proofSource = 'none';
 $startOption = null;
 $eventRows = [];
 $dbOk = false;
@@ -168,27 +223,43 @@ try {
         }
     }
 
-    $proofRow = v3p_fetch_one($db, "
+    $currentLiveProofRow = v3p_fetch_one($db, "
         SELECT id, dedupe_key, queue_status, customer_name, customer_phone, pickup_datetime,
                estimated_end_datetime, driver_name, vehicle_plate, lessor_id, driver_id,
                vehicle_id, starting_point_id, pickup_address, dropoff_address, price_text,
-               price_amount, last_error, created_at, updated_at
+               price_amount, last_error, created_at, updated_at,
+               NULL AS proof_event_id, NULL AS proof_event_at, '' AS proof_event_type, '' AS proof_event_message
         FROM pre_ride_email_v3_queue
         WHERE queue_status = 'live_submit_ready'
         ORDER BY updated_at DESC, id DESC
         LIMIT 1
     ");
 
+    if ($currentLiveProofRow) {
+        $proofRow = $currentLiveProofRow;
+        $proofSource = 'current_live_submit_ready';
+    } else {
+        $proofRow = v3p_fetch_historical_live_ready_proof($db);
+        if ($proofRow) {
+            $historicalLiveProof = true;
+            $proofSource = 'historical_live_readiness_event';
+        }
+    }
+
     if (!$proofRow) {
         $proofRow = v3p_fetch_one($db, "
             SELECT id, dedupe_key, queue_status, customer_name, customer_phone, pickup_datetime,
                    estimated_end_datetime, driver_name, vehicle_plate, lessor_id, driver_id,
                    vehicle_id, starting_point_id, pickup_address, dropoff_address, price_text,
-                   price_amount, last_error, created_at, updated_at
+                   price_amount, last_error, created_at, updated_at,
+                   NULL AS proof_event_id, NULL AS proof_event_at, '' AS proof_event_type, '' AS proof_event_message
             FROM pre_ride_email_v3_queue
             ORDER BY id DESC
             LIMIT 1
         ");
+        if ($proofRow) {
+            $proofSource = 'latest_queue_row_no_live_proof';
+        }
     }
 
     $latestRows = v3p_fetch_all($db, "
@@ -232,9 +303,11 @@ try {
 
 $proofIsLiveReady = $proofRow && (string)($proofRow['queue_status'] ?? '') === 'live_submit_ready';
 $proofIsDryRunReady = $proofRow && (string)($proofRow['queue_status'] ?? '') === 'submit_dry_run_ready';
-$proofReady = $proofIsLiveReady || $proofIsDryRunReady;
+$proofHasLiveReadyEvidence = $proofIsLiveReady || $historicalLiveProof;
+$proofReady = $proofIsLiveReady || $proofIsDryRunReady || $historicalLiveProof;
+$proofExpiredAfterSuccess = $historicalLiveProof && $proofRow && (string)($proofRow['queue_status'] ?? '') === 'blocked';
 $gateClosed = !$gate['ok_for_future_live_submit'];
-$overallOk = $dbOk && $proofIsLiveReady && $startOption && $gateClosed;
+$overallOk = $dbOk && $proofHasLiveReadyEvidence && $startOption && $gateClosed;
 ?>
 <!doctype html>
 <html lang="en">
@@ -272,9 +345,16 @@ $overallOk = $dbOk && $proofIsLiveReady && $startOption && $gateClosed;
     <main class="main">
         <section class="hero <?= $overallOk ? 'ok' : ($proofReady ? '' : 'bad') ?>">
             <h1>V3 Forwarded-Email Readiness Proof</h1>
-            <p>This page summarizes the proven V3 path and confirms that the final live-submit path remains blocked by the master gate.</p>
+            <p>This page summarizes the proven V3 path, preserves historical proof after expiry, and confirms that the final live-submit path remains blocked by the master gate.</p>
             <div>
-                <?= $proofIsLiveReady ? v3p_badge('LIVE-SUBMIT-READY ROW FOUND', 'good') : v3p_badge('NO CURRENT LIVE-READY ROW', $proofIsDryRunReady ? 'warn' : 'bad') ?>
+                <?php if ($proofIsLiveReady): ?>
+                    <?= v3p_badge('CURRENT LIVE-SUBMIT-READY ROW FOUND', 'good') ?>
+                <?php elseif ($historicalLiveProof): ?>
+                    <?= v3p_badge('HISTORICAL LIVE-READY PROOF FOUND', 'good') ?>
+                    <?= v3p_badge('NO CURRENT LIVE-READY ROW', 'warn') ?>
+                <?php else: ?>
+                    <?= v3p_badge('NO LIVE-READY PROOF FOUND', $proofIsDryRunReady ? 'warn' : 'bad') ?>
+                <?php endif; ?>
                 <?= $startOption ? v3p_badge('STARTING POINT VERIFIED', 'good') : v3p_badge('STARTING POINT CHECK NEEDED', 'warn') ?>
                 <?= $gateClosed ? v3p_badge('MASTER GATE CLOSED', 'good') : v3p_badge('MASTER GATE OPEN', 'bad') ?>
                 <?= v3p_badge('NO LIVE EDXEIX CALL', 'good') ?>
@@ -291,6 +371,14 @@ $overallOk = $dbOk && $proofIsLiveReady && $startOption && $gateClosed;
             </div>
         </section>
 
+        <?php if ($proofExpiredAfterSuccess): ?>
+        <section class="card" style="border-left:8px solid var(--green)">
+            <h2>Historical Proof Preserved</h2>
+            <p class="good"><strong>This is expected:</strong> the proof row reached live-submit readiness earlier, then the expiry guard safely blocked it after the pickup time passed.</p>
+            <p>The current queue may show zero live-submit-ready rows after time passes. This page now preserves the proof using the recorded V3 queue event history.</p>
+        </section>
+        <?php endif; ?>
+
         <section class="grid">
             <div class="metric"><strong><?= (int)$queueMetrics['total'] ?></strong><span>Total V3 queue rows</span></div>
             <div class="metric"><strong><?= (int)$queueMetrics['active'] ?></strong><span>Active/non-terminal rows</span></div>
@@ -305,6 +393,8 @@ $overallOk = $dbOk && $proofIsLiveReady && $startOption && $gateClosed;
                     <div class="kv">
                         <div>Queue ID</div><div><?= v3p_h($proofRow['id'] ?? '') ?></div>
                         <div>Status</div><div><?= v3p_badge((string)($proofRow['queue_status'] ?? ''), v3p_status_type((string)($proofRow['queue_status'] ?? ''))) ?></div>
+                        <div>Proof source</div><div><?= v3p_badge($proofSource, $historicalLiveProof || $proofIsLiveReady ? 'good' : 'warn') ?></div>
+                        <div>Live-ready proof</div><div><?= v3p_badge($proofHasLiveReadyEvidence ? 'yes' : 'no', $proofHasLiveReadyEvidence ? 'good' : 'bad') ?><?php if (!empty($proofRow['proof_event_at'])): ?> event at <?= v3p_h($proofRow['proof_event_at']) ?><?php endif; ?></div>
                         <div>Customer</div><div><?= v3p_h($proofRow['customer_name'] ?? '') ?> / <?= v3p_h($proofRow['customer_phone'] ?? '') ?></div>
                         <div>Pickup</div><div><?= v3p_h($proofRow['pickup_datetime'] ?? '') ?></div>
                         <div>Driver / Vehicle</div><div><?= v3p_h($proofRow['driver_name'] ?? '') ?> / <?= v3p_h($proofRow['vehicle_plate'] ?? '') ?></div>
@@ -399,6 +489,7 @@ $overallOk = $dbOk && $proofIsLiveReady && $startOption && $gateClosed;
                 <li>Next phase is closed-gate live adapter preparation only.</li>
                 <li>Live submit must remain disabled until a real eligible future Bolt trip is approved explicitly.</li>
                 <li>Forwarded/synthetic emails are useful for testing the V3 pipeline, but they are not final proof to open live submit.</li>
+                <li>Live-ready proof rows may later become blocked by the expiry guard; this is expected and safe.</li>
                 <li>V0 laptop/manual production helper remains untouched and available for business continuity.</li>
             </ul>
         </section>

@@ -1,14 +1,12 @@
-# Patch README — v3.0.50 V3 Proof Dashboard
+# v3.0.51 — V3 Proof Dashboard Historical Proof Fix
 
 ## What changed
 
-Adds a read-only V3 proof dashboard:
+Updates `/ops/pre-ride-email-v3-proof.php` so the proof dashboard preserves historical live-readiness proof after the proof row is later blocked by the expiry guard.
 
-```text
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
-```
+The previous dashboard selected only a current `live_submit_ready` row. After pickup time passed, row 56 was safely changed to `blocked`, so the page showed "no current live-ready row" even though the proof had already succeeded.
 
-Also adds documentation for the proof dashboard and a draft field map for the future closed-gate live adapter phase.
+The updated dashboard now uses V3 queue event history to show historical live-ready proof when no current live-ready row remains.
 
 ## Files included
 
@@ -16,9 +14,9 @@ Also adds documentation for the proof dashboard and a draft field map for the fu
 public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
 docs/V3_PROOF_DASHBOARD.md
 docs/V3_EDXEIX_LIVE_ADAPTER_FIELD_MAP_DRAFT.md
-PATCH_README.md
 HANDOFF.md
 CONTINUE_PROMPT.md
+PATCH_README.md
 ```
 
 ## Upload path
@@ -28,13 +26,13 @@ public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
 → /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
 ```
 
-Docs should be committed in the local GitHub Desktop repo.
+Docs go into the local GitHub Desktop repo.
 
 ## SQL
 
 No SQL required.
 
-## Verification commands
+## Verification
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-proof.php
@@ -44,7 +42,7 @@ su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cl
 tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline_pulse.log | egrep "cron start|ERROR|Pulse summary|finish exit_code" || true
 ```
 
-## Verification URL
+Open:
 
 ```text
 https://gov.cabnet.app/ops/pre-ride-email-v3-proof.php
@@ -52,30 +50,18 @@ https://gov.cabnet.app/ops/pre-ride-email-v3-proof.php
 
 ## Expected result
 
-The page loads after Ops login and shows:
+If the proof row has expired, the page should show historical proof rather than implying the proof failed.
 
-- V3 proof row/current queue state.
-- Verified starting-point status.
-- Master gate closed.
-- No-live-call safety boundary.
-- V0 untouched.
+Expected safe posture:
+
+```text
+Historical live-ready proof found
+No current live-ready row
+Master gate closed
+No live EDXEIX call
+V0 untouched
+```
 
 ## Safety
 
 No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue mutation logic, cron schedules, or SQL schema are changed.
-
-## Commit title
-
-```text
-Add V3 proof dashboard
-```
-
-## Commit description
-
-```text
-Adds a read-only V3 proof dashboard summarizing the verified forwarded-email readiness path, current queue proof row, verified starting point, and closed live-submit gate state.
-
-Also adds a draft V3-to-EDXEIX live adapter field map for the next closed-gate preparation phase.
-
-No V0 production helper files, live-submit enabling, EDXEIX calls, AADE behavior, queue mutation logic, cron schedules, or SQL schema are changed.
-```

@@ -1,66 +1,65 @@
-# V3 Proof Dashboard
+# V3 Proof Dashboard — Historical Proof Preservation
 
-Version: `v3.0.50-v3-proof-dashboard`
+Version: v3.0.51-proof-dashboard-history-fix
 
 ## Purpose
 
-Adds a read-only Ops page that summarizes the verified V3 forwarded-email readiness proof and keeps the live-submit safety boundary visible.
+The V3 proof dashboard is a read-only Ops page that summarizes the verified forwarded-email readiness proof while keeping live EDXEIX submission disabled.
 
-URL after upload:
+The dashboard now distinguishes between:
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-proof.php
-```
+- a **current** `live_submit_ready` queue row, and
+- a **historical** proof row that previously reached live-readiness but was later safely blocked by the expiry guard after pickup time passed.
 
-## What the page shows
+This is important because V3 rows are intentionally expired/blocked after the pickup time is no longer future-safe. A successful proof row should not be treated as a failure simply because the expiry guard later did its job.
 
-- V3 queue metrics.
-- Latest/current `live_submit_ready` proof row, when present.
-- Latest rows when no current live-ready row exists.
-- EDXEIX IDs for lessor, driver, vehicle, and starting point.
-- Verified starting-point option for the proof row.
-- Disabled master gate state.
-- Gate block reasons.
-- Recent queue events when the event table shape supports them.
-- Links to the V3 monitor, queue focus, storage check, payload audit, and locked submit gate.
+## Verified behavior
 
-## Safety
-
-This page is read-only:
-
-- No Bolt calls.
-- No EDXEIX calls.
-- No AADE calls.
-- No queue mutation.
-- No SQL writes.
-- No V0 files or dependencies are touched.
-
-## Current verified proof state
-
-The V3 test already proved:
+A forwarded Gmail/Bolt-style pre-ride email was processed through:
 
 ```text
-Gmail/manual forward
-→ server mailbox
+server mailbox
 → V3 intake
 → parser
-→ driver / vehicle / lessor mapping
+→ mapping
 → future-safe guard
 → verified starting-point guard
 → submit_dry_run_ready
 → live_submit_ready
+→ payload audit ready
+→ final rehearsal blocked by master gate
 ```
 
-Payload audit confirmed the row was payload-ready.
-Final rehearsal correctly blocked the row because the master live-submit gate remained closed.
+The final rehearsal correctly remained blocked because live submit is disabled by configuration and operator approval is absent.
 
-## Next phase
+## Safety
 
-Continue with closed-gate live adapter preparation:
+The dashboard is read-only:
 
-1. Field map document.
-2. Dry-run package export.
-3. Operator approval visibility.
-4. Closed-gate adapter skeleton.
-5. Another future forwarded-email test.
-6. Only later, explicit live-submit opening plan.
+- no Bolt call
+- no EDXEIX call
+- no AADE call
+- no DB writes
+- no queue mutation
+- no live-submit gate changes
+- no V0 laptop/manual helper changes
+
+## Page
+
+```text
+/ops/pre-ride-email-v3-proof.php
+```
+
+## Expected after proof row expiry
+
+It is acceptable for the dashboard to show:
+
+```text
+Historical live-ready proof found
+No current live-ready row
+Proof row status: blocked
+Reason: pickup expired / no longer future-safe
+Master gate: closed
+```
+
+This means the proof was achieved and the expiry guard later blocked the row safely.

@@ -1,44 +1,41 @@
-# V3 EDXEIX Live Adapter Field Map Draft
+# V3 → EDXEIX Live Adapter Field Map Draft
 
-Version: `v3.0.50-v3-proof-dashboard`
+Status: draft for closed-gate preparation only.
 
-This is a draft for the next phase. It is not a live-submit implementation.
+Live submit remains disabled.
 
-## V3 payload to EDXEIX form fields
+| V3 payload / queue field | EDXEIX form intent |
+|---|---|
+| `lessor_id` / `lessorId` | Lessor / company selector |
+| `driver_id` / `driverId` | Driver selector |
+| `vehicle_id` / `vehicleId` | Vehicle selector |
+| `starting_point_id` / `startingPointId` | Starting point selector |
+| `customer_name` / `passengerName` | Passenger / lessee name |
+| `customer_phone` / `passengerPhone` | Passenger phone, if accepted by target form |
+| `pickup_address` / `pickupAddress` | Boarding point |
+| `dropoff_address` / `dropoffAddress` | Disembark point |
+| `pickup_datetime` / `pickupDateTime` | Transfer start datetime |
+| `estimated_end_datetime` / `endDateTime` | Transfer end datetime |
+| `price_amount` / `priceAmount` | Price |
+| `price_text` | Operator-readable price evidence |
 
-| V3 field | EDXEIX form field | Notes |
-|---|---|---|
-| `lessorId` / queue `lessor_id` | `lessor` | Must be verified for the row. |
-| `driverId` / queue `driver_id` | `driver` | Must be mapped from Bolt driver. |
-| `vehicleId` / queue `vehicle_id` | `vehicle` | Must be mapped from Bolt vehicle. |
-| `startingPointId` / queue `starting_point_id` | `starting_point` | Must exist in `pre_ride_email_v3_starting_point_options`. |
-| `passengerName` / queue `customer_name` | `lessee_name` | Customer name from pre-ride email. |
-| `customer_phone` | optional passenger/contact field | Depends on EDXEIX form behavior. |
-| `pickupAddress` / queue `pickup_address` | `boarding_point` | Boarding address. |
-| `dropoffAddress` / queue `dropoff_address` | `disembark_point` | Drop-off address. |
-| `pickupDateTime` / queue `pickup_datetime` | `started_at` | Local EEST datetime. |
-| `endDateTime` / queue `estimated_end_datetime` | `ended_at` | Estimated end from pre-ride email. |
-| `priceAmount` / queue `price_amount` | `price` | Use normalized amount from estimated price range. |
-| `orderReference` | optional reference/notes field | May be empty for forwarded test emails. |
+## Safety checklist before any real adapter
 
-## Required safety conditions before any future live adapter can run
+The adapter must remain blocked unless all are true:
 
-- Real eligible future Bolt trip.
-- Not synthetic/forwarded test.
-- Not past or expired.
-- Not cancelled or terminal.
-- Not EMT8640.
-- Driver mapped.
-- Vehicle mapped.
-- Lessor mapped.
-- Starting point operator-verified.
-- Payload audit passes.
-- Final rehearsal passes except for intentional closed gate blocks.
-- Operator approval valid.
-- Master config enabled.
-- Mode is `live`.
-- Adapter is real and not disabled.
-- Hard enable flag is true.
-- Required acknowledgement phrase is present.
+- real eligible future Bolt trip
+- not synthetic/forwarded proof email
+- not past, expired, cancelled, terminal, or invalid
+- not EMT8640 exempt vehicle
+- driver/vehicle/lessor mapped
+- starting point operator-verified
+- payload audit OK
+- final rehearsal OK except intentional gate blocks
+- valid operator approval
+- master gate enabled
+- mode live
+- adapter real
+- hard enable true
+- required acknowledgement phrase present
 
-Until all of the above are true and Andreas explicitly approves, live submit remains disabled.
+Until explicitly approved, the adapter must not submit to EDXEIX.
