@@ -1,113 +1,77 @@
 # V3 Next Phase Plan
 
-## Phase name
+Current version checkpoint: `v3.0.59-v3-approval-rehearsal-proof-checkpoint`
 
-V3.1 — Closed-Gate Live Adapter Preparation
-
-## Why this phase exists
-
-The V3 readiness path is proven. The next risk is not intake or parsing; it is preparing the live adapter without accidentally opening live submission.
-
-This phase creates clarity, artifacts, and review points before any future live gate opening.
-
-## Recommended patch sequence
-
-### v3.0.49 — V3 proof dashboard
-
-Add a read-only page:
+## Immediate next patch
 
 ```text
-/ops/pre-ride-email-v3-proof.php
+v3.0.60-v3-live-adapter-kill-switch-check
 ```
 
-Show:
+## Purpose
 
-- latest `live_submit_ready` row
-- payload audit status
-- final rehearsal status
-- master gate blocks
-- operator approval status
-- no-live-call safety statement
+Before any real EDXEIX adapter behavior is implemented, add a formal read-only kill-switch/pre-live check that verifies every required live-submit condition.
 
-### v3.0.50 — EDXEIX live adapter field map
-
-Add:
+The page/CLI should answer one question:
 
 ```text
-docs/V3_EDXEIX_LIVE_ADAPTER_FIELD_MAP.md
+Could V3 live submit run right now?
 ```
 
-Define exactly how V3 payload fields map to EDXEIX fields.
-
-### v3.0.51 — V3 live package export
-
-Add dry-run export artifacts for `live_submit_ready` rows.
-
-No EDXEIX call.
-No AADE call.
-No queue status change unless explicitly reviewed later.
-
-### v3.0.52 — Operator approval visibility
-
-Add read-only operator approval page.
-
-Do not add approval mutation unless Andreas explicitly asks.
-
-### v3.0.53 — Closed-gate adapter skeleton
-
-Add the real adapter class or wrapper shape, but force it to block unless master gate is fully open.
-
-Expected result:
+Expected answer until explicit future approval:
 
 ```text
-adapter exists: yes
-submission allowed: no
-reason: master gate disabled
+No.
 ```
 
-### v3.0.54 — Re-test with future forwarded email
+## Required checks
 
-Run another future forwarded pre-ride email and confirm:
+The kill-switch check should require all of the following before returning OK:
 
 ```text
-live_submit_ready
-payload audit OK
-package export OK
-final rehearsal blocked by gate
-closed-gate adapter skeleton blocked by gate
+config file exists and loads
+enabled = true
+mode = live
+adapter = edxeix_live
+hard_enable_live_submit = true
+required acknowledgement phrase present
+selected queue row = live_submit_ready
+pickup time is future-safe
+row is not blocked / submitted / expired
+operator approval exists and is valid
+operator approval has not expired
+operator approval has not been revoked
+starting point is verified for the lessor
+payload audit passes
+package export exists or can be generated
+adapter class exists
+adapter class is live-capable
+adapter contract check passes
+V0 untouched
 ```
 
-## What not to do yet
+## Required negative behavior
 
-- Do not enable live-submit config.
-- Do not create a real EDXEIX POST/submit action.
-- Do not remove V0 fallback.
-- Do not remove old V3 crons yet.
-- Do not simplify production cron posture until at least one production-style future pre-ride email passes cleanly after V3.1 instrumentation.
-
-## Live-submit opening conditions for a future phase
-
-A future live-submit gate-opening phase must require:
+If any condition is missing, the check must show explicit block reasons and make no changes.
 
 ```text
-real eligible future Bolt trip
-not forwarded/demo
-not past
-not cancelled
-not EMT8640
-driver mapped
-vehicle mapped
-lessor mapped
-starting point verified
-payload audit OK
-package export OK
-final rehearsal OK except intentional gate blocks
-operator approval valid
-master config enabled
-mode live
-adapter real
-hard enable true
-acknowledgement phrase present
-trip sufficiently in future
-Andreas explicitly approves
+No EDXEIX call
+No AADE call
+No queue status change
+No production submission table write
+No config write
+No V0 changes
+No SQL schema changes
 ```
+
+## Future phase after kill-switch
+
+Only after the kill-switch is installed and proven closed:
+
+```text
+v3.0.61-v3-real-adapter-design-doc
+v3.0.62-v3-real-adapter-non-network-dry-run-scaffold
+v3.0.63-v3-real-adapter-server-only-disabled-config-support
+```
+
+Actual live-submit enabling remains out of scope until Andreas explicitly approves a live-submit update.

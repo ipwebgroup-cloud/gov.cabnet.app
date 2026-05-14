@@ -1,95 +1,74 @@
 # V3 Automation Phase Status
 
-Version: `v3.0.57-v3-live-adapter-runbook`
+Version: `v3.0.59-v3-approval-rehearsal-proof-checkpoint`
 
-## Phase complete: V3 readiness automation proof
+## Completed
 
-Complete and verified:
+- V3 queue tables installed.
+- V3 intake cron and pulse runner installed.
+- V3 pulse cron repaired and verified as `cabnet` user.
+- V3 storage and lock ownership checks installed.
+- V3 queue/readiness/pulse/operator monitoring pages installed.
+- V3 forwarded-email readiness path proven.
+- Lessor 3814 starting-point option added to V3 verified options.
+- Lessor 2307 corrected starting point verified as `1455969 = ΧΩΡΑ ΜΥΚΟΝΟΥ`.
+- V3 submit dry-run readiness proven.
+- V3 live-submit readiness proven.
+- V3 payload audit proven.
+- V3 final rehearsal correctly blocked by master gate.
+- V3 local live package export proven.
+- V3 operator approval workflow proven with row `418`.
+- V3 closed-gate adapter diagnostics proven.
+- V3 future live adapter skeleton installed but blocked/not live-capable.
+- V3 adapter contract probe proven.
 
-```text
-email intake
-parser
-mapping
-future-safe guard
-starting-point guard
-submit dry-run readiness
-live-submit readiness
-payload audit
-final rehearsal blocked by gate
-package export
-operator approval visibility
-closed-gate diagnostics
-adapter skeleton
-adapter contract probe
-```
-
-## Current phase: closed-gate live adapter preparation
-
-Current goal:
+## Still disabled
 
 ```text
-Prepare the adapter path without enabling live submit.
+Live EDXEIX submit: disabled
+Adapter config: disabled
+Mode: disabled
+Hard enable: false
+Master gate OK: no
 ```
 
-Completed in this phase:
+## Known safe proof rows
+
+### Row 56
+
+Historical forwarded-email proof row.
 
 ```text
-local package export
-operator approval visibility
-closed-gate adapter diagnostics
-future adapter skeleton
-adapter contract probe
+Reached: live_submit_ready
+Later: expired/blocked safely
+Purpose: forwarded-email proof + package export proof
 ```
 
-Next recommended coding steps:
+### Row 418
+
+Closed-gate operator approval rehearsal proof row.
 
 ```text
-1. Result envelope validation helper.
-2. Local evidence artifact writer for adapter attempts.
-3. Operator approval write scaffold, still closed-gate.
-4. Final pre-live dry-run with a fresh future forwarded email.
-5. Only later: real adapter HTTP implementation plan.
+Reached: live_submit_ready
+Approval: inserted and valid during future-safe window
+Payload audit: OK
+Package export: OK
+Final rehearsal: blocked only by master gate
+Diagnostics: selected_row_valid=yes
 ```
 
-## Current blocked-by-design state
+### Row 427
+
+Additional live-ready row detected during proof session.
 
 ```text
-selected adapter: disabled
-future real adapter: present but not live-capable
-operator approvals: none valid
-eligible_for_live_submit_now: no
-master gate: closed
+Reached: live_submit_ready
+Approval: none
+Rehearsal correctly blocked on missing approval
 ```
 
-## Current proof artifacts
+## Next phase
 
-Historical proof row:
+`v3.0.60-v3-live-adapter-kill-switch-check`
 
-```text
-queue_id: 56
-historically reached: live_submit_ready
-payload audit: PAYLOAD-READY
-package export: artifacts written
-current status: blocked after expiry
-```
-
-Artifact directory:
-
-```text
-/home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages/
-```
-
-## Important dashboards
-
-```text
-/ops/pre-ride-email-v3-proof.php
-/ops/pre-ride-email-v3-monitor.php
-/ops/pre-ride-email-v3-queue-focus.php
-/ops/pre-ride-email-v3-pulse-focus.php
-/ops/pre-ride-email-v3-readiness-focus.php
-/ops/pre-ride-email-v3-storage-check.php
-/ops/pre-ride-email-v3-live-package-export.php
-/ops/pre-ride-email-v3-operator-approvals.php
-/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php
-/ops/pre-ride-email-v3-adapter-contract-probe.php
-```
+Goal: add a formal read-only switchboard proving live submit is impossible unless all gate conditions are explicitly open.

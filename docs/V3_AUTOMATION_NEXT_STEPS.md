@@ -1,28 +1,29 @@
 # V3 Automation Next Steps
 
-Current phase: closed-gate live adapter preparation.
+Current phase after v3.0.58: V3 operator approval workflow is ready for a fresh future-safe V3 row.
 
-## Verified so far
+## Verified before this phase
 
-- Forwarded-email intake proof reached historical `live_submit_ready`.
+- V3 readiness path reached `live_submit_ready` using forwarded email test row 56.
 - Payload audit passed.
-- Final rehearsal correctly blocked by master gate.
-- Local package export works.
-- Operator approval visibility exists.
-- Closed-gate adapter diagnostics work.
-- Future real adapter skeleton exists and is blocked.
-- Adapter contract probe added.
+- Final rehearsal blocked correctly by master gate and missing approval.
+- Package export created local artifacts only.
+- Closed-gate adapter diagnostics are working.
+- Future adapter skeleton exists and remains not live-capable.
+- Adapter contract probe confirms all adapters are closed-gate safe.
 
-## Still disabled
+## Next recommended test
 
-- Live EDXEIX submit
-- Real adapter capability
-- Operator approval execution path
-- Master gate live mode
-- Hard enable flag
+Use a fresh forwarded/demo email with pickup 30–45 minutes in the future.
 
-## Next recommended step
+Expected path:
 
-Add a closed-gate operator approval dry-run/audit flow that can record approval only when explicitly requested, while still keeping master gate disabled.
+```text
+queued
+→ submit_dry_run_ready
+→ live_submit_ready
+→ operator approval valid
+→ final rehearsal still blocked by master gate
+```
 
-No live submit should be enabled until a real, future, eligible Bolt pre-ride email passes all V3 checks and Andreas explicitly approves opening the live gate.
+The master gate must remain closed until Andreas explicitly approves a future live-submit opening patch.

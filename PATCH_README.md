@@ -1,32 +1,21 @@
-# Patch README — v3.0.57-v3-live-adapter-runbook
+# Patch README — v3.0.59 V3 Approval Rehearsal Proof Checkpoint
 
 ## Purpose
 
-This is a commit-only documentation checkpoint for the next V3 automation phase.
-
-It documents:
-
-```text
-V3 live adapter runbook
-first live submit checklist
-rollback / emergency stop procedure
-automation phase status
-handoff and continuation prompt
-```
+This is a commit-only documentation checkpoint preserving the verified V3 closed-gate approval rehearsal proof.
 
 ## Files included
 
 ```text
 HANDOFF.md
 CONTINUE_PROMPT.md
-PATCH_README.md
-docs/V3_LIVE_ADAPTER_RUNBOOK.md
-docs/V3_FIRST_LIVE_SUBMIT_CHECKLIST.md
-docs/V3_ROLLBACK_AND_EMERGENCY_STOP.md
+docs/V3_APPROVAL_REHEARSAL_PROOF_CHECKPOINT.md
 docs/V3_AUTOMATION_PHASE_STATUS.md
+docs/V3_NEXT_PHASE_PLAN.md
+PATCH_README.md
 ```
 
-## Upload paths
+## Server upload
 
 No server upload required.
 
@@ -40,22 +29,20 @@ No SQL required.
 
 None.
 
-This package does not change PHP code, cron schedules, database schema, queue logic, V0, AADE, EDXEIX, or live-submit configuration.
+This package does not change PHP runtime code, cron schedules, database schema, queue logic, V0, AADE, EDXEIX, or live-submit config.
 
-## Verification
-
-Markdown/docs only. No PHP lint required.
-
-## Commit title
+## Recommended commit title
 
 ```text
-Document V3 live adapter runbook
+Document V3 closed-gate approval rehearsal proof
 ```
 
-## Commit description
+## Recommended commit description
 
 ```text
-Adds a V3 live adapter runbook, first-live-submit checklist, rollback/emergency-stop procedure, automation phase status, handoff, and continuation prompt.
+Documents the verified V3 closed-gate approval rehearsal proof.
 
-This documents the path from the verified closed-gate adapter preparation state toward future live adapter implementation while preserving the safety boundary: V0 untouched, live submit disabled, no EDXEIX calls, no AADE changes, no queue mutation, no cron changes, and no SQL changes.
+The test proved that a fresh future-safe row reached live_submit_ready, operator approval was inserted with the required closed-gate rehearsal phrase, payload audit passed, local package export wrote artifacts, final rehearsal blocked only on master-gate controls, and closed-gate adapter diagnostics confirmed selected_row_valid=yes.
+
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission table writes, cron schedules, or SQL schema are changed.
 ```

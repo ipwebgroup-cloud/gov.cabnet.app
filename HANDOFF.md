@@ -1,137 +1,119 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX V3 Automation
+# HANDOFF — gov.cabnet.app V3 Automation
 
-Version: `v3.0.57-v3-live-adapter-runbook`
+You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
 ## Project identity
 
-- Domain: `https://gov.cabnet.app`
-- Repo: `https://github.com/ipwebgroup-cloud/gov.cabnet.app`
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Do not introduce Composer, Node, frameworks, or heavy dependencies unless Andreas explicitly approves.
+- Domain: https://gov.cabnet.app
+- GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
+- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
+- Server layout:
+  - `/home/cabnet/public_html/gov.cabnet.app`
+  - `/home/cabnet/gov.cabnet.app_app`
+  - `/home/cabnet/gov.cabnet.app_config`
+  - `/home/cabnet/gov.cabnet.app_sql`
+  - `/home/cabnet/tools/firefox-edxeix-autofill-helper`
 
-## Server layout
+## Operational boundary
 
-```text
-/home/cabnet/public_html/gov.cabnet.app
-/home/cabnet/gov.cabnet.app_app
-/home/cabnet/gov.cabnet.app_config
-/home/cabnet/gov.cabnet.app_sql
-/home/cabnet/tools/firefox-edxeix-autofill-helper
-```
+- V0 is the laptop/manual production helper. Do not touch V0 or its dependencies unless Andreas explicitly asks.
+- V3 is the server/PC automation path.
+- Live submit remains disabled.
+- No EDXEIX live call is allowed unless Andreas explicitly asks for a live-submit update.
+- No AADE changes are part of this phase.
 
-## Critical boundary
+## Current verified V3 state
 
-```text
-V0 laptop/manual helper: production fallback, untouched by V3 patches.
-V3 PC/server automation: development path.
-Live EDXEIX submit: disabled.
-```
-
-## Verified V3 milestone
-
-V3 readiness pipeline was proven with a forwarded Gmail/Bolt-style pre-ride email.
-
-Proof row:
+As of `v3.0.59-v3-approval-rehearsal-proof-checkpoint`:
 
 ```text
-queue_id: 56
-customer: Arnaud BAGORO
-driver: Filippos Giannakopoulos
-vehicle: EHA2545
-lessor_id: 3814
-driver_id: 17585
-vehicle_id: 5949
-starting_point_id: 6467495
-historically reached: live_submit_ready
-payload audit: PAYLOAD-READY
-package export: artifacts written
-current status: blocked after expiry
+V3 readiness pipeline: proven
+Forwarded/future email intake: proven
+Parser/mapping/future guard: proven
+Starting-point verification: proven
+submit_dry_run_ready: proven
+live_submit_ready: proven
+Payload audit: proven
+Final rehearsal gate block: proven
+Local package export: proven
+Operator approval workflow: proven
+Closed-gate diagnostics: proven
+Future adapter skeleton: installed but not live-capable
+Adapter contract probe: proven
+Live EDXEIX submit: disabled
+V0: untouched
 ```
 
-Proven path:
+## Important proof rows
+
+### Row 418
 
 ```text
-forwarded Gmail email
-→ server mailbox
-→ V3 intake
-→ parser
-→ mapping
-→ future-safe guard
-→ starting-point guard
-→ submit_dry_run_ready
-→ live_submit_ready
-→ payload audit
-→ final rehearsal blocked by master gate
-→ package export
+queue_status: live_submit_ready during test
+customer: Marina Ganejeva
+driver: Efthymios Giakis
+vehicle: ITK7702
+lessor_id: 2307
+driver_id: 17852
+vehicle_id: 11187
+starting_point_id: 1455969
+approval: inserted for closed_gate_rehearsal_only
+payload audit: OK
+package export: OK
+final rehearsal: blocked only by master gate
 ```
 
-## Current gate state
+### Row 56
 
-Expected safe state:
+Historical forwarded-email proof row. Reached `live_submit_ready`, then expired/blocked safely after pickup time passed.
+
+## Critical data facts
+
+For lessor `2307`:
 
 ```text
-enabled=no
-mode=disabled
-adapter=disabled
-hard_enable_live_submit=no
-ok_for_live_submit=no
+1455969 = ΧΩΡΑ ΜΥΚΟΝΟΥ
+9700559 = ΕΠΑΝΩ ΔΙΑΚΟΦΤΗΣ
 ```
 
-## Recent installed/verified phase items
+For lessor `3814`:
 
 ```text
-v3.0.52 live package export: verified
-v3.0.53 operator approval visibility: verified
-v3.0.54 closed-gate adapter diagnostics: verified
-v3.0.55 future adapter skeleton: verified
-v3.0.56 adapter contract probe: verified
-v3.0.57 live adapter runbook: documentation checkpoint
+6467495 = ΕΔΡΑ ΜΑΣ, Δήμος Μυκόνου, Περιφερειακή Ενότητα Μυκόνου, Περιφέρεια Νοτίου Αιγαίου, Αποκεντρωμένη Διοίκηση Αιγαίου, 846 00, Ελλάδα
 ```
 
-## Current next recommended work
-
-Proceed toward automation using closed-gate safeguards:
+## Current important pages
 
 ```text
-v3.0.58-v3-live-adapter-result-envelope
-v3.0.59-v3-live-adapter-evidence-artifacts
-v3.0.60-v3-operator-approval-write-scaffold-closed
-v3.0.61-v3-final-prelive-dry-run-test
+/ops/pre-ride-email-v3-dashboard.php
+/ops/pre-ride-email-v3-monitor.php
+/ops/pre-ride-email-v3-proof.php
+/ops/pre-ride-email-v3-queue-focus.php
+/ops/pre-ride-email-v3-pulse-focus.php
+/ops/pre-ride-email-v3-readiness-focus.php
+/ops/pre-ride-email-v3-storage-check.php
+/ops/pre-ride-email-v3-live-package-export.php
+/ops/pre-ride-email-v3-operator-approvals.php
+/ops/pre-ride-email-v3-operator-approval-workflow.php
+/ops/pre-ride-email-v3-closed-gate-adapter-diagnostics.php
+/ops/pre-ride-email-v3-adapter-contract-probe.php
 ```
 
-Do not enable live submit yet.
+## Next safest step
 
-## Useful commands
+Build `v3.0.60-v3-live-adapter-kill-switch-check`.
 
-Storage check:
+Scope:
 
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
+```text
+read-only CLI + Ops page
+prove whether live submit could run now
+show every block reason
+no live-submit enabling
+no EDXEIX call
+no AADE call
+no queue mutation
+no SQL schema change
+no V0 changes
 ```
-
-Pulse health:
-
-```bash
-tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline_pulse.log | egrep "cron start|ERROR|Pulse summary|finish exit_code" || true
-```
-
-Closed-gate diagnostics:
-
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_closed_gate_adapter_diagnostics.php"
-```
-
-Adapter contract probe:
-
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_contract_probe.php"
-```
-
-## Safety rules
-
-- Do not request or expose credentials.
-- Do not submit expired, historical, terminal, cancelled, invalid, or exempt rows.
-- EMT8640 remains permanently exempt.
-- Do not run the pulse cron worker as root.
-- Do not change V0 laptop/manual production helper files.
-- Do not enable live submit without explicit Andreas approval.
