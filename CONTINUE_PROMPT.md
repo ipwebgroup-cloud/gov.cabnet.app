@@ -1,6 +1,6 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from v3.0.42.
+Continue from v3.0.43.
 
 Current state:
 - V0 is installed on the laptop and remains the manual/production helper. Do not touch V0 files or dependencies.
@@ -10,6 +10,7 @@ Current state:
 - V3 pulse cron is healthy and logs cycles_run=5 ok=5 failed=0 exit_code=0.
 - V3 compact monitor is installed at /ops/pre-ride-email-v3-monitor.php.
 - V3 queue focus is installed at /ops/pre-ride-email-v3-queue-focus.php.
+- V3 pulse focus is installed at /ops/pre-ride-email-v3-pulse-focus.php.
 - Live EDXEIX submit remains disabled.
 
 Critical rules:
