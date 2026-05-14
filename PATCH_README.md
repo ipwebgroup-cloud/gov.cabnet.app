@@ -1,24 +1,14 @@
-# v3.0.45-v3-ops-home-integration
+# Patch v3.0.46 — Ops Index V3 Entry
 
 ## What changed
 
-This patch updates the V3 Control Center so it clearly points to the verified V3 visibility pages:
-
-- Compact Monitor
-- Queue Focus
-- Pulse Focus
-- Readiness Focus
-- Storage Check
-- Locked Submit Gate
-
-It also updates the shared Ops navigation and continuity docs.
+Updates the main Operations Console index so it clearly points to the verified V3 monitoring pages.
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/_ops-nav.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-docs/V3_OPS_HOME_INTEGRATION.md
+public_html/gov.cabnet.app/ops/index.php
+docs/V3_OPS_INDEX_ENTRY.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -27,14 +17,11 @@ PATCH_README.md
 ## Upload paths
 
 ```text
-public_html/gov.cabnet.app/ops/_ops-nav.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+public_html/gov.cabnet.app/ops/index.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/index.php
 ```
 
-Keep docs in the local GitHub Desktop repo unless intentionally publishing docs.
+Keep docs in the local GitHub Desktop repo.
 
 ## SQL
 
@@ -43,8 +30,7 @@ No SQL required.
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/index.php
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
 
@@ -54,17 +40,44 @@ tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline
 ## Verification URL
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+https://gov.cabnet.app/ops/index.php
 ```
 
 ## Expected result
 
-- V3 Control Center loads.
-- Verified focus pages are clearly linked.
-- V0 remains untouched.
-- Live submit remains disabled.
-- No SQL or DB writes are introduced.
+The Ops Index loads and links to:
 
-## Safety
+```text
+V3 Control Center
+Compact Monitor
+Queue Focus
+Pulse Focus
+Readiness Focus
+Storage Check
+```
 
-This is a UI/navigation patch only. It does not call Bolt, EDXEIX, or AADE. It does not modify V0, cron behavior, queue mutation logic, or schema.
+Safety posture remains:
+
+```text
+V0 untouched
+V3 only
+Live submit disabled
+No EDXEIX calls
+No AADE calls
+No DB writes from this page
+No SQL changes
+```
+
+## Commit title
+
+```text
+Add V3 entry links to Ops index
+```
+
+## Commit description
+
+```text
+Updates the main Operations Console index to provide a coherent V3 entry point linking the verified V3 Control Center, Compact Monitor, Queue Focus, Pulse Focus, Readiness Focus, and Storage Check pages.
+
+This is a V3-only UI/navigation patch. It does not touch V0 laptop/manual production helper files, V0 dependencies, live-submit behavior, EDXEIX calls, AADE behavior, queue mutation logic, cron behavior, or SQL schema.
+```

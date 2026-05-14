@@ -1,66 +1,35 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app V3 Ops Monitoring
 
-Updated through: v3.0.45-v3-ops-home-integration
+Current verified state after `v3.0.46-ops-index-v3-entry`:
 
-## Project identity
+- V0 laptop/manual production helper remains untouched.
+- V3 server-side monitoring path is active.
+- Live EDXEIX submission remains disabled.
+- Pulse cron is healthy as the `cabnet` user.
+- Pulse lock file is verified as `cabnet:cabnet` with `0660` permissions.
+- V3 storage check is OK.
+- `/ops/index.php` now clearly links the verified V3 monitoring pages.
 
-- Domain: https://gov.cabnet.app
-- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow
-- Server layout:
-  - `/home/cabnet/public_html/gov.cabnet.app`
-  - `/home/cabnet/gov.cabnet.app_app`
-  - `/home/cabnet/gov.cabnet.app_config`
-  - `/home/cabnet/gov.cabnet.app_sql`
-  - `/home/cabnet/tools/firefox-edxeix-autofill-helper`
+Verified V3 pages:
 
-## Current operating boundary
-
-- V0 is installed on the laptop and remains the manual/production helper path.
-- V3 is installed on the PC/server and remains the development/automation path.
-- Do not touch V0 production helper files or dependencies unless Andreas explicitly asks.
-- Live EDXEIX submit remains disabled.
-
-## Current verified V3 posture
-
-- V3 storage check as `cabnet`: OK.
-- Pulse lock file: OK.
-- Pulse lock owner/group: `cabnet:cabnet`.
-- Pulse lock perms: `0660`.
-- Pulse cron is healthy:
-  - `cycles_run=5`
-  - `ok=5`
-  - `failed=0`
-  - `finish exit_code=0`
-- V3 queue currently has only previous blocked rows; wait for a new future-safe Bolt pre-ride email for the next real proof.
-
-## Important V3 pages
-
-- V3 Control Center: `/ops/pre-ride-email-v3-dashboard.php`
-- V3 Compact Monitor: `/ops/pre-ride-email-v3-monitor.php`
-- V3 Queue Focus: `/ops/pre-ride-email-v3-queue-focus.php`
-- V3 Pulse Focus: `/ops/pre-ride-email-v3-pulse-focus.php`
-- V3 Readiness Focus: `/ops/pre-ride-email-v3-readiness-focus.php`
-- V3 Storage Check: `/ops/pre-ride-email-v3-storage-check.php`
-- Queue Watch: `/ops/pre-ride-email-v3-queue-watch.php`
-- Pulse Runner: `/ops/pre-ride-email-v3-fast-pipeline-pulse.php`
-
-## Recent verified patches
-
-- v3.0.39 — V3 storage check and V0/V3 boundary docs.
-- v3.0.40 — Pulse lock owner hardening.
-- v3.0.41 — V3 compact monitor.
-- v3.0.42 — V3 queue focus.
-- v3.0.43 — V3 pulse focus.
-- v3.0.44 — V3 readiness focus.
-- v3.0.45 — V3 Control Center integration with verified focus pages.
-
-## Operator rule
-
-Do not manually test the V3 pulse cron worker as root. Use:
-
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-dashboard.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-monitor.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-queue-focus.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-pulse-focus.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-readiness-focus.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-storage-check.php
 ```
 
-For live operations, Andreas uses judgment. V3 must provide visibility only unless explicitly approved otherwise.
+Main Ops entry:
+
+```text
+https://gov.cabnet.app/ops/index.php
+```
+
+Safety boundary:
+
+- Do not touch V0 production helper unless Andreas explicitly asks.
+- Do not enable live EDXEIX submission.
+- Keep V3 changes read-only/visibility-first unless explicitly approved.
+- Manual pulse cron-worker testing should be done as `cabnet`, not root.
