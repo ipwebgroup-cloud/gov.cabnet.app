@@ -1,41 +1,42 @@
 # HANDOFF — gov.cabnet.app V3 Automation
 
-Current checkpoint: v3.0.61-v3-kill-switch-table-exists-fix
+## Latest patch
 
-## Verified context
+v3.0.62-v3-kill-switch-approval-alignment
 
-The V3 readiness and closed-gate approval path has been proven:
+## Current verified state before this patch
 
-- Forwarded/server mailbox intake works.
-- V3 parser, mapping, future guard, starting-point guard, dry-run readiness, and live-readiness path reached `live_submit_ready`.
-- Payload audit passed.
-- Local live package export wrote artifacts.
-- Operator approval workflow inserted a valid closed-gate approval for row 418.
-- Final rehearsal for row 418 was blocked only by master-gate controls.
-- Closed-gate diagnostics confirmed selected row approval was valid.
-- Future real adapter skeleton exists and adapter contract probe confirms it remains non-live-capable.
+- V3 readiness pipeline proven.
+- V3 approval workflow proven.
+- Row 427 reached live_submit_ready.
+- Row 427 approval inserted with required phrase.
+- Payload package export succeeded.
+- Final rehearsal for row 427 blocked only by master gate controls.
+- Kill-switch checker was operational after v3.0.61, but its approval query reported no valid approval even though final rehearsal accepted the approval.
 
-## Latest fix
+## Patch purpose
 
-v3.0.60 kill-switch checker failed on the live server with:
+Add a V3-only fixer script to align the kill-switch checker approval validation with final rehearsal approval validation.
 
-```text
-SQL syntax error near '?'
-```
+## Safety
 
-Cause: `SHOW TABLES LIKE ?` was not accepted reliably by live MariaDB prepared statements.
-
-v3.0.61 replaces that table existence check with a prepared `INFORMATION_SCHEMA.TABLES` query.
-
-## Safety state
-
-- V0 laptop/manual helper untouched.
-- Live EDXEIX submit disabled.
-- No AADE changes.
-- No cron changes.
+- No V0 changes.
+- No live submit enabling.
+- No EDXEIX calls.
+- No AADE calls.
+- No DB writes from the fixer.
+- No queue mutation.
 - No SQL schema changes.
-- No production submission table writes.
+- No cron changes.
 
-## Next
+## Next verification
 
-Verify v3.0.61, then continue toward V3 automation with the live adapter kill-switch as the formal pre-live switchboard. The expected result is still `OK: no` because the live-submit master gate is intentionally closed.
+Run:
+
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php --check"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php --apply"
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php --queue-id=427"
+```

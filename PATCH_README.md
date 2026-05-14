@@ -1,22 +1,26 @@
-# Patch: v3.0.61-v3-kill-switch-table-exists-fix
+# PATCH README — v3.0.62 V3 Kill-Switch Approval Alignment
 
 ## What changed
 
-Fixes the V3 live adapter kill-switch checker table-existence query.
+Adds a V3-only maintenance script:
 
-The previous checker used:
-
-```sql
-SHOW TABLES LIKE ?
+```text
+gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php
 ```
 
-The live server returned a MariaDB syntax error near `?`. The checker now uses `INFORMATION_SCHEMA.TABLES` with a prepared parameter.
+The script patches:
+
+```text
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
+```
+
+to align approval validation with the final rehearsal approval logic.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
-docs/V3_KILL_SWITCH_TABLE_EXISTS_FIX.md
+gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php
+docs/V3_KILL_SWITCH_APPROVAL_ALIGNMENT.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
@@ -25,11 +29,11 @@ PATCH_README.md
 ## Upload path
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
+gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php
+→ /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php
 ```
 
-Docs go into the local GitHub Desktop repo.
+Docs go in the local GitHub Desktop repo.
 
 ## SQL
 
@@ -38,17 +42,41 @@ No SQL required.
 ## Verification
 
 ```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php --check"
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/fix_v3_kill_switch_approval_alignment.php --apply"
+
 php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php"
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php --json"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_adapter_kill_switch_check.php --queue-id=427"
 ```
 
 ## Expected result
 
-The checker should run and return `OK: no` because the live-submit gate is still intentionally closed. It should not show a SQL syntax error.
+Approval should report valid for a still-valid approved row.
 
-## Safety
+The overall kill-switch should still report:
 
-No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission tables, cron schedules, or SQL schema are changed.
+```text
+OK: no
+```
+
+because the live-submit master gate remains closed.
+
+## Commit title
+
+```text
+Align V3 kill-switch approval validation
+```
+
+## Commit description
+
+```text
+Adds a V3-only maintenance script to align the live adapter kill-switch checker approval validation with the final rehearsal approval logic.
+
+The final rehearsal accepted row 427's closed-gate rehearsal approval, but the kill-switch checker still reported no valid approval. The patch updates the checker approval logic to use queue_id or dedupe_key, SQL-side expiry validation, approved/valid/active statuses, closed_gate_rehearsal_only scope, and revoked checks.
+
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission table writes, cron schedules, or SQL schema are changed.
+```
