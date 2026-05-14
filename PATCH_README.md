@@ -1,16 +1,27 @@
-# v3.0.64 — V3 Pre-Live Switchboard Ops 500 Hotfix
+# Patch README — v3.0.65 V3 Pre-Live Switchboard Web Direct DB Fix
 
-## Upload
+## What changed
 
-Upload:
+Updates only the Ops web page:
 
-`public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php`
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
+```
 
-To:
+The page no longer depends on `shell_exec`, `exec`, or any local command runner. It reads the same V3 state directly from the database/config in read-only mode.
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php`
+## Upload path
 
-## Verify
+```text
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
+```
+
+## SQL
+
+No SQL required.
+
+## Verification
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
@@ -18,8 +29,18 @@ php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-pre-live-sw
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_pre_live_switchboard.php --json"
 ```
 
-Open:
+Then open:
 
-`https://gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php`
+```text
+https://gov.cabnet.app/ops/pre-ride-email-v3-pre-live-switchboard.php
+```
 
-Expected: page loads and shows live-submit blocked. No EDXEIX/AADE calls.
+## Expected result
+
+The page loads and shows V3 state without command-runner errors.
+
+Live submit remains blocked.
+
+## Safety
+
+No V0 changes. No EDXEIX call. No AADE call. No DB writes. No queue mutation. No production submission tables. No cron changes.
