@@ -1,32 +1,27 @@
-# Patch v3.0.52 — V3 Live Package Export
+# Patch README — v3.0.53-v3-operator-approval-visibility
 
-## What changed
+## Summary
 
-Adds a V3-only CLI and read-only Ops page for exporting local live-submit package artifacts from a V3 proof row.
+Adds a V3-only read-only operator approval visibility page.
 
 ## Files included
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
-docs/V3_LIVE_PACKAGE_EXPORT.md
-docs/V3_EDXEIX_LIVE_ADAPTER_FIELD_MAP.md
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
+docs/V3_OPERATOR_APPROVAL_VISIBILITY.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
-
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
+public_html/gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
+→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
 ```
 
-Docs go into the local GitHub Desktop repo.
+Docs are intended for the local GitHub Desktop repo.
 
 ## SQL
 
@@ -35,44 +30,45 @@ No SQL required.
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php --queue-id=56 --allow-historical-proof"
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_storage_check.php"
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_live_package_export.php --queue-id=56 --allow-historical-proof --write"
-
-ls -la /home/cabnet/gov.cabnet.app_app/storage/artifacts/v3_live_submit_packages/ | tail
+tail -n 120 /home/cabnet/gov.cabnet.app_app/logs/pre_ride_email_v3_fast_pipeline_pulse.log | egrep "cron start|ERROR|Pulse summary|finish exit_code" || true
 ```
 
 ## Verification URL
 
 ```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-live-package-export.php
+https://gov.cabnet.app/ops/pre-ride-email-v3-operator-approvals.php
 ```
 
 ## Expected result
 
-- CLI dry-run previews the package.
-- CLI `--write` creates local JSON/TXT artifacts only.
-- Ops page loads and shows the exact command.
-- No EDXEIX call.
-- No AADE call.
-- No queue status change.
-- V0 untouched.
+The page loads and shows:
 
-## Git commit title
+- approval table exists/missing
+- approval records if present
+- queue rows and approval linkage
+- master gate state
+- gate block reasons
+
+## Safety
+
+No Bolt call, no EDXEIX call, no AADE call, no DB writes, no production submission tables, no V0 changes, no SQL changes, and no live-submit enabling.
+
+## Commit title
 
 ```text
-Add V3 live package export
+Add V3 operator approval visibility
 ```
 
-## Git commit description
+## Commit description
 
 ```text
-Adds a V3-only local live package exporter and read-only Ops page for closed-gate live adapter preparation.
+Adds a V3-only read-only operator approval visibility page for inspecting approval table state, latest approval records, queue rows, and closed master gate blocks.
 
-The exporter builds payload, EDXEIX field, and safety report artifacts under storage/artifacts/v3_live_submit_packages without calling EDXEIX, calling AADE, changing queue status, writing production submission tables, or touching V0.
+This prepares the operator approval layer for the closed-gate live adapter preparation phase.
 
-Also documents the V3-to-EDXEIX field map and updates handoff/continuation notes.
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, queue status changes, production submission tables, cron schedules, or SQL schema are changed.
 ```
