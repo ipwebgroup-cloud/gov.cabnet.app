@@ -1,53 +1,81 @@
-# HANDOFF — gov.cabnet.app V3 automation
+# HANDOFF.md — gov.cabnet.app V3 Adapter Simulation Proof Checkpoint
 
-## Current status
+Project: gov.cabnet.app Bolt → EDXEIX bridge  
+Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow  
+Safety posture: V3-only, closed-gate, read-only/proof-first. V0 remains untouched.
 
-V3 closed-gate automation path has been proven through:
+## Current verified state
 
-- email intake
-- V3 queue creation
-- starting-point guard
-- submit dry-run readiness
-- live-submit readiness
-- payload audit
-- local package export
-- operator approval workflow
-- final rehearsal
-- kill-switch checker
-- pre-live switchboard
-- future adapter skeleton
-- adapter contract probe
+V3 automation has proven the full closed-gate path:
 
-Live submit remains disabled.
+- pre-ride email intake works
+- parser/mapping works
+- starting-point guard works
+- submit dry-run readiness works
+- live-submit readiness works
+- payload audit works
+- package export works
+- operator approval workflow works
+- final rehearsal accepts valid approval then blocks on master gate
+- kill-switch checker works and aligns approval validation
+- pre-live switchboard works in browser using direct DB/config renderer
+- future EDXEIX adapter skeleton exists and remains non-live-capable
+- adapter row simulation works and is safe
 
-V0 remains untouched.
+## Latest verified milestone: v3.0.67 adapter row simulation
 
-## Latest patch
+Verified command output showed:
 
-`v3.0.67-v3-adapter-row-simulation`
+- `Simulation safe: yes`
+- `OK: yes`
+- `Adapter simulation: class_exists=yes instantiated=yes live_capable=no submitted=no safe=yes`
+- adapter message: skeleton present, real EDXEIX submission not implemented/enabled
+- no Bolt call
+- no EDXEIX call
+- no AADE call
+- no DB writes
+- no queue status changes
+- no production submission table writes
+- V0 untouched
 
-Adds a read-only simulation layer that builds an EDXEIX field package from a real V3 queue row and calls the local `EdxeixLiveSubmitAdapterV3` skeleton.
+The simulation selected row `427`, which was already expired/blocked by the time of the test. That is acceptable because the objective was to prove the adapter skeleton can be called with a real local V3 row package while remaining non-live-capable and returning `submitted=false`.
 
-Expected safe result:
+## Key current routes
 
-```text
-submitted=false
-isLiveCapable=false
-simulation_safe=yes
-```
+- `/ops/pre-ride-email-v3-pre-live-switchboard.php`
+- `/ops/pre-ride-email-v3-adapter-row-simulation.php`
+- `/ops/pre-ride-email-v3-live-adapter-kill-switch-check.php`
+- `/ops/pre-ride-email-v3-proof.php`
+- `/ops/pre-ride-email-v3-operator-approval-workflow.php`
+- `/ops/pre-ride-email-v3-live-package-export.php`
 
-## New URLs
+## Critical safety rules
 
-```text
-https://gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
-```
+Do not enable live submit unless Andreas explicitly requests a live-submit update.
 
-## New CLI
+Live submission must remain blocked unless all are true:
 
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
-```
+- real eligible future Bolt trip exists
+- row is `live_submit_ready`
+- pickup is sufficiently future-safe
+- payload is complete
+- starting point is operator-verified
+- package export exists
+- operator approval is valid
+- master config has `enabled=true`
+- mode is `live`
+- adapter is `edxeix_live`
+- `hard_enable_live_submit=true`
+- required acknowledgement phrase is present
+- adapter is truly live-capable
+- Andreas explicitly approves opening the gate
 
-## Safety boundary
+## Next safest step
 
-No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No production submission tables. V0 untouched.
+Prepare v3.0.69: a dry-run adapter harness that compares:
+
+1. package export payload,
+2. adapter simulation payload,
+3. final rehearsal payload expectations,
+
+and confirms all hashes/fields match, without making external calls or writes.

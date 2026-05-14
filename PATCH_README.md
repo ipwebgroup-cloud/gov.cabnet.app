@@ -1,72 +1,58 @@
-# Patch README — v3.0.67 V3 Adapter Row Simulation
+# PATCH_README.md — v3.0.68 Adapter Simulation Proof Checkpoint
 
-## What changed
+## Type
 
-Adds a V3-only read-only adapter row simulation CLI and Ops page.
+Commit-only documentation checkpoint.
 
-The simulation builds a final EDXEIX field package from a real V3 queue row and calls the local future adapter skeleton. The adapter must remain non-live-capable and return `submitted=false`.
+## What this records
+
+This checkpoint preserves the verified v3.0.67 adapter row simulation proof.
+
+The verified output showed:
+
+- `Simulation safe: yes`
+- `OK: yes`
+- future adapter skeleton class exists
+- future adapter skeleton instantiated
+- `is_live_capable = false`
+- `submitted = false`
+- no external EDXEIX call
+- no AADE call
+- no DB writes
+- no queue status changes
+- V0 untouched
 
 ## Files included
 
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
-docs/V3_ADAPTER_ROW_SIMULATION.md
-docs/V3_AUTOMATION_NEXT_STEPS.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
+- `docs/V3_ADAPTER_SIMULATION_PROOF_CHECKPOINT.md`
+- `docs/V3_AUTOMATION_PHASE_STATUS.md`
+- `docs/V3_NEXT_PHASE_PLAN.md`
 
-## Upload paths
+## Server upload
 
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
-→ /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
+No server upload required.
 
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
-→ /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
-```
-
-Docs remain in the local GitHub Desktop repo.
+Extract into the local GitHub Desktop repo root and commit.
 
 ## SQL
 
 No SQL required.
 
-## Verification
+## Runtime changes
 
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-adapter-row-simulation.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php"
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_adapter_row_simulation.php --json"
-```
-
-Expected:
-
-```text
-Simulation safe: yes
-submitted=false
-live_capable=no
-No EDXEIX call
-No AADE call
-V0 untouched
-```
+None.
 
 ## Commit title
 
-```text
-Add V3 adapter row simulation
-```
+Document V3 adapter simulation proof
 
 ## Commit description
 
-```text
-Adds a V3-only read-only adapter row simulation CLI and Ops page.
+Documents the verified V3 adapter row simulation proof.
 
-The simulation selects a real V3 queue row, builds the final EDXEIX field package, and calls the local future EDXEIX adapter skeleton. It confirms the adapter remains non-live-capable and returns submitted=false.
+The simulation selected a real V3 queue row, built the final EDXEIX field package, and called the local future EDXEIX adapter skeleton. The skeleton instantiated successfully, remained non-live-capable, returned submitted=false, and confirmed no real EDXEIX submission is implemented or enabled.
 
-No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, DB writes, queue status changes, production submission table writes, cron schedules, or SQL schema are changed.
-```
+No V0 files, live-submit enabling, EDXEIX calls, AADE behavior, DB writes, queue status changes, production submission table writes, cron schedules, SQL schema, or runtime PHP code are changed.

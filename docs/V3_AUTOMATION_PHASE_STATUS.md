@@ -1,38 +1,39 @@
 # V3 Automation Phase Status
 
-Version: v3.0.66-v3-real-adapter-design-spec
+## Proven
 
-## Verified completed
+- V3 queue intake
+- V3 parser and mapping
+- V3 starting-point guard
+- V3 submit dry-run readiness
+- V3 live-submit readiness
+- V3 payload audit
+- V3 package export
+- V3 operator approval workflow
+- V3 final rehearsal
+- V3 kill-switch check
+- V3 pre-live switchboard
+- V3 adapter contract probe
+- V3 adapter row simulation
 
-- V3 queue tables installed.
-- V3 intake cron/worker working.
-- V3 fast pipeline and pulse runner working.
-- Storage/locks/logs checks working.
-- Starting-point options verified for lessors 2307 and 3814.
-- Submit dry-run readiness working.
-- Live-submit readiness working.
-- Payload audit working.
-- Local package export working.
-- Operator approval workflow working.
-- Final rehearsal accepts approval and blocks on master gate.
-- Closed-gate adapter diagnostics working.
-- Adapter contract probe working.
-- Future adapter skeleton present and non-live-capable.
-- Kill-switch checker working and approval-aligned.
-- Pre-live switchboard CLI working.
-- Pre-live switchboard Ops page working via direct DB/config renderer.
+## Still intentionally blocked
 
-## Current blocked state
+- live EDXEIX submission
+- live adapter capability
+- master gate opening
+- production submission table writes
 
-Live submit is intentionally blocked by:
+## Master gate remains closed
+
+Current intended state:
 
 ```text
-enabled=false
-mode=disabled
-adapter=disabled / not edxeix_live
-hard_enable_live_submit=false
+enabled = false
+mode = disabled
+adapter = disabled
+hard_enable_live_submit = false
 ```
 
-## Current development recommendation
+## V0 status
 
-Proceed to adapter validation/simulation only. Do not implement real network submit behavior until Andreas explicitly approves a live-submit development phase.
+V0 production/helper workflow remains untouched.

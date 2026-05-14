@@ -1,77 +1,41 @@
 # V3 Next Phase Plan
 
-Current version checkpoint: `v3.0.59-v3-approval-rehearsal-proof-checkpoint`
+## Next recommended patch
 
-## Immediate next patch
-
-```text
-v3.0.60-v3-live-adapter-kill-switch-check
-```
+`v3.0.69-v3-adapter-payload-consistency-harness`
 
 ## Purpose
 
-Before any real EDXEIX adapter behavior is implemented, add a formal read-only kill-switch/pre-live check that verifies every required live-submit condition.
+Create a read-only comparison harness that checks whether the same final EDXEIX field package is produced consistently by:
 
-The page/CLI should answer one question:
+1. package export,
+2. adapter row simulation,
+3. final rehearsal preparation.
 
-```text
-Could V3 live submit run right now?
-```
+## Required behavior
 
-Expected answer until explicit future approval:
+The harness should:
 
-```text
-No.
-```
+- select a V3 row
+- build the EDXEIX field package
+- compute SHA-256 hashes
+- compare required field keys
+- show missing/different fields
+- show package artifact count
+- show final block reasons
+- remain read-only
 
-## Required checks
+## Safety boundary
 
-The kill-switch check should require all of the following before returning OK:
+The patch must not:
 
-```text
-config file exists and loads
-enabled = true
-mode = live
-adapter = edxeix_live
-hard_enable_live_submit = true
-required acknowledgement phrase present
-selected queue row = live_submit_ready
-pickup time is future-safe
-row is not blocked / submitted / expired
-operator approval exists and is valid
-operator approval has not expired
-operator approval has not been revoked
-starting point is verified for the lessor
-payload audit passes
-package export exists or can be generated
-adapter class exists
-adapter class is live-capable
-adapter contract check passes
-V0 untouched
-```
-
-## Required negative behavior
-
-If any condition is missing, the check must show explicit block reasons and make no changes.
-
-```text
-No EDXEIX call
-No AADE call
-No queue status change
-No production submission table write
-No config write
-No V0 changes
-No SQL schema changes
-```
-
-## Future phase after kill-switch
-
-Only after the kill-switch is installed and proven closed:
-
-```text
-v3.0.61-v3-real-adapter-design-doc
-v3.0.62-v3-real-adapter-non-network-dry-run-scaffold
-v3.0.63-v3-real-adapter-server-only-disabled-config-support
-```
-
-Actual live-submit enabling remains out of scope until Andreas explicitly approves a live-submit update.
+- call Bolt
+- call EDXEIX
+- call AADE
+- write DB rows
+- change queue status
+- write production submission tables
+- touch V0
+- enable live submit
+- change SQL
+- change cron schedules
