@@ -1,12 +1,10 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge project from v3.0.88.
 
-Current milestone: v3.0.87 public utility reference cleanup phase 1.
+The latest patch added a read-only Public Utility Reference Cleanup Phase 2 Preview. It scans remaining references to guarded public-root utility endpoints and separates actionable references from inventory/audit/planner references.
 
-The goal is live-site audit, tidy-up, and de-bloat without changing the production pre-ride tool or enabling live EDXEIX submission.
-
-Production pre-ride tool remains untouched:
-`/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
-
-v3.0.87 updates selected legacy ops pages and docs to stop pointing operators directly at guarded public-root utility endpoints. It points them to `/ops/public-utility-relocation-plan.php` and `/ops/public-route-exposure-audit.php` instead. No endpoints were moved or deleted.
-
-Continue with read-only/no-delete cleanup and rerun planner checks before any relocation.
+Critical rules:
+- Do not enable live EDXEIX submission.
+- Do not move or delete routes yet.
+- Do not change SQL.
+- Keep /ops/pre-ride-email-tool.php untouched unless Andreas explicitly requests a production hotfix.
+- Use no-break cleanup: docs and ops/admin links first, compatibility wrappers later, route removal only after explicit approval and quiet-period evidence.

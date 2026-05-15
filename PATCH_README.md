@@ -1,28 +1,24 @@
-# gov.cabnet.app patch — v3.0.87 public utility reference cleanup phase 1
+# gov.cabnet.app Patch — v3.0.88 Public Utility Reference Cleanup Phase 2 Preview
 
 ## What changed
 
-No-delete reference cleanup for legacy guarded public-root utility endpoints.
+Adds a read-only Phase 2 preview scanner that identifies remaining actionable references to guarded public-root utility endpoints while ignoring route inventory, audit, and planner references.
 
-The patch updates selected legacy ops pages and docs so direct operator/documentation references to old public-root utilities are replaced with links to the Public Utility Relocation Plan and Public Route Exposure Audit.
+## Files included
+
+- `gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php`
+- `public_html/gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php`
+- `docs/LIVE_PUBLIC_UTILITY_REFERENCE_CLEANUP_PHASE2_PREVIEW_20260515.md`
+- `PATCH_README.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
 ## Upload paths
 
-Upload these files:
-
 ```text
-/home/cabnet/public_html/gov.cabnet.app/ops/bolt-live.php
-/home/cabnet/public_html/gov.cabnet.app/ops/jobs.php
-/home/cabnet/public_html/gov.cabnet.app/ops/submit.php
-/home/cabnet/public_html/gov.cabnet.app/ops/test-booking.php
-/home/cabnet/public_html/gov.cabnet.app/ops/help.php
-/home/cabnet/public_html/gov.cabnet.app/ops/future-test.php
-/home/cabnet/docs/OPS_SITEMAP_V3.md
-/home/cabnet/docs/NOVICE_OPERATOR_GUIDE.md
-/home/cabnet/docs/DRY_RUN_TEST_BOOKING_HARNESS.md
+/home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php
+/home/cabnet/public_html/gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php
 ```
-
-If your server keeps docs only in the repository docs folder, place the docs there instead.
 
 ## SQL
 
@@ -31,24 +27,25 @@ None.
 ## Verification
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/bolt-live.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/jobs.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/submit.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/test-booking.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/help.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/future-test.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php
 
-curl -I --max-time 10 https://gov.cabnet.app/ops/bolt-live.php
-curl -I --max-time 10 https://gov.cabnet.app/ops/jobs.php
-curl -I --max-time 10 https://gov.cabnet.app/ops/submit.php
-curl -I --max-time 10 https://gov.cabnet.app/ops/test-booking.php
+curl -I --max-time 10 https://gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "cleanup_refs=".($j["summary"]["reference_cleanup_blocking_total"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php --json" \
+| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "actionable=".($j["summary"]["actionable_references"]??"?").PHP_EOL; echo "safe_phase2=".($j["summary"]["safe_phase2_candidates"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
 ```
 
-Expected unauthenticated curl result: `302 Found` to `/ops/login.php`.
+Expected: syntax clean, 302 auth redirect when unauthenticated, ok=true, final_blocks=[].
 
-## Safety
+## Commit title
 
-No production pre-ride tool changes. No route moves. No route deletion. No SQL. No live EDXEIX enablement.
+Add public utility Phase 2 reference preview
+
+## Commit description
+
+Adds a read-only Phase 2 preview scanner for remaining references to guarded public-root Bolt/EDXEIX utility endpoints.
+
+The scanner separates actionable docs/ops/private/public-root references from intentional inventory, audit, and planner references so future cleanup does not chase route inventory noise.
+
+No routes are moved or deleted. No SQL changes are made. No Bolt, EDXEIX, AADE, DB, or filesystem write actions are performed. Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.

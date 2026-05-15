@@ -1,14 +1,16 @@
-# HANDOFF — gov.cabnet.app v3.0.87 reference cleanup phase 1
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current safe state:
+Current continuation point: v3.0.88 adds a read-only Public Utility Reference Cleanup Phase 2 Preview.
 
-- Production pre-ride tool remains untouched.
-- V3 live EDXEIX submission remains disabled.
-- Public utility relocation planner is active and read-only.
-- v3.0.87 reduces operator/documentation links to legacy guarded public-root utilities.
-- No public-root utility endpoints were moved or deleted.
-- No SQL changes were made.
+Safety posture remains unchanged:
+- Live EDXEIX submission disabled.
+- No route moves or deletions.
+- No SQL changes.
+- Production pre-ride tool untouched.
+- V3 remains closed-gate.
 
-Next safest step:
+Use:
+- `/ops/public-utility-reference-cleanup-phase2-preview.php`
+- CLI: `/home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php --json`
 
-After deployment, rerun the relocation planner and compare cleanup reference counts. Continue with further no-delete reference cleanup only if needed.
+Next safest step: use the Phase 2 preview output to patch only docs and ops/admin links first. Do not move legacy public-root utilities until compatibility wrappers and dependency quiet-period checks are complete.
