@@ -26,7 +26,7 @@ if (is_file($builderFile)) {
     require_once $builderFile;
 }
 
-const GOV_HANDOFF_CENTER_VERSION = 'v3.0.76-v3-handoff-center-alignment';
+const GOV_HANDOFF_CENTER_VERSION = 'v3.0.78-v3-git-safe-db-audit-option';
 const GOV_HANDOFF_CURRENT_MILESTONE = 'v3.0.75 live adapter contract test production-verified';
 const GOV_HANDOFF_QUEUE_ID = 716;
 const GOV_HANDOFF_PAYLOAD_HASH = 'e784e788532fc57824a46dad90debec9d0ad5a24f94679538c37d1d164e9f472';
@@ -164,6 +164,7 @@ Handoff package rules:
 - /ops/handoff-center.php has two package modes:
   1. Private Operational ZIP: may include DATABASE_EXPORT.sql; admin-only; never commit to GitHub.
   2. Git-Safe Continuity ZIP: DB-free; admin-only; intended for local repo continuity review; validate before commit.
+  3. Git-Safe + DB Audit ZIP: includes DATABASE_EXPORT.sql but still scrubs runtime/session/proof artifacts; private audit only; never commit to GitHub.
 - Treat storage artifacts under /home/cabnet/gov.cabnet.app_app/storage/artifacts as private operational evidence. Do not include them in Git commits.
 - The grep output from storage/artifacts can include customer/trip/email data. Do not paste or commit raw artifacts unless intentionally sanitized.
 
@@ -191,7 +192,47 @@ Improve V3 closed-gate operator visibility and Git-safe package hygiene. Do not 
 TEXT;
 }
 
-function handoff_append_git_safe_zip_notice(string $zipPath): void
+function handoff_git_safe_zip_entry_is_unsafe(string $entryName, bool $allowDatabaseExport = false): bool
+{
+    $name = strtolower(str_replace('\\', '/', $entryName));
+    $base = basename($name);
+
+    if ($name === 'database_export.sql') {
+        return !$allowDatabaseExport;
+    }
+    if (str_starts_with($name, 'gov.cabnet.app_config/')) {
+        return true;
+    }
+    foreach ([
+        '/storage/artifacts/',
+        '/storage/runtime/',
+        '/storage/logs/',
+        '/storage/cache/',
+        '/storage/tmp/',
+        '/storage/temp/',
+        '/sessions/',
+        '/maildir/',
+        '/mail/',
+        '/handoff-packages/',
+    ] as $segment) {
+        if (str_contains('/' . $name, $segment)) {
+            return true;
+        }
+    }
+    if (preg_match('/\.(zip|tar|tgz|gz|bz2|7z|rar|log|bak|backup|old|tmp|swp|swo)$/i', $base)) {
+        return true;
+    }
+    if (preg_match('/\.(bak|backup|old|tmp)([._-]|$)/i', $base) || preg_match('/\.pre[_-]/i', $base)) {
+        return true;
+    }
+    if (preg_match('/(edxeix_session|cookie_header|csrf_token|xsrf-token|laravel_session|secret|credential|private_key|raw_dump|session_dump)/i', $entryName)) {
+        return true;
+    }
+
+    return false;
+}
+
+function handoff_append_git_safe_zip_notice(string $zipPath, bool $includeDatabaseExport = false): void
 {
     if (!class_exists(ZipArchive::class) || !is_file($zipPath) || !is_writable($zipPath)) {
         return;
@@ -202,27 +243,54 @@ function handoff_append_git_safe_zip_notice(string $zipPath): void
         return;
     }
 
-    if ($zip->locateName('DATABASE_EXPORT.sql') !== false) {
-        $zip->deleteName('DATABASE_EXPORT.sql');
+    $removed = [];
+    for ($i = $zip->numFiles - 1; $i >= 0; $i--) {
+        $stat = $zip->statIndex($i);
+        $name = is_array($stat) ? (string)($stat['name'] ?? '') : '';
+        if ($name !== '' && handoff_git_safe_zip_entry_is_unsafe($name, $includeDatabaseExport)) {
+            $removed[] = $name;
+            $zip->deleteName($name);
+        }
     }
 
-    $notice = <<<MD
-# Git-Safe Continuity Package Notice
+    sort($removed, SORT_STRING);
+    $removedText = $removed === []
+        ? '- No unsafe entries were found by the final Git-safe scrubber.'
+        : '- Final Git-safe scrubber removed these entries before download:' . "
+" . implode("
+", array_map(static fn(string $name): string => '  - `' . $name . '`', $removed));
 
-This package was built from `/ops/handoff-center.php` using DB-free mode.
+    $modeTitle = $includeDatabaseExport ? 'Git-Safe Structure + DB Audit Package Notice' : 'Git-Safe Continuity Package Notice';
+    $modeLine = $includeDatabaseExport
+        ? 'This package was built from `/ops/handoff-center.php` using Git-safe structure with `DATABASE_EXPORT.sql` included for private database audit.'
+        : 'This package was built from `/ops/handoff-center.php` using DB-free mode.';
+    $databaseLine = $includeDatabaseExport
+        ? '- `DATABASE_EXPORT.sql` is included. Treat this ZIP as private operational data and never commit it to GitHub.'
+        : '- `DATABASE_EXPORT.sql` is not included.';
+    $commitLine = $includeDatabaseExport
+        ? 'Do not commit this ZIP or its database export to GitHub. Use it only for private live-site/database audit.'
+        : 'Before committing to GitHub, still inspect the ZIP tree and validate it with the package validator.';
+    $noticeName = $includeDatabaseExport ? 'GIT_SAFE_WITH_DB_AUDIT_NOTICE.md' : 'GIT_SAFE_CONTINUITY_NOTICE.md';
+
+    $notice = <<<MD
+# {$modeTitle}
+
+{$modeLine}
 
 Expected safety posture:
 
-- `DATABASE_EXPORT.sql` is not included.
+{$databaseLine}
 - Real files from `gov.cabnet.app_config/` are not included.
 - Sanitized placeholders are generated under `gov.cabnet.app_config_examples/`.
-- Runtime storage artifacts, proof bundles, logs, sessions, cache, mailboxes, archives, and temporary data are excluded by the builder.
+- Runtime session/cookie files, storage artifacts, proof bundles, logs, cache, mailboxes, archives, and temporary data are excluded or scrubbed before download.
 - No Bolt, EDXEIX, or AADE calls are made by the package builder.
 
-Before committing to GitHub, still inspect the ZIP tree and validate it with the package validator.
+{$removedText}
+
+{$commitLine}
 MD;
 
-    $zip->addFromString('GIT_SAFE_CONTINUITY_NOTICE.md', $notice);
+    $zip->addFromString($noticeName, $notice);
     $zip->close();
 }
 
@@ -240,7 +308,7 @@ function handoff_stream_zip(string $zipPath, string $downloadName): void
 
 $downloadError = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['action'] ?? ''), ['build_private_operational_zip', 'build_git_safe_continuity_zip'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['action'] ?? ''), ['build_private_operational_zip', 'build_git_safe_continuity_zip', 'build_git_safe_continuity_zip_with_db'], true)) {
     try {
         if (!opsui_is_admin()) {
             http_response_code(403);
@@ -268,8 +336,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['action'] 
         $action = (string)$_POST['action'];
         if ($action === 'build_git_safe_continuity_zip') {
             $zipPath = $builder->build(['include_database' => false]);
-            handoff_append_git_safe_zip_notice($zipPath);
+            handoff_append_git_safe_zip_notice($zipPath, false);
             handoff_stream_zip($zipPath, 'gov_cabnet_git_safe_continuity_' . date('Ymd_His') . '.zip');
+            exit;
+        }
+
+        if ($action === 'build_git_safe_continuity_zip_with_db') {
+            $zipPath = $builder->build(['include_database' => true]);
+            handoff_append_git_safe_zip_notice($zipPath, true);
+            handoff_stream_zip($zipPath, 'gov_cabnet_git_safe_with_db_audit_' . date('Ymd_His') . '.zip');
             exit;
         }
 
@@ -334,7 +409,7 @@ opsui_shell_begin([
     'page_title' => 'Handoff Center',
     'active_section' => 'Deployment',
     'breadcrumbs' => 'Αρχική / Διαχειριστικό / Handoff Center',
-    'safe_notice' => 'SAFE OPS SHELL. Updated for V3 closed-gate milestone v3.0.75. Live EDXEIX submit remains disabled. Private packages and Git-safe continuity packages are separated.',
+    'safe_notice' => 'SAFE OPS SHELL. Updated for V3 closed-gate milestone v3.0.75. Live EDXEIX submit remains disabled. Git-safe package modes include DB-free continuity and private DB audit options with runtime/session scrubbing.',
 ]);
 ?>
 <section class="card hero neutral">
@@ -405,21 +480,32 @@ opsui_shell_begin([
 
     <div class="card">
         <h2>Git-Safe Continuity ZIP</h2>
-        <p>This package is DB-free and intended for local repo continuity review before committing via GitHub Desktop.</p>
+        <p>This section can build either a DB-free continuity package or a private DB-audit package that keeps the same runtime/session scrubber active.</p>
         <div class="safety" style="margin:12px 0;">
-            <strong>DB-FREE PACKAGE.</strong> Still validate the ZIP before commit and inspect for temporary diagnostics or operational files.
+            <strong>DB-FREE PACKAGE.</strong> Safe starting point for local repo continuity review. Still validate before commit.
         </div>
-        <form method="post" action="/ops/handoff-center.php" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <form method="post" action="/ops/handoff-center.php" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
             <input type="hidden" name="csrf" value="<?= opsui_h($csrf) ?>">
             <input type="hidden" name="action" value="build_git_safe_continuity_zip">
             <button class="btn" type="submit" <?= (!$builderInstalled || !opsui_is_admin()) ? 'disabled' : '' ?>>Build Git-Safe Continuity ZIP</button>
             <?= opsui_is_admin() ? opsui_badge('ADMIN', 'good') : opsui_badge('ADMIN REQUIRED', 'warn') ?>
             <?= $builderInstalled ? opsui_badge('DB EXPORT OFF', 'good') : opsui_badge('BUILDER MISSING', 'warn') ?>
         </form>
+        <div class="safety" style="margin:12px 0;border-left-color:#d99020;">
+            <strong>PRIVATE DB AUDIT OPTION.</strong> Includes <code>DATABASE_EXPORT.sql</code> for live-site/database audit only. Do not commit this ZIP or the SQL export to GitHub.
+        </div>
+        <form method="post" action="/ops/handoff-center.php" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <input type="hidden" name="csrf" value="<?= opsui_h($csrf) ?>">
+            <input type="hidden" name="action" value="build_git_safe_continuity_zip_with_db">
+            <button class="btn dark" type="submit" <?= (!$builderInstalled || !opsui_is_admin()) ? 'disabled' : '' ?>>Build Git-Safe + DB Audit ZIP</button>
+            <?= opsui_is_admin() ? opsui_badge('ADMIN', 'good') : opsui_badge('ADMIN REQUIRED', 'warn') ?>
+            <?= $builderInstalled ? opsui_badge('DB EXPORT ON', 'warn') : opsui_badge('BUILDER MISSING', 'warn') ?>
+        </form>
         <ul class="list" style="margin-top:14px;">
-            <li>Builds with <code>include_database=false</code>.</li>
-            <li>Deletes <code>DATABASE_EXPORT.sql</code> defensively if found.</li>
-            <li>Adds <code>GIT_SAFE_CONTINUITY_NOTICE.md</code> to the ZIP.</li>
+            <li>DB-free button builds with <code>include_database=false</code> and deletes <code>DATABASE_EXPORT.sql</code> defensively if found.</li>
+            <li>DB audit button builds with <code>include_database=true</code> but still removes runtime session/cookie files, proof artifacts, backups, and temporary package residue before download.</li>
+            <li>DB-free packages add <code>GIT_SAFE_CONTINUITY_NOTICE.md</code>; DB audit packages add <code>GIT_SAFE_WITH_DB_AUDIT_NOTICE.md</code>.</li>
+            <li>No Bolt, EDXEIX, or AADE calls are made by either package mode.</li>
         </ul>
     </div>
 </section>
@@ -470,7 +556,7 @@ opsui_shell_begin([
             <li><code>docs/...</code> when present</li>
             <li><code>tools/firefox*/...</code> and EDXEIX helper folders when present</li>
             <li><code>gov.cabnet.app_config_examples/...</code> sanitized placeholders only</li>
-            <li><code>DATABASE_EXPORT.sql</code> only in Private Operational ZIP mode</li>
+            <li><code>DATABASE_EXPORT.sql</code> only in Private Operational ZIP or Git-Safe + DB Audit ZIP mode</li>
         </ul>
     </div>
     <div class="card">

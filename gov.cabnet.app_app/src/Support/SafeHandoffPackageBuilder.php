@@ -12,6 +12,7 @@
  * - Does not call AADE.
  * - Does not expose real config values.
  * - Does not store generated ZIPs in the public webroot.
+ * - Excludes runtime/session material from all package modes.
  */
 
 declare(strict_types=1);
@@ -191,7 +192,7 @@ MD;
             '/.git/', '/.svn/', '/.hg/', '/node_modules/', '/vendor/', '/cache/', '/tmp/', '/temp/',
             '/sessions/', '/session/', '/mail/', '/maildir/', '/logs/', '/log/', '/backup/', '/backups/',
             '/wordpress-backups/', '/.cpanel/', '/.trash/', '/access-logs/', '/storage/artifacts/', '/storage/cache/',
-            '/storage/logs/', '/storage/tmp/', '/storage/temp/', '/var/', '/handoff-packages/',
+            '/storage/logs/', '/storage/tmp/', '/storage/temp/', '/storage/runtime/', '/var/', '/handoff-packages/',
         ];
         foreach ($excludedSegments as $segment) {
             if (str_contains($path . ($isDir ? '/' : ''), $segment)) {
@@ -208,6 +209,16 @@ MD;
         }
 
         if (preg_match('/\.(log|zip|tar|tgz|gz|bz2|7z|rar|bak|backup|old|tmp|swp|swo)$/i', $base)) {
+            return true;
+        }
+
+        // Backup filenames on cPanel often look like file.php.bak.YYYYMMDD or file.js.pre_v1_YYYYMMDD.
+        if (preg_match('/\.(bak|backup|old|tmp)([._-]|$)/i', $base) || preg_match('/\.pre[_-]/i', $base)) {
+            return true;
+        }
+
+        // Never package live runtime EDXEIX session/cookie material. Code pages such as edxeix-session.php are not matched here.
+        if (preg_match('/(edxeix_session|cookie_header|csrf_token|xsrf-token|laravel_session)/i', $relative)) {
             return true;
         }
 

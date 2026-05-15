@@ -1,42 +1,26 @@
-# Patch README — V3 Handoff Center Alignment
+# Patch README — V3 Git-Safe + DB Audit package option
 
 ## What changed
 
-This patch updates the Ops Handoff Center so it reflects the latest V3 closed-gate progress:
+Updated `/ops/handoff-center.php` to add a second button inside the Git-Safe Continuity ZIP section:
 
-- `v3.0.75-v3-live-adapter-contract-test` production verified.
-- Queue `#716` validated as closed-gate canary proof row.
-- Payload hash recorded without exposing raw proof bundle contents.
-- Live EDXEIX gate remains disabled.
-- Adds separate package modes:
-  - Private Operational ZIP: may include `DATABASE_EXPORT.sql`; never commit to GitHub.
-  - Git-Safe Continuity ZIP: DB-free, adds `GIT_SAFE_CONTINUITY_NOTICE.md`, and defensively removes `DATABASE_EXPORT.sql` if found.
+- `Build Git-Safe Continuity ZIP` — DB-free, commit-review starting point.
+- `Build Git-Safe + DB Audit ZIP` — includes `DATABASE_EXPORT.sql` for private live-site/database audit while keeping the runtime/session/proof-artifact scrubber active.
 
 ## Files included
 
-```text
-public_html/gov.cabnet.app/ops/handoff-center.php
-docs/V3_HANDOFF_CENTER_ALIGNMENT_20260514.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-```
+- `public_html/gov.cabnet.app/ops/handoff-center.php`
+- `docs/V3_GIT_SAFE_DB_AUDIT_OPTION_20260515.md`
+- `PATCH_README.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
-## Upload paths
+## Upload path
 
-Upload only this deployable file to the server:
+Upload only:
 
 ```text
 /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
-```
-
-The following are repository/docs files for the local GitHub Desktop repo:
-
-```text
-docs/V3_HANDOFF_CENTER_ALIGNMENT_20260514.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
 ```
 
 ## SQL
@@ -47,58 +31,41 @@ None.
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
-curl -I https://gov.cabnet.app/ops/handoff-center.php
-```
 
-Expected unauthenticated curl result:
+curl -I --max-time 10 https://gov.cabnet.app/ops/handoff-center.php
 
-```text
-HTTP/1.1 302 Found
-Location: /ops/login.php?next=%2Fops%2Fhandoff-center.php
-```
-
-After login, open:
-
-```text
-https://gov.cabnet.app/ops/handoff-center.php
-```
-
-Expected visible badges:
-
-```text
-PROMPT READY
-V3.0.75 VERIFIED
-LIVE GATE CLOSED
-NO EDXEIX CALL
-NO AADE CALL
-V0 UNTOUCHED
-```
-
-Optional grep check:
-
-```bash
-grep -n "v3.0.75\|GOV_HANDOFF_PAYLOAD_HASH\|Git-Safe Continuity ZIP\|Private Operational ZIP" \
+grep -n "v3.0.78\|build_git_safe_continuity_zip_with_db\|GIT_SAFE_WITH_DB_AUDIT_NOTICE\|Git-Safe + DB Audit ZIP" \
   /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
 ```
 
-## Expected result
+Expected:
 
-The Handoff Center becomes aligned with the latest V3 closed-gate milestone and clearly separates private operational packages from DB-free continuity packages.
+- PHP syntax passes.
+- Unauthenticated request redirects to `/ops/login.php`.
+- Grep finds the new v3.0.78 markers and DB audit action.
 
-## Git commit title
+## Package verification after generating DB audit ZIP
 
-```text
-Align Handoff Center with V3 contract test milestone
+```bash
+unzip -l /path/to/gov_cabnet_git_safe_with_db_audit_*.zip | grep -Ei "DATABASE_EXPORT|GIT_SAFE_WITH_DB_AUDIT_NOTICE|storage/runtime|edxeix_session|cookie_header|csrf|xsrf|laravel_session|storage/artifacts|\.bak|\.pre_"
 ```
 
-## Git commit description
+Expected:
 
-```text
-Updates the Ops Handoff Center for the verified V3 closed-gate live adapter contract test milestone.
+- `DATABASE_EXPORT.sql` is present.
+- `GIT_SAFE_WITH_DB_AUDIT_NOTICE.md` is present.
+- No runtime/session/cookie/proof-artifact/backup entries are present.
 
-Records v3.0.75, queue #716, the verified payload hash, the closed live gate posture, and non-live EDXEIX adapter status.
+## Commit title
 
-Separates handoff downloads into Private Operational ZIP and Git-Safe Continuity ZIP modes. The Git-safe mode builds without database export, defensively removes DATABASE_EXPORT.sql if present, and adds a continuity notice.
+Add Git-safe DB audit package option
 
-Live EDXEIX submission remains disabled. No SQL changes are required.
-```
+## Commit description
+
+Adds a DB-audit package option to the Handoff Center Git-Safe section.
+
+The new button builds a package with `DATABASE_EXPORT.sql` included for private live-site/database audit while preserving the runtime/session/cookie/proof-artifact scrubber introduced in v3.0.77.
+
+The DB-free Git-Safe Continuity ZIP remains available for local repo continuity review before committing. The DB audit package is private operational material and must not be committed to GitHub.
+
+No SQL changes are required. Live EDXEIX submission remains disabled.
