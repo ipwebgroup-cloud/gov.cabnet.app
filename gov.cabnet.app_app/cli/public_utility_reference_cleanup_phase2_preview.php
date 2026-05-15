@@ -5,11 +5,15 @@
  * Read-only scanner for remaining actionable references to guarded public-root
  * Bolt/EDXEIX utility endpoints. It does not move, edit, delete, write, connect
  * to DB, call Bolt, call EDXEIX, or call AADE.
+ *
+ * v3.0.91:
+ * - Filters intentional legacy wrapper / registry / navigation documentation refs
+ *   from actionable cleanup counts after the v3.0.89 wrapper was added.
  */
 
 declare(strict_types=1);
 
-const GOV_PURP2_VERSION = 'v3.0.88-public-utility-reference-cleanup-phase2-preview';
+const GOV_PURP2_VERSION = 'v3.0.91-public-utility-reference-cleanup-preview-ignore-wrapper-noise';
 const GOV_PURP2_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only scan only.';
 
 /** @return array<int,string> */
@@ -91,15 +95,19 @@ function gov_purp2_is_planner_or_inventory_ref(string $path): bool
         '/ops/public-utility-relocation-plan.php',
         '/ops/public-route-exposure-audit.php',
         '/ops/public-utility-reference-cleanup-phase2-preview.php',
+        '/ops/legacy-public-utility.php',
+        '/ops/_shell.php',
         '/gov.cabnet.app_app/cli/public_utility_relocation_plan.php',
         '/gov.cabnet.app_app/cli/public_route_exposure_audit.php',
         '/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php',
+        '/gov.cabnet.app_app/src/Support/LegacyPublicUtilityRegistry.php',
         '/docs/LIVE_PUBLIC_UTILITY_RELOCATION_PLAN_',
         '/docs/LIVE_PUBLIC_UTILITY_DEPENDENCY_EVIDENCE_',
         '/docs/LIVE_PUBLIC_UTILITY_REFERENCE_CLEANUP_PLAN_',
         '/docs/LIVE_PUBLIC_UTILITY_REFERENCE_CLEANUP_PHASE1_',
         '/docs/LIVE_PUBLIC_UTILITY_REFERENCE_CLEANUP_PHASE2_',
         '/docs/LIVE_PUBLIC_ROUTE_EXPOSURE_AUDIT_',
+        '/docs/LIVE_LEGACY_PUBLIC_UTILITY_',
     ];
     foreach ($needles as $needle) {
         if (str_contains($path, $needle)) {
@@ -131,13 +139,13 @@ function gov_purp2_action_hint(string $kind, string $path): string
 {
     $path = str_replace('\\', '/', $path);
     if ($kind === 'server_docs') {
-        return 'Update text to mark legacy public-root utility as archived/compatibility-only, or point to /ops/public-utility-relocation-plan.php.';
+        return 'Update text to mark legacy public-root utility as archived/compatibility-only, or point to /ops/legacy-public-utility.php.';
     }
     if ($kind === 'ops_route_or_page') {
-        return 'Replace direct public-root button/link with /ops/public-utility-relocation-plan.php until a safe /ops wrapper exists.';
+        return 'Replace direct public-root button/link with /ops/legacy-public-utility.php or the relocation plan. Keep old public-root route working.';
     }
     if ($kind === 'private_app_code') {
-        return 'Review before editing. If it only generates lab/dev links, point to the relocation plan or future /ops wrapper.';
+        return 'Review before editing. If it only generates lab/dev links, point to the legacy wrapper or relocation plan.';
     }
     if ($kind === 'public_root_code') {
         return 'Likely compatibility/readiness self-reference. Do not edit unless replacing readiness expectations with explicit legacy compatibility labels.';
@@ -207,7 +215,7 @@ function gov_purp2_scan_references(array $targets, array $roots): array
                     'kind' => $kind,
                     'inventory_or_planner_reference' => $isInventory,
                     'actionable' => !$isInventory,
-                    'action_hint' => $isInventory ? 'Ignore for cleanup counts; this is an inventory/planner/audit reference.' : gov_purp2_action_hint($kind, $path),
+                    'action_hint' => $isInventory ? 'Ignore for cleanup counts; this is an inventory/planner/wrapper/audit reference.' : gov_purp2_action_hint($kind, $path),
                     'preview' => trim(substr((string)$line, 0, 240)),
                 ];
             }
