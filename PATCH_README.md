@@ -1,38 +1,25 @@
-# Patch README — v3.1.7 Shell Note Cosmetic Cleanup
+# gov.cabnet.app patch — v3.1.8 shell note typo cleanup
 
 ## What changed
 
-This patch updates only `/ops/_shell.php` text metadata and the sidebar note spelling/spacing.
+This patch replaces `public_html/gov.cabnet.app/ops/_shell.php` with a corrected v3.1.8 shared ops shell.
 
-## Files included
+It fixes only text in the sidebar note:
 
-```text
-public_html/gov.cabnet.app/ops/_shell.php
-docs/V3_SHELL_NOTE_COSMETIC_CLEANUP_20260515.md
-PATCH_README.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-```
+- `legacystats source audit navigation` -> `legacy stats source audit navigation`
+- `added inv3.1.6` -> `added in v3.1.6`
+
+The v3.1.6 Next Candidate Watch navigation links remain unchanged.
 
 ## Upload path
 
 Upload:
 
-```text
-public_html/gov.cabnet.app/ops/_shell.php
-```
+`public_html/gov.cabnet.app/ops/_shell.php`
 
 to:
 
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-```
-
-Optional docs mirror:
-
-```text
-/home/cabnet/docs/V3_SHELL_NOTE_COSMETIC_CLEANUP_20260515.md
-```
+`/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
 
 ## SQL
 
@@ -45,17 +32,20 @@ php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 
 curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php
 
-grep -n "v3.1.7\|legacy stats source audit navigation\|added in v3.1.6" \
-  /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+echo "GOOD MARKERS:"
+grep -n "v3.1.8\|legacy stats source audit navigation\|added in v3.1.6" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+
+echo "BAD MARKERS:"
+grep -n "legacystats\|inv3.1.6" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php || echo "OLD TYPO NOT FOUND"
 ```
 
-## Expected result
+Expected:
 
-- PHP syntax clean.
-- Unauthenticated route returns 302 to `/ops/login.php`.
-- `v3.1.7` marker present.
-- Corrected shell note text present.
+- No syntax errors
+- HTTP 302 to `/ops/login.php` when unauthenticated
+- Good markers present
+- Bad markers returns `OLD TYPO NOT FOUND`
 
 ## Safety
 
-No live behavior changes. No database writes. No queue mutations. Live EDXEIX submission remains disabled.
+No route behavior changes. No routes moved or deleted. No redirects. No SQL. No DB writes. No queue mutations. No Bolt, EDXEIX, or AADE calls. Live EDXEIX submission remains disabled.
