@@ -1,12 +1,13 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue gov.cabnet.app from v3.0.96 legacy public utility stats source audit.
 
-Continue from v3.0.95 legacy public utility quiet-period stable fields.
+Safety posture:
+- No live EDXEIX submission.
+- No route moves/deletions/redirects without explicit approval.
+- Production Pre-Ride Tool remains untouched.
+- Legacy public-root utilities remain in place.
 
-The quiet-period audit should now expose stable route-level fields:
-- quiet_period_classification
-- stub_review_candidate
-- usage_evidence_unknown_date
-- compatibility_stub_review_candidate
+Latest added tools:
+- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_stats_source_audit.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-stats-source-audit.php`
 
-Do not move, delete, redirect, stub, or execute legacy public-root utilities unless Andreas explicitly approves.
-Keep live EDXEIX submission disabled.
+Next: verify v3.0.96 output and classify whether any future compatibility-stub review is safe. Do not change routes yet.

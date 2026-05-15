@@ -1,16 +1,9 @@
-# HANDOFF — gov.cabnet.app V3 quiet-period stable fields
+# HANDOFF — gov.cabnet.app v3.0.96 Legacy Public Utility Stats Source Audit
 
-Current milestone: `v3.0.95-legacy-public-utility-quiet-period-stable-fields`.
+Current milestone: v3.0.96 adds a read-only stats source audit for legacy public-root utility usage evidence.
 
-The quiet-period audit remains read-only and now exposes stable route classification fields for operator CLI summaries.
+The audit clarifies whether usage evidence is cPanel stats/cache-only or raw/live access-log evidence. It does not move, delete, redirect, include, or execute any legacy utility.
 
-Safety posture unchanged:
+Production Pre-Ride Tool remains untouched. Live EDXEIX submission remains disabled.
 
-- Production pre-ride tool untouched.
-- Legacy public-root utilities untouched.
-- No route moves.
-- No route deletions.
-- No redirects.
-- No SQL changes.
-- No Bolt, EDXEIX, AADE, DB, or filesystem write actions.
-- Live EDXEIX submission remains disabled.
+Next safest step after verification: use the v3.0.96 output to decide whether a future compatibility-stub review is safe. Do not stub, move, or delete without explicit approval.
