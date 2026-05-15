@@ -1,28 +1,65 @@
-# gov.cabnet.app Patch — v3.0.99 Legacy Public Utility Readiness Board Navigation
+# Patch README — V3 Legacy Public Utility Audit Milestone Docs
 
-## What changed
+Package: `gov_v3_legacy_public_utility_audit_milestone_docs_20260515.zip`  
+Date: 2026-05-15
 
-Adds a Developer Archive navigation link for:
+## Purpose
 
-`/ops/legacy-public-utility-readiness-board.php`
+This is a documentation/continuity package for the completed v3.0.80–v3.0.99 legacy public utility audit/readiness milestone.
+
+It records the live audit state after:
+
+- ops navigation de-bloat,
+- public route exposure audit,
+- legacy public-root utility relocation planning,
+- reference cleanup Phase 1,
+- Phase 2 preview/noise filtering,
+- legacy wrapper,
+- usage audit,
+- quiet-period audit,
+- stats-source audit,
+- aggregate readiness board.
+
+## Safety
+
+This package does not contain code that changes live behavior.
+
+- No SQL.
+- No DB export.
+- No secrets.
+- No logs.
+- No sessions.
+- No runtime artifacts.
+- No EDXEIX credentials.
+- No live-submit enablement.
 
 ## Files included
 
-- `public_html/gov.cabnet.app/ops/_shell.php`
-- `docs/LIVE_LEGACY_PUBLIC_UTILITY_READINESS_BOARD_NAV_20260515.md`
-- `PATCH_README.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
+```text
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+docs/V3_LEGACY_PUBLIC_UTILITY_AUDIT_MILESTONE_20260515.md
+```
 
-## Upload path
+## Upload / repo paths
 
-Upload:
+Repo root:
 
-`public_html/gov.cabnet.app/ops/_shell.php`
+```text
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+docs/V3_LEGACY_PUBLIC_UTILITY_AUDIT_MILESTONE_20260515.md
+```
 
-to:
+Optional live docs mirror, if desired:
 
-`/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+```text
+/home/cabnet/docs/V3_LEGACY_PUBLIC_UTILITY_AUDIT_MILESTONE_20260515.md
+```
+
+No live PHP upload is required for this documentation package.
 
 ## SQL
 
@@ -30,30 +67,41 @@ None.
 
 ## Verification
 
+After extracting into the local repo, verify the file tree:
+
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+find . -maxdepth 2 -type f | grep -E 'HANDOFF.md|CONTINUE_PROMPT.md|PATCH_README.md|V3_LEGACY_PUBLIC_UTILITY_AUDIT_MILESTONE_20260515.md'
+```
 
-curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-readiness-board.php
+Expected files:
 
-grep -n "v3.0.99\|Legacy Utility Readiness Board"   /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+```text
+./HANDOFF.md
+./CONTINUE_PROMPT.md
+./PATCH_README.md
+./docs/V3_LEGACY_PUBLIC_UTILITY_AUDIT_MILESTONE_20260515.md
 ```
 
 ## Expected result
 
-- No syntax errors.
-- Ops page remains auth-protected.
-- Developer Archive includes the Legacy Utility Readiness Board link.
+Repository continuity now documents the v3.0.80–v3.0.99 legacy public utility audit checkpoint.
+
+No production behavior changes.
 
 ## Commit title
 
-Add legacy readiness board navigation
+```text
+Document legacy public utility audit milestone
+```
 
 ## Commit description
 
-Adds a Developer Archive navigation link for the read-only Legacy Public Utility Readiness Board.
+```text
+Documents the completed v3.0.80–v3.0.99 legacy public utility audit and readiness checkpoint.
 
-This provides supervised access to the v3.0.98 aggregate checkpoint board without changing any production or legacy utility behavior.
+Records the ops navigation de-bloat, public route exposure audit, legacy utility relocation planning, reference cleanup, wrapper, usage audit, quiet-period audit, stats-source audit, and aggregate readiness board.
 
-No routes are moved or deleted. No redirects are added. No SQL changes are made. No Bolt, EDXEIX, AADE, database, or filesystem write actions are performed.
+Confirms that no routes were moved or deleted, no redirects were added, no SQL changes were made, and the production pre-ride tool remains untouched.
 
-Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
+Live EDXEIX submission remains disabled and the V3 live gate remains closed.
+```
