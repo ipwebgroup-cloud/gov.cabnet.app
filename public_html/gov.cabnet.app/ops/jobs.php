@@ -145,8 +145,8 @@ try {
         <h1>EDXEIX Jobs Queue</h1>
         <p>Read-only local queue viewer. This page does not call EDXEIX, does not post forms, and does not create jobs.</p>
         <div class="toolbar">
-            <a class="btn" href="/bolt_stage_edxeix_jobs.php?limit=30">Stage Dry Run</a>
-            <a class="btn secondary" href="/bolt_stage_edxeix_jobs.php?create=1&limit=30">Create Local Jobs</a>
+            <a class="btn" href="/ops/public-utility-relocation-plan.php">Legacy Stage Plan</a>
+            <a class="btn secondary" href="/ops/public-route-exposure-audit.php">Public Route Audit</a>
             <a class="btn secondary" href="/ops/readiness.php">Open Readiness</a>
             <a class="btn warn" href="/bolt_edxeix_preflight.php?limit=30">Open Preflight JSON</a>
             <a class="btn safe" href="/bolt_jobs_queue.php?limit=50">Open Jobs JSON</a>

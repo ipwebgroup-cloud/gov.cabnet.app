@@ -99,7 +99,7 @@ $terms = [
             <li>Open <code>/ops/mappings.php</code> and confirm Filippos plus a mapped vehicle are available.</li>
             <li>Open <code>/ops/edxeix-session.php</code> and confirm session/submit URL readiness if preparing for final live phase.</li>
             <li>When Filippos is present, create a real Bolt ride 40–60 minutes in the future.</li>
-            <li>Run <code>/bolt_sync_orders.php</code> to import the latest Bolt order data.</li>
+            <li>Use the current production pre-ride/V3 workflow for live operations. The legacy public-root Bolt sync utility is guarded and should only be reviewed from the Public Utility Relocation Plan.</li>
             <li>Return to <code>/ops/future-test.php</code> and confirm a real future candidate appears.</li>
             <li>Open <code>/bolt_edxeix_preflight.php?limit=30</code> and review the payload.</li>
             <li>Stage a local dry-run job only after preflight looks correct.</li>

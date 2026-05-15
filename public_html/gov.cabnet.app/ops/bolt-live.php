@@ -202,9 +202,8 @@ try {
     <strong>GC gov.cabnet.app</strong>
     <a href="/ops/index.php">Operations Console</a>
     <a href="/health">Health</a>
-    <a href="/bolt-api-smoke-test.php?summary_only=1">Bolt Smoke</a>
-    <a href="/bolt_sync_reference.php?dry_run=1">Reference Dry Run</a>
-    <a href="/bolt_sync_orders.php?dry_run=1">Orders Dry Run</a>
+    <a href="/ops/public-utility-relocation-plan.php">Legacy Utility Plan</a>
+    <a href="/ops/public-route-exposure-audit.php">Public Route Audit</a>
     <a href="/ops/readiness.php">Readiness</a>
     <a href="/bolt_edxeix_preflight.php">EDXEIX Preflight JSON</a>
 </header>

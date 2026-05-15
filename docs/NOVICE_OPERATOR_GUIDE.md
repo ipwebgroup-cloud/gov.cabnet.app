@@ -54,7 +54,7 @@ Do not map Georgios Zachariou until his exact EDXEIX driver ID is independently 
 2. Open `/ops/future-test.php` and confirm it says ready to create a real future test ride.
 3. Confirm mappings in `/ops/mappings.php`.
 4. When Filippos is present, create one real Bolt ride 40–60 minutes in the future.
-5. Run `/bolt_sync_orders.php`.
+5. Run `legacy guarded Bolt orders sync endpoint`.
 6. Reopen `/ops/future-test.php`.
 7. If a real candidate appears, open `/bolt_edxeix_preflight.php?limit=30`.
 8. Review the payload.
@@ -75,3 +75,5 @@ Do not map Georgios Zachariou until his exact EDXEIX driver ID is independently 
 ## Safety reminder
 
 No page in this guided GUI enables live EDXEIX submission.
+
+> Legacy public-root utility endpoints are retained for compatibility but should not be used from operator docs; review them from `/ops/public-utility-relocation-plan.php`.

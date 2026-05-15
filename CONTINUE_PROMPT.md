@@ -1,22 +1,12 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from v3.0.86 public utility reference cleanup planning.
+Current milestone: v3.0.87 public utility reference cleanup phase 1.
 
-Project posture:
-- Plain PHP/mysqli/MariaDB, cPanel/manual upload.
-- Production pre-ride tool `/ops/pre-ride-email-tool.php` is untouched and must remain stable.
-- Live EDXEIX submission remains disabled.
-- V3 remains closed-gate/read-only/proof-oriented.
+The goal is live-site audit, tidy-up, and de-bloat without changing the production pre-ride tool or enabling live EDXEIX submission.
 
-Latest audit results:
-- Public route exposure audit passed.
-- Auth prepend is active.
-- Six guarded public-root utility endpoints remain referenced by ops/docs/code.
-- Relocation is not recommended yet.
+Production pre-ride tool remains untouched:
+`/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
 
-Next safest step:
-- Do documentation/operator-reference cleanup planning first.
-- Avoid route deletion/moving until compatibility wrappers or CLI equivalents exist.
-- Keep old public-root endpoints in place until access logs and dependency scans show they are quiet.
+v3.0.87 updates selected legacy ops pages and docs to stop pointing operators directly at guarded public-root utility endpoints. It points them to `/ops/public-utility-relocation-plan.php` and `/ops/public-route-exposure-audit.php` instead. No endpoints were moved or deleted.
 
-For every patch, provide exact upload paths, SQL if any, verification commands, expected result, commit title, and commit description.
+Continue with read-only/no-delete cleanup and rerun planner checks before any relocation.

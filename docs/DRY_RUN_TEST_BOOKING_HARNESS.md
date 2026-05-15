@@ -78,31 +78,31 @@ https://gov.cabnet.app/bolt_edxeix_preflight.php?limit=30
 6. Confirm normal staging blocks LAB rows:
 
 ```text
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30
+legacy guarded stage endpoint, review from /ops/public-utility-relocation-plan.php
 ```
 
 7. Preview LAB staging locally:
 
 ```text
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&allow_lab=1
+legacy guarded stage endpoint, review from /ops/public-utility-relocation-plan.php&allow_lab=1
 ```
 
 8. Stage a local dry-run job only:
 
 ```text
-https://gov.cabnet.app/bolt_stage_edxeix_jobs.php?limit=30&create=1&allow_lab=1
+legacy guarded stage endpoint, review from /ops/public-utility-relocation-plan.php&create=1&allow_lab=1
 ```
 
 9. Preview the dry-run worker:
 
 ```text
-https://gov.cabnet.app/bolt_submission_worker.php?limit=30&allow_lab=1
+legacy guarded worker preview endpoint, review from /ops/public-utility-relocation-plan.php
 ```
 
 10. Record a local audit attempt only:
 
 ```text
-https://gov.cabnet.app/bolt_submission_worker.php?limit=30&record=1&allow_lab=1
+legacy guarded worker record endpoint, review from /ops/public-utility-relocation-plan.php
 ```
 
 11. Review readiness:
@@ -126,3 +126,5 @@ Add dry-run future booking simulation harness
 ```text
 Adds a local-only future booking test harness for the Bolt → EDXEIX bridge. The harness creates synthetic LAB/local normalized bookings using existing mapped driver and vehicle records, adds optional never-submit-live safety flags for normalized bookings, documents the dry-run verification flow, and keeps live EDXEIX submission disabled.
 ```
+
+> Legacy public-root utility endpoints are retained for compatibility but should not be used from operator docs; review them from `/ops/public-utility-relocation-plan.php`.

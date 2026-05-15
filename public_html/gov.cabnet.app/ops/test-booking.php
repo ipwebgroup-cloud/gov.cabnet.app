@@ -189,11 +189,8 @@ $previewOk = is_array($preview) && !empty($preview['ok']);
         <p>Use these in this order. The first stage URL should show the LAB row blocked; the allow_lab URL is only for local dry-run verification.</p>
         <div class="actions">
             <a class="btn" href="/bolt_edxeix_preflight.php?limit=30">Preflight JSON</a>
-            <a class="btn dark" href="/bolt_stage_edxeix_jobs.php?limit=30">Stage Dry Run — LAB Blocked</a>
-            <a class="btn orange" href="/bolt_stage_edxeix_jobs.php?limit=30&allow_lab=1">Stage Dry Run — allow_lab Preview</a>
-            <a class="btn red" href="/bolt_stage_edxeix_jobs.php?limit=30&create=1&allow_lab=1">Create Local Staged Job — LAB Only</a>
-            <a class="btn dark" href="/bolt_submission_worker.php?limit=30&allow_lab=1">Worker Preview</a>
-            <a class="btn orange" href="/bolt_submission_worker.php?limit=30&record=1&allow_lab=1">Record Local Dry-Run Attempt</a>
+            <a class="btn dark" href="/ops/public-utility-relocation-plan.php">Legacy Stage/Worker Plan</a>
+            <a class="btn orange" href="/ops/public-route-exposure-audit.php">Public Route Audit</a>
             <a class="btn green" href="/ops/readiness.php">Readiness</a>
             <a class="btn" href="/ops/jobs.php">Jobs Queue</a>
         </div>

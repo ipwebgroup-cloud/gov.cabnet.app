@@ -136,16 +136,16 @@ try {
     <a href="/ops/jobs.php">Jobs Queue</a>
     <a href="/ops/submit.php">Dry-Run Worker</a>
     <a href="/ops/readiness.php">Readiness</a>
-    <a href="/bolt_submission_worker.php?limit=30">Worker JSON</a>
+    <a href="/ops/public-utility-relocation-plan.php">Legacy Worker Plan</a>
 </header>
 <main>
     <section class="card">
         <h1>EDXEIX Submission Dry-Run Worker</h1>
         <p>This console validates staged local jobs and can record local audit attempts. It does not call EDXEIX and does not submit forms.</p>
         <div class="toolbar">
-            <a class="btn" href="/bolt_submission_worker.php?limit=30">Preview Worker JSON</a>
-            <a class="btn secondary" href="/bolt_submission_worker.php?record=1&limit=30">Record Dry-Run Attempts</a>
-            <a class="btn warn" href="/bolt_stage_edxeix_jobs.php?limit=30">Stage Dry Run</a>
+            <a class="btn" href="/ops/public-utility-relocation-plan.php">Legacy Worker Relocation Plan</a>
+            <a class="btn secondary" href="/ops/public-route-exposure-audit.php">Public Route Audit</a>
+            <a class="btn warn" href="/ops/jobs.php">Jobs Queue</a>
             <a class="btn safe" href="/ops/jobs.php">Open Jobs Queue</a>
         </div>
         <div class="alert"><strong>Live safety:</strong> this update intentionally leaves live EDXEIX submission disabled. The next live step should only be added after a real future Bolt ride passes preflight.</div>

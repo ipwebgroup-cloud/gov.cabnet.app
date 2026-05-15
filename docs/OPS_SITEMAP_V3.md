@@ -168,9 +168,9 @@ Legacy/current bridge pages:
 /ops/jobs.php
 /ops/readiness.php
 /ops/submit.php
-/bolt-fleet-orders-watch.php
-/bolt_sync_orders.php
-/bolt_sync_reference.php
+legacy guarded fleet-orders watch endpoint
+legacy guarded Bolt orders sync endpoint
+legacy guarded Bolt reference sync endpoint
 /bolt_edxeix_preflight.php
 /bolt_jobs_queue.php
 ```
@@ -403,3 +403,5 @@ This page belongs under:
 ```text
 Evidence & Diagnostics → V3 Storage Check
 ```
+
+> Legacy public-root utility endpoints are retained for compatibility but should not be used from operator docs; review them from `/ops/public-utility-relocation-plan.php`.

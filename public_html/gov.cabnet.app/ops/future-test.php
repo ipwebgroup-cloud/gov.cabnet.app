@@ -255,7 +255,7 @@ if (($_GET['format'] ?? '') === 'json') {
         <ol class="steps">
             <li>Confirm this page says <strong>READY TO CREATE REAL FUTURE TEST RIDE</strong>.</li>
             <li>When Filippos is present, create one real Bolt ride 40–60 minutes in the future.</li>
-            <li>Run <code>/bolt_sync_orders.php</code> to pull Bolt order data.</li>
+            <li>Use the current production pre-ride/V3 workflow for live operations. Legacy public-root sync utilities are guarded and should only be reviewed from the Public Utility Relocation Plan.</li>
             <li>Return here and confirm a real future candidate appears.</li>
             <li>Open preflight JSON and review the payload only.</li>
             <li>Stop before any live submission. Live submission is not enabled.</li>
