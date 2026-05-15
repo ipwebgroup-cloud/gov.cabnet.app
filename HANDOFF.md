@@ -137,3 +137,8 @@ After v3.2.3 is verified and committed, the next phase can design a controlled, 
 - Preview is redacted and read-only.
 - No Maildir writes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
 - Production Pre-Ride Tool remains untouched.
+
+
+## v3.2.9 verified target
+
+V3.2.9 adds a read-only controlled Maildir fixture writer design draft. It does not add an executable writer, does not write to Maildir, does not mutate the queue, does not write to DB, and does not call Bolt/EDXEIX/AADE. Live EDXEIX submission remains blocked.

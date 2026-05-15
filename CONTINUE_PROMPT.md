@@ -43,3 +43,6 @@ Current latest patch: v3.2.7 — Controlled Live-Submit Runbook / Authorization 
 
 
 Current latest patch target: v3.2.8 Real-Format Demo Mail Fixture Preview. Keep live submit blocked and do not add a Maildir writer unless Andreas explicitly requests it.
+
+
+Latest planned patch: v3.2.9 — Controlled Maildir Fixture Writer Design Draft. Continue by verifying the new `--maildir-writer-design-json` output. Do not enable Maildir writes or live submit unless Andreas explicitly requests a separate writer/live-submit patch.

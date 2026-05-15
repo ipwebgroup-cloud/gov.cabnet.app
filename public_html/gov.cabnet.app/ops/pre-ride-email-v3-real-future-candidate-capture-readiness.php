@@ -31,6 +31,9 @@
  *
  * v3.2.8:
  * - Adds real-format demo mail fixture preview section.
+ *
+ * v3.2.9:
+ * - Adds controlled Maildir fixture writer design section.
  */
 
 declare(strict_types=1);
@@ -47,6 +50,7 @@ $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
 $singleRowDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
 $authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($report);
 $demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
+$maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -66,6 +70,9 @@ $demoFixtureHeaders = is_array($demoMailFixture['fixture_headers_preview'] ?? nu
 $demoFixtureTimes = is_array($demoMailFixture['fixture_times'] ?? null) ? $demoMailFixture['fixture_times'] : [];
 $demoFixtureIdentity = is_array($demoMailFixture['fixture_identity_preview'] ?? null) ? $demoMailFixture['fixture_identity_preview'] : [];
 $demoFixtureRoute = is_array($demoMailFixture['fixture_route_and_price_preview'] ?? null) ? $demoMailFixture['fixture_route_and_price_preview'] : [];
+$maildirWriterPolicy = is_array($maildirWriterDesign['single_write_policy'] ?? null) ? $maildirWriterDesign['single_write_policy'] : [];
+$maildirWriterSequence = is_array($maildirWriterDesign['pre_write_gate_sequence'] ?? null) ? $maildirWriterDesign['pre_write_gate_sequence'] : [];
+$maildirWriterComponents = is_array($maildirWriterDesign['component_results'] ?? null) ? $maildirWriterDesign['component_results'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -120,7 +127,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.8')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.9')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -416,6 +423,45 @@ opsui_shell_begin([
     <pre><?= opsui_h((string)($demoMailFixture['redacted_body_preview'] ?? '')) ?></pre>
 </section>
 
+<section class="panel">
+    <h2>Controlled Maildir Fixture Writer Design Draft</h2>
+    <p>This is a design-only snapshot for a future explicit Maildir fixture writer. It does not add a writer, does not create a mail file, and does not trigger intake.</p>
+    <div class="v3cap-next">
+        <p><strong>Design outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($maildirWriterDesign['design_outcome'] ?? '')) ?></code></p>
+        <p><strong>Design only:</strong> <?= !empty($maildirWriterDesign['design_only']) ? 'yes' : 'no' ?> · <strong>Executable writer added:</strong> <?= !empty($maildirWriterDesign['executable_mail_writer_added']) ? 'yes' : 'no' ?> · <strong>Maildir write allowed now:</strong> <?= !empty($maildirWriterDesign['maildir_write_allowed_now']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> Maildir write <?= !empty($maildirWriterDesign['maildir_write_made']) ? 'yes' : 'no' ?> · DB write <?= !empty($maildirWriterDesign['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($maildirWriterDesign['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($maildirWriterDesign['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI writer design command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-design-json</code></p>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Single-write policy</th><th>Required</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirWriterPolicy as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirWriterPolicy): ?><tr><td colspan="2">No Maildir writer policy is available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Future explicit writer gate sequence</h3>
+    <ol>
+    <?php foreach ($maildirWriterSequence as $step): ?>
+        <li><code class="v3cap-code"><?= opsui_h((string)$step) ?></code></li>
+    <?php endforeach; ?>
+    </ol>
+    <h3>Writer design component posture</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirWriterComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirWriterComponents): ?><tr><td colspan="2">No Maildir writer component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+</section>
 
 <?php foreach ($warnings as $warning): ?>
     <div class="v3cap-warning"><?= opsui_h((string)$warning) ?></div>
