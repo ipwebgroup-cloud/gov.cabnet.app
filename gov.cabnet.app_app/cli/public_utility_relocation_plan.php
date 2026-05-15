@@ -8,8 +8,8 @@
 
 declare(strict_types=1);
 
-const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_VERSION = 'v3.0.85-public-utility-relocation-plan-dependency-evidence';
-const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only dependency evidence scan.';
+const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_VERSION = 'v3.0.86-public-utility-reference-cleanup-plan';
+const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only dependency evidence and reference cleanup plan.';
 
 /** @return array<int,string> */
 function gov_purp_args(array $argv): array
@@ -339,6 +339,7 @@ function gov_public_utility_relocation_plan_run(): array
     $targetNames = array_keys($targets);
     $docsRoot = gov_purp_docs_root();
     $references = gov_purp_scan_project_references($targetNames, [$publicRoot, $appRoot, $docsRoot]);
+    $referenceCleanupPlan = gov_purp_reference_cleanup_plan($references);
 
     $byTarget = [];
     foreach ($references as $ref) {
@@ -407,16 +408,128 @@ function gov_public_utility_relocation_plan_run(): array
             'move_recommended_now' => 0,
             'requires_cron_or_bookmark_check' => $requiresDependencyCheck,
             'blocking_dependency_reference_count' => $totalBlockingReferences,
+            'reference_cleanup_blocking_total' => (int)($referenceCleanupPlan['blocking_total'] ?? 0),
             'planned_as_cli_or_ops' => count($targets),
         ],
         'routes' => $routes,
+        'reference_cleanup_plan' => $referenceCleanupPlan,
         'operator_dependency_check_commands' => [
             'server_cron_search_root' => 'grep -RIn "bolt-api-smoke-test.php\\|bolt-fleet-orders-watch.php\\|bolt_stage_edxeix_jobs.php\\|bolt_submission_worker.php\\|bolt_sync_orders.php\\|bolt_sync_reference.php" /var/spool/cron /etc/cron* /home/cabnet 2>/dev/null | head -200',
             'project_reference_search' => 'grep -RIn "bolt-api-smoke-test.php\\|bolt-fleet-orders-watch.php\\|bolt_stage_edxeix_jobs.php\\|bolt_submission_worker.php\\|bolt_sync_orders.php\\|bolt_sync_reference.php" /home/cabnet/public_html/gov.cabnet.app /home/cabnet/gov.cabnet.app_app /home/cabnet/docs 2>/dev/null | head -200',
         ],
-        'recommended_next_step' => 'No-break dependency evidence review only. Do not move or delete public-root utilities; active ops/docs/code references must be retired or wrapped first.',
+        'recommended_next_step' => 'Reference cleanup planning only. Update docs and operator guidance first; do not move or delete public-root utilities while active ops/docs/code references remain.',
         'final_blocks' => [],
         'finished_at' => gmdate('c'),
+    ];
+}
+
+
+/** @param array<int,array<string,mixed>> $refs @return array<string,mixed> */
+function gov_purp_reference_cleanup_plan(array $refs): array
+{
+    $groups = [
+        'ops_route_or_page' => [
+            'label' => 'Ops/admin page references',
+            'count' => 0,
+            'action' => 'Keep until compatibility wrappers exist. Later update buttons/links to supervised /ops wrappers or V3 control pages.',
+            'risk' => 'medium',
+            'samples' => [],
+        ],
+        'server_docs' => [
+            'label' => 'Server documentation references',
+            'count' => 0,
+            'action' => 'Update docs first. Mark legacy V0/V6 public-root routes as archived and point operators to V3 closed-gate pages or CLI commands.',
+            'risk' => 'low',
+            'samples' => [],
+        ],
+        'private_app_code' => [
+            'label' => 'Private app code references',
+            'count' => 0,
+            'action' => 'Do not change until wrappers are introduced. These references may generate test/developer links and need compatibility review.',
+            'risk' => 'medium',
+            'samples' => [],
+        ],
+        'public_root_code' => [
+            'label' => 'Public-root code references',
+            'count' => 0,
+            'action' => 'Keep during compatibility phase. Later replace readiness checks with private/ops equivalents.',
+            'risk' => 'medium',
+            'samples' => [],
+        ],
+        'other_project_file' => [
+            'label' => 'Other project references',
+            'count' => 0,
+            'action' => 'Review manually before any relocation.',
+            'risk' => 'medium',
+            'samples' => [],
+        ],
+    ];
+
+    foreach ($refs as $ref) {
+        $path = str_replace('\\', '/', (string)($ref['path'] ?? ''));
+        if ($path === '' || gov_purp_is_inventory_or_planner_ref($path)) {
+            continue;
+        }
+        $kind = gov_purp_ref_kind($path);
+        if (!isset($groups[$kind])) {
+            $kind = 'other_project_file';
+        }
+        $groups[$kind]['count']++;
+        if (count($groups[$kind]['samples']) < 6) {
+            $groups[$kind]['samples'][] = [
+                'target' => (string)($ref['target'] ?? ''),
+                'path' => $path,
+                'line' => (int)($ref['line'] ?? 0),
+                'preview' => (string)($ref['preview'] ?? ''),
+            ];
+        }
+    }
+
+    $total = 0;
+    foreach ($groups as $group) {
+        $total += (int)($group['count'] ?? 0);
+    }
+
+    $sequence = [
+        [
+            'phase' => 'Phase 1 — documentation cleanup',
+            'action' => 'Update server docs and operator guides so daily workflow no longer points to public-root utilities unless explicitly marked legacy/dev.',
+            'safe_now' => true,
+            'requires_code_change' => false,
+        ],
+        [
+            'phase' => 'Phase 2 — ops link review',
+            'action' => 'Replace public-root utility buttons in dev/admin pages with clearly labeled /ops legacy wrappers, but keep the old URLs working.',
+            'safe_now' => false,
+            'requires_code_change' => true,
+        ],
+        [
+            'phase' => 'Phase 3 — private CLI equivalents',
+            'action' => 'Create private CLI equivalents for sync/watch/stage/worker tasks and update any cron/manual procedure to use /home/cabnet/gov.cabnet.app_app/cli.',
+            'safe_now' => false,
+            'requires_code_change' => true,
+        ],
+        [
+            'phase' => 'Phase 4 — compatibility stubs',
+            'action' => 'Only after wrappers/CLI are verified, convert public-root utilities into authenticated compatibility stubs with clear legacy notices.',
+            'safe_now' => false,
+            'requires_code_change' => true,
+        ],
+        [
+            'phase' => 'Phase 5 — quiet-period removal review',
+            'action' => 'After a quiet period and explicit approval, remove or archive old public-root routes if access logs and dependency scans show no use.',
+            'safe_now' => false,
+            'requires_code_change' => true,
+        ],
+    ];
+
+    return [
+        'blocking_total' => $total,
+        'groups' => $groups,
+        'sequence' => $sequence,
+        'recommended_now' => $total > 0
+            ? 'Do documentation cleanup first; do not move code while blocking references remain.'
+            : 'No blocking references found by scanner, but still use compatibility wrappers before moving public-root utilities.',
     ];
 }
 

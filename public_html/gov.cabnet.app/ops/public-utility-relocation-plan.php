@@ -44,12 +44,13 @@ opsui_shell_begin([
 ?>
 <section class="card hero neutral">
     <h1>Public Utility Relocation Plan</h1>
-    <p>Plans the later no-break relocation of guarded public-root utility endpoints into private CLI or supervised /ops routes, while showing current dependency evidence. This page does not move or disable anything.</p>
+    <p>Plans the later no-break relocation of guarded public-root utility endpoints into private CLI or supervised /ops routes, while showing current dependency evidence and a reference cleanup sequence. This page does not move, edit, or disable anything.</p>
     <div>
         <?= opsui_badge('READ ONLY', 'good') ?>
         <?= opsui_badge('NO DELETE', 'good') ?>
         <?= opsui_badge('NO DB', 'good') ?>
         <?= opsui_badge('NO EDXEIX CALL', 'good') ?>
+        <?= opsui_badge('REFERENCE PLAN', 'info') ?>
         <?= opsui_badge((string)($report['version'] ?? ''), 'info') ?>
     </div>
     <div class="actions">
@@ -65,6 +66,7 @@ opsui_shell_begin([
     <?= opsui_metric((string)($summary['move_recommended_now'] ?? 0), 'move recommended now') ?>
     <?= opsui_metric((string)($summary['requires_cron_or_bookmark_check'] ?? 0), 'require dependency check') ?>
     <?= opsui_metric((string)($summary['blocking_dependency_reference_count'] ?? 0), 'blocking refs found') ?>
+    <?= opsui_metric((string)($summary['reference_cleanup_blocking_total'] ?? 0), 'cleanup refs to retire') ?>
 </section>
 
 <section class="card">
@@ -165,6 +167,49 @@ opsui_shell_begin([
             <?php endforeach; ?>
         </ul>
     <?php endforeach; ?>
+</section>
+
+
+<?php $cleanupPlan = is_array($report['reference_cleanup_plan'] ?? null) ? $report['reference_cleanup_plan'] : []; ?>
+<section class="card">
+    <h2>Reference cleanup plan</h2>
+    <p class="small">This is a no-write plan for reducing dependency on public-root utilities before any relocation. It does not edit docs, links, routes, cron, or code.</p>
+    <div class="safety" style="margin:12px 0;">
+        <strong>Current recommendation:</strong> <?= purp_h($cleanupPlan['recommended_now'] ?? '') ?>
+    </div>
+    <?php $groups = is_array($cleanupPlan['groups'] ?? null) ? $cleanupPlan['groups'] : []; ?>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Reference group</th><th>Count</th><th>Risk</th><th>Recommended cleanup</th></tr></thead>
+            <tbody>
+            <?php foreach ($groups as $group): ?>
+                <?php if (!is_array($group)) { continue; } ?>
+                <tr>
+                    <td><strong><?= purp_h($group['label'] ?? '') ?></strong></td>
+                    <td><?= purp_h($group['count'] ?? 0) ?></td>
+                    <td><?= opsui_badge((string)($group['risk'] ?? 'review'), ((string)($group['risk'] ?? '')) === 'low' ? 'good' : 'warn') ?></td>
+                    <td><?= purp_h($group['action'] ?? '') ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card">
+    <h2>No-break cleanup sequence</h2>
+    <?php $sequence = is_array($cleanupPlan['sequence'] ?? null) ? $cleanupPlan['sequence'] : []; ?>
+    <ol class="list">
+        <?php foreach ($sequence as $step): ?>
+            <?php if (!is_array($step)) { continue; } ?>
+            <li>
+                <strong><?= purp_h($step['phase'] ?? '') ?></strong><br>
+                <?= purp_h($step['action'] ?? '') ?><br>
+                <?= !empty($step['safe_now']) ? opsui_badge('safe planning now', 'good') : opsui_badge('later phase', 'neutral') ?>
+                <?= !empty($step['requires_code_change']) ? opsui_badge('requires patch', 'warn') : opsui_badge('docs/planning only', 'good') ?>
+            </li>
+        <?php endforeach; ?>
+    </ol>
 </section>
 
 <section class="card">
