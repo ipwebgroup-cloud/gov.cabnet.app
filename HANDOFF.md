@@ -114,3 +114,11 @@ After v3.2.3 is verified and committed, the next phase can design a controlled, 
 - Aggregates watch snapshot, evidence snapshot, EDXEIX dry-run preview, expired candidate safety audit, live gate posture, DB/queue availability, and manual gates.
 - Does not enable live submit and performs no DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, or notifications.
 - Live EDXEIX submission remains blocked by design and requires an explicit future Andreas request before any live-submit patch is created.
+
+
+## v3.2.6 — Single-Row Controlled Live-Submit Design Draft
+
+- Added read-only single-row live-submit design draft output.
+- New CLI modes: `--single-row-live-design-json`, `--first-live-test-design-json`, `--controlled-live-submit-design-json`.
+- No live submitter was added; live EDXEIX submission remains blocked.
+- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.

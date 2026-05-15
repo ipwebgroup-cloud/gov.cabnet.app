@@ -22,6 +22,9 @@
  *
  * v3.2.5:
  * - Adds controlled live-submit readiness checklist / go-no-go section.
+ *
+ * v3.2.6:
+ * - Adds single-row controlled live-submit design draft section.
  */
 
 declare(strict_types=1);
@@ -35,6 +38,7 @@ $evidenceSnapshot = gov_v3rfccr_candidate_evidence_snapshot($report);
 $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
 $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
 $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
+$singleRowDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -44,6 +48,9 @@ $expiredAuditRules = is_array($expiredSafetyAudit['audit_rules'] ?? null) ? $exp
 $liveReadinessComponents = is_array($liveReadiness['component_results'] ?? null) ? $liveReadiness['component_results'] : [];
 $liveReadinessManualGates = is_array($liveReadiness['manual_gates_before_any_future_live_submit_patch'] ?? null) ? $liveReadiness['manual_gates_before_any_future_live_submit_patch'] : [];
 $liveReadinessNoGo = is_array($liveReadiness['hard_no_go_reasons'] ?? null) ? $liveReadiness['hard_no_go_reasons'] : [];
+$singleRowPolicy = is_array($singleRowDesign['single_row_policy'] ?? null) ? $singleRowDesign['single_row_policy'] : [];
+$singleRowSequence = is_array($singleRowDesign['pre_execution_gate_sequence'] ?? null) ? $singleRowDesign['pre_execution_gate_sequence'] : [];
+$singleRowComponents = is_array($singleRowDesign['component_results'] ?? null) ? $singleRowDesign['component_results'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -98,7 +105,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.5')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.6')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -279,6 +286,48 @@ opsui_shell_begin([
     <?php endforeach; ?>
     </ul>
 </section>
+
+<section class="panel">
+    <h2>Single-Row Controlled Live-Submit Design Draft</h2>
+    <p>This is a design-only snapshot for the first possible controlled live test. It does not add a submitter, does not enable the live gate, and does not call EDXEIX.</p>
+    <div class="v3cap-next">
+        <p><strong>Outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($singleRowDesign['design_outcome'] ?? '')) ?></code></p>
+        <p><strong>Decision:</strong> <?= opsui_h((string)($singleRowDesign['design_label'] ?? '')) ?></p>
+        <p><strong>Design only:</strong> <?= !empty($singleRowDesign['design_only']) ? 'yes' : 'no' ?> · <strong>Executable submitter added:</strong> <?= !empty($singleRowDesign['executable_submitter_added']) ? 'yes' : 'no' ?> · <strong>Live submit allowed now:</strong> <?= !empty($singleRowDesign['live_submit_allowed_now']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> live risk <?= !empty($singleRowDesign['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no' ?> · DB write <?= !empty($singleRowDesign['safety_confirmed']['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($singleRowDesign['safety_confirmed']['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($singleRowDesign['safety_confirmed']['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI design command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --single-row-live-design-json</code></p>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Single-row policy</th><th>Required</th></tr></thead>
+        <tbody>
+        <?php foreach ($singleRowPolicy as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$singleRowPolicy): ?><tr><td colspan="2">No single-row policy is available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Component posture</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($singleRowComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$singleRowComponents): ?><tr><td colspan="2">No component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Pre-execution gate sequence for any future patch</h3>
+    <ol>
+    <?php foreach ($singleRowSequence as $step): ?>
+        <li><code class="v3cap-code"><?= opsui_h((string)$step) ?></code></li>
+    <?php endforeach; ?>
+    </ol>
+</section>
+
 
 <?php foreach ($warnings as $warning): ?>
     <div class="v3cap-warning"><?= opsui_h((string)$warning) ?></div>

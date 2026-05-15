@@ -34,3 +34,6 @@ Current latest patch: v3.2.4 — Expired Candidate Safety Regression Audit. Use 
 
 
 Latest installed target after this package: v3.2.5 — Controlled Live-Submit Readiness Checklist. Use `--live-readiness-json` to summarize go/no-go state. Keep live submit disabled unless Andreas explicitly requests a live-submit update in a future message.
+
+
+Current latest patch: v3.2.6 — Single-Row Controlled Live-Submit Design Draft. Continue with read-only preflight/design work unless Andreas explicitly requests a live-submit update. Live submit remains disabled.

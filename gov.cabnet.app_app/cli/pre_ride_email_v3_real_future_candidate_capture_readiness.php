@@ -27,13 +27,17 @@
  * v3.2.5:
  * - Adds controlled live-submit readiness checklist / go-no-go snapshot.
  * - Keeps live-submit impossible from this tool; output is decision support only.
+ *
+ * v3.2.6:
+ * - Adds single-row controlled live-submit design draft output.
+ * - Design-only snapshot for a future explicit live-submit patch; no executable submitter is added.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.5-v3-controlled-live-submit-readiness-checklist';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_controlled_live_submit_readiness_checklist';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, and controlled live-submit readiness snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.6-v3-single-row-controlled-live-submit-design-draft';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_single_row_controlled_live_submit_design_draft';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, and single-row live-submit design snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -1384,6 +1388,150 @@ function gov_v3rfccr_controlled_live_submit_readiness(array $report): array
     ];
 }
 
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_single_row_live_submit_design_draft(array $report): array
+{
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $liveGate = is_array($report['live_gate'] ?? null) ? $report['live_gate'] : [];
+    $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
+    $preview = gov_v3rfccr_edxeix_payload_preview($report);
+    $expired = gov_v3rfccr_expired_candidate_safety_audit($report);
+    $watch = gov_v3rfccr_watch_snapshot($report);
+
+    $candidateFound = !empty($preview['candidate_found']);
+    $previewCandidate = is_array($preview['candidate'] ?? null) ? $preview['candidate'] : [];
+    $payload = is_array($preview['normalized_payload_preview'] ?? null) ? $preview['normalized_payload_preview'] : [];
+    $mapping = is_array($payload['edxeix_mapping_ids'] ?? null) ? $payload['edxeix_mapping_ids'] : [];
+    $times = is_array($payload['ride_times'] ?? null) ? $payload['ride_times'] : [];
+    $route = is_array($payload['route'] ?? null) ? $payload['route'] : [];
+    $price = is_array($payload['price'] ?? null) ? $payload['price'] : [];
+    $passenger = is_array($payload['passenger_fields'] ?? null) ? $payload['passenger_fields'] : [];
+
+    $hardNoGo = is_array($liveReadiness['hard_no_go_reasons'] ?? null) ? array_values(array_map('strval', $liveReadiness['hard_no_go_reasons'])) : [];
+    $readinessOutcome = (string)($liveReadiness['readiness_outcome'] ?? '');
+    $previewOutcome = (string)($preview['preflight_outcome'] ?? '');
+    $expiredPassed = !empty($expired['eligibility_regression_passed']) && empty($expired['regression_failures']);
+    $liveRisk = !empty($liveReadiness['safety_confirmed']['live_risk_detected']) || !empty($summary['live_risk_detected']) || !empty($liveGate['live_risk_detected']);
+
+    $designOutcome = 'design_only_wait_for_fresh_candidate';
+    $designLabel = 'No current future candidate exists. The first live-submit procedure can only be drafted, not armed.';
+    if ($liveRisk || $hardNoGo !== []) {
+        $designOutcome = 'design_blocked_by_safety_or_readiness_gates';
+        $designLabel = 'Safety or readiness gates are blocking any controlled live-submit design review.';
+    } elseif ($candidateFound && $readinessOutcome === 'pre_live_candidate_ready_for_manual_decision_only' && $previewOutcome === 'dry_run_preview_passed_live_submit_still_blocked' && $expiredPassed) {
+        $designOutcome = 'single_row_design_ready_for_future_explicit_patch_request_only';
+        $designLabel = 'A future candidate is dry-run ready, but this patch is still design-only and cannot submit live.';
+    } elseif ($candidateFound) {
+        $designOutcome = 'design_candidate_visible_but_not_live_patch_ready';
+        $designLabel = 'A candidate is visible, but one or more design gates are not ready.';
+    }
+
+    $candidate = null;
+    if ($candidateFound) {
+        $candidate = [
+            'queue_id' => $previewCandidate['queue_id'] ?? null,
+            'queue_status' => (string)($previewCandidate['queue_status'] ?? ''),
+            'capture_readiness' => (string)($previewCandidate['capture_readiness'] ?? ''),
+            'operator_alert_priority' => (string)($previewCandidate['operator_alert_priority'] ?? ''),
+            'minutes_until_pickup_now' => $times['minutes_until_pickup_now'] ?? null,
+            'pickup_datetime' => (string)($times['pickup_datetime'] ?? ''),
+            'estimated_end_datetime' => (string)($times['estimated_end_datetime'] ?? ''),
+            'preview_hash_sha256' => (string)($preview['preview_hash_sha256'] ?? ''),
+            'mapping_ids' => [
+                'lessor_id' => (string)($mapping['lessor_id'] ?? ''),
+                'driver_id' => (string)($mapping['driver_id'] ?? ''),
+                'vehicle_id' => (string)($mapping['vehicle_id'] ?? ''),
+                'starting_point_id' => (string)($mapping['starting_point_id'] ?? ''),
+            ],
+            'route_preview' => [
+                'pickup_address' => (string)($route['pickup_address'] ?? ''),
+                'dropoff_address' => (string)($route['dropoff_address'] ?? ''),
+            ],
+            'price_preview' => [
+                'amount' => (string)($price['amount'] ?? ''),
+                'currency' => (string)($price['currency'] ?? 'EUR'),
+            ],
+            'passenger_preview' => [
+                'customer_name_preview' => (string)($passenger['customer_name_preview'] ?? ''),
+                'customer_phone_preview' => (string)($passenger['customer_phone_preview'] ?? ''),
+                'unmasked_values_hidden' => true,
+            ],
+        ];
+    }
+
+    return [
+        'ok' => !empty($report['ok']) && !$liveRisk,
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_single_row_controlled_live_submit_design_draft',
+        'design_outcome' => $designOutcome,
+        'design_label' => $designLabel,
+        'design_only' => true,
+        'executable_submitter_added' => false,
+        'live_submit_allowed_now' => false,
+        'live_submit_recommended_now' => 0,
+        'live_submit_blocked_by_design' => true,
+        'requires_explicit_andreas_live_submit_request' => true,
+        'future_patch_required_for_any_live_submit' => true,
+        'candidate_found' => $candidateFound,
+        'candidate' => $candidate,
+        'single_row_policy' => [
+            'manual_one_shot_only' => true,
+            'one_queue_id_only' => true,
+            'no_batch_submission' => true,
+            'no_cron' => true,
+            'no_retries_without_operator_review' => true,
+            'minimum_future_minutes_at_execution' => 5,
+            'dry_run_preview_required_immediately_before_submit' => true,
+            'operator_mapping_confirmation_required' => true,
+        ],
+        'future_patch_boundaries' => [
+            'may_add_live_submit_code_only_after_explicit_request' => true,
+            'must_not_touch_production_pre_ride_tool' => true,
+            'must_not_enable_unattended_automation' => true,
+            'must_not_process_historical_or_expired_rows' => true,
+            'must_not_submit_multiple_rows' => true,
+            'must_include_rollback_to_disabled_gate' => true,
+        ],
+        'pre_execution_gate_sequence' => [
+            '1_confirm_fresh_future_candidate_visible_in_watch_snapshot',
+            '2_confirm_evidence_snapshot_complete_and_missing_fields_empty',
+            '3_confirm_edxeix_dry_run_preview_passes_and_hash_is_recorded',
+            '4_confirm_expired_candidate_safety_audit_passes',
+            '5_confirm_live_gate_drift_guard_reports_disabled_safe_posture',
+            '6_operator_confirms_lessors_driver_vehicle_starting_point_match_edxeix_form',
+            '7_andreas_explicitly_requests_single_row_live_submit_patch',
+            '8_apply_single_row_live_patch_with_rollback_plan',
+            '9_run_one_queue_id_only_under_operator_supervision',
+            '10_revert_live_gate_to_disabled_and verify_no_risk',
+        ],
+        'component_results' => [
+            'watch_action_code' => (string)($watch['action_code'] ?? 'UNKNOWN'),
+            'controlled_readiness_outcome' => $readinessOutcome,
+            'edxeix_preview_preflight_outcome' => $previewOutcome,
+            'expired_regression_passed' => $expiredPassed,
+            'live_gate_enabled' => !empty($liveGate['enabled']),
+            'live_gate_mode' => (string)($liveGate['mode'] ?? ''),
+            'live_gate_adapter' => (string)($liveGate['adapter'] ?? ''),
+        ],
+        'hard_no_go_reasons' => $hardNoGo,
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($liveReadiness['safety_confirmed']['live_gate_expected_closed']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => 0,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+            'cron_job_added' => false,
+            'notification_sent' => false,
+        ],
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --single-row-live-design-json',
+    ];
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -1415,6 +1563,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $edxeixPreviewJson = in_array('--edxeix-preview-json', $argv, true) || in_array('--payload-preview-json', $argv, true) || in_array('--dry-run-preflight-json', $argv, true);
     $expiredSafetyJson = in_array('--expired-safety-json', $argv, true) || in_array('--stale-ready-audit-json', $argv, true) || in_array('--regression-audit-json', $argv, true);
     $liveReadinessJson = in_array('--live-readiness-json', $argv, true) || in_array('--controlled-live-readiness-json', $argv, true) || in_array('--go-no-go-json', $argv, true);
+    $singleRowLiveDesignJson = in_array('--single-row-live-design-json', $argv, true) || in_array('--first-live-test-design-json', $argv, true) || in_array('--controlled-live-submit-design-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
@@ -1422,6 +1571,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
     $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
     $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
+    $singleRowLiveDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -1448,6 +1598,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($liveReadiness['ok']) ? 0 : 1;
     }
 
+    if ($singleRowLiveDesignJson) {
+        echo json_encode($singleRowLiveDesign, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($singleRowLiveDesign['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -1459,6 +1614,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         $report['edxeix_payload_preview'] = $edxeixPreview;
         $report['expired_candidate_safety_audit'] = $expiredSafetyAudit;
         $report['controlled_live_submit_readiness'] = $liveReadiness;
+        $report['single_row_controlled_live_submit_design'] = $singleRowLiveDesign;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -1480,6 +1636,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'EDXEIX dry-run preview command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --edxeix-preview-json' . PHP_EOL;
     echo 'Expired candidate safety audit command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --expired-safety-json' . PHP_EOL;
     echo 'Controlled live-submit readiness command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --live-readiness-json' . PHP_EOL;
+    echo 'Single-row live-submit design command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --single-row-live-design-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }
