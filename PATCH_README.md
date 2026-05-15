@@ -1,34 +1,18 @@
-# PATCH README — v3.1.9–v3.1.11 Observation Overview Milestone Docs
+# Patch README — v3.1.12 V3 Observation Toolchain Integrity Audit
 
-## Purpose
+## Changed files
 
-Documentation-only package for the verified V3 Real-Mail Observation Overview + navigation cleanup milestone.
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_observation_toolchain_integrity_audit.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-toolchain-integrity-audit.php`
+- `docs/V3_OBSERVATION_TOOLCHAIN_INTEGRITY_AUDIT_20260515.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
-## Files included
+## Upload paths
 
-```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-docs/V3_OBSERVATION_OVERVIEW_NAV_CLEANUP_MILESTONE_20260515.md
-```
-
-## Upload / repo paths
-
-Extract into the local GitHub Desktop repository root:
-
-```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-docs/V3_OBSERVATION_OVERVIEW_NAV_CLEANUP_MILESTONE_20260515.md
-```
-
-Optional live docs mirror:
-
-```text
-/home/cabnet/docs/V3_OBSERVATION_OVERVIEW_NAV_CLEANUP_MILESTONE_20260515.md
-```
+- `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_observation_toolchain_integrity_audit.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-toolchain-integrity-audit.php`
+- Optional docs mirror: `/home/cabnet/docs/V3_OBSERVATION_TOOLCHAIN_INTEGRITY_AUDIT_20260515.md`
 
 ## SQL
 
@@ -36,23 +20,14 @@ None.
 
 ## Verification
 
-From the repo root:
-
 ```bash
-find . -maxdepth 2 -type f | grep -E 'HANDOFF.md|CONTINUE_PROMPT.md|PATCH_README.md|V3_OBSERVATION_OVERVIEW_NAV_CLEANUP_MILESTONE_20260515.md'
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_observation_toolchain_integrity_audit.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-toolchain-integrity-audit.php
+
+curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-observation-toolchain-integrity-audit.php
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_observation_toolchain_integrity_audit.php --json" \
+| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "component_files_ok=".(($j["summary"]["component_files_ok"]??false)?"true":"false").PHP_EOL; echo "shell_nav_ok=".(($j["summary"]["shell_nav_ok"]??false)?"true":"false").PHP_EOL; echo "shell_note_ok=".(($j["summary"]["shell_note_ok"]??false)?"true":"false").PHP_EOL; echo "public_backups=".($j["summary"]["public_backup_files_found"]??"?").PHP_EOL; echo "overview_ok=".(($j["summary"]["overview_ok"]??false)?"true":"false").PHP_EOL; echo "live_risk=".(($j["summary"]["live_risk_detected"]??false)?"true":"false").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
 ```
 
-Expected:
-
-```text
-./HANDOFF.md
-./CONTINUE_PROMPT.md
-./PATCH_README.md
-./docs/V3_OBSERVATION_OVERVIEW_NAV_CLEANUP_MILESTONE_20260515.md
-```
-
-## Safety
-
-Documentation only.
-
-No route behavior changes. No routes moved/deleted. No redirects. No SQL. No Bolt calls. No EDXEIX calls. No AADE calls. No DB writes. No queue mutation. Live EDXEIX submission remains disabled.
+Expected: no syntax errors, HTTP 302 to `/ops/login.php`, `ok=true`, `live_risk=false`, and `final_blocks=[]`.
