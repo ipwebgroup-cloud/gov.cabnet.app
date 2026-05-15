@@ -1,17 +1,22 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from the latest committed checkpoint:
+Continue from this checkpoint:
 
-- v3.0.80–v3.0.99 legacy public utility audit/readiness milestone is committed.
-- Production `/ops/pre-ride-email-tool.php` is untouched.
-- No legacy public-root utilities were moved/deleted/redirected.
-- Live EDXEIX submission remains disabled and the V3 gate remains closed.
+- v3.1.0 added the read-only V3 Real-Mail Queue Health audit.
+- v3.1.1 adds navigation links for that audit in `/ops/_shell.php`.
+- Real-Mail Queue Health route: `/ops/pre-ride-email-v3-real-mail-queue-health.php`.
 
-Current next patch:
+Safety posture:
 
-- v3.1.0 V3 real-mail intake + queue health audit.
-- Adds CLI `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_mail_queue_health.php`.
-- Adds ops page `https://gov.cabnet.app/ops/pre-ride-email-v3-real-mail-queue-health.php`.
-- Read-only only: no Bolt call, no EDXEIX call, no AADE call, no DB writes, no queue mutations, no filesystem writes.
+- Production Pre-Ride Tool untouched.
+- V0 untouched.
+- Live EDXEIX submission disabled.
+- V3 live gate closed.
+- No route moves/deletes/redirects.
+- No SQL changes.
+- No Bolt, EDXEIX, or AADE calls.
+- No DB writes or queue mutations.
 
-After upload, verify syntax, auth redirect, JSON output, and live gate risk status. Do not enable live submission.
+Next safest step:
+
+Verify v3.1.1 on live, then continue with read-only observation of V3 real-mail intake and queue health. Do not enable live submission.

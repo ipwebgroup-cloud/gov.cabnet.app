@@ -1,26 +1,31 @@
-# gov.cabnet.app Patch — V3 Real-Mail Queue Health v3.1.0
+# Patch README — v3.1.1 V3 Real-Mail Queue Health Navigation
 
 ## What changed
 
-Adds a read-only V3 real-mail intake and queue health audit.
+Adds navigation links for the read-only V3 Real-Mail Queue Health audit:
+
+- Top Pre-Ride dropdown: `V3 Real-Mail Queue Health`
+- Daily operations sidebar: `Real-Mail Queue Health`
 
 ## Files included
 
-- `gov.cabnet.app_app/cli/pre_ride_email_v3_real_mail_queue_health.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-mail-queue-health.php`
-- `docs/V3_REAL_MAIL_QUEUE_HEALTH_20260515.md`
+- `public_html/gov.cabnet.app/ops/_shell.php`
+- `docs/V3_REAL_MAIL_QUEUE_HEALTH_NAV_20260515.md`
+- `PATCH_README.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
 
-## Upload paths
+## Upload path
 
-- `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_mail_queue_health.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-mail-queue-health.php`
+Upload:
 
-Optional docs mirror:
+- `public_html/gov.cabnet.app/ops/_shell.php`
 
-- `/home/cabnet/docs/V3_REAL_MAIL_QUEUE_HEALTH_20260515.md`
+to:
+
+- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+
+Docs/continuity files are for the repo.
 
 ## SQL
 
@@ -29,31 +34,27 @@ None.
 ## Verification
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_mail_queue_health.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-mail-queue-health.php
-
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-mail-queue-health.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_mail_queue_health.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "possible_real=".($j["summary"]["possible_real_mail_recent_count"]??"?").PHP_EOL; echo "canary=".($j["summary"]["canary_recent_count"]??"?").PHP_EOL; echo "live_risk=".(($j["summary"]["live_risk_detected"]??false)?"true":"false").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+grep -n "v3.1.1\|Real-Mail Queue Health\|real-mail queue health navigation" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
-Expected:
+## Expected result
 
-- PHP syntax checks pass.
-- Ops route redirects unauthenticated users to `/ops/login.php`.
-- CLI returns JSON.
-- `live_risk=false` while closed-gate posture remains intact.
+- No syntax errors.
+- HTTP 302 to `/ops/login.php` when unauthenticated.
+- v3.1.1 markers present.
+- The Real-Mail Queue Health page appears in the Pre-Ride dropdown and daily sidebar after login.
 
 ## Commit title
 
-Add V3 real-mail queue health audit
+Add V3 real-mail queue health navigation
 
 ## Commit description
 
-Adds a read-only V3 real-mail intake and queue health audit for the closed-gate pre-ride email automation workflow.
+Adds navigation links for the read-only V3 Real-Mail Queue Health audit page.
 
-The audit distinguishes generated canary rows from possible real-mail queue rows, reports future active rows, ready rows, stale locks, missing required fields, latest queue classifications, and live gate closed-posture status.
+The page is added to the Pre-Ride top dropdown and Daily Operations sidebar for supervised monitoring of real-mail intake and queue health.
 
 No routes are moved or deleted. No redirects are added. No SQL changes are made. No Bolt, EDXEIX, AADE, database write, queue mutation, or filesystem write actions are performed.
 
