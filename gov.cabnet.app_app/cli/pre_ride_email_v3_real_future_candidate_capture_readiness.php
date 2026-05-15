@@ -51,13 +51,17 @@
  * v3.2.11:
  * - Adds read-only Maildir fixture writer authorization packet.
  * - Consolidates fixture preview, writer design, path preflight, and explicit request gates.
+ *
+ * v3.2.12:
+ * - Adds read-only Maildir fixture writer go/no-go snapshot.
+ * - Aggregates fixture preview, design, preflight, and authorization packet into a final non-executable readiness decision.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.11-v3-maildir-fixture-writer-authorization-packet';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_maildir_fixture_writer_preflight_audit';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, authorization packet, real-format mail fixture previews, and Maildir writer design, Maildir writer preflight, and Maildir writer authorization snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.12-v3-maildir-fixture-writer-go-no-go-snapshot';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_maildir_fixture_writer_go_no_go_snapshot';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, authorization packet, real-format mail fixture previews, and Maildir writer design, Maildir writer preflight, Maildir writer authorization, and Maildir writer go/no-go snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -2204,6 +2208,122 @@ function gov_v3rfccr_maildir_fixture_writer_authorization_packet(array $report):
     ];
 }
 
+/** @return array<string,mixed> */
+function gov_v3rfccr_maildir_fixture_writer_go_no_go_snapshot(array $report): array
+{
+    $fixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
+    $design = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
+    $preflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
+    $authorization = gov_v3rfccr_maildir_fixture_writer_authorization_packet($report);
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $liveGate = is_array($report['live_gate'] ?? null) ? $report['live_gate'] : [];
+
+    $authGates = is_array($authorization['authorization_gates'] ?? null) ? $authorization['authorization_gates'] : [];
+    $preflightBlocks = is_array($preflight['preflight_blocks'] ?? null) ? $preflight['preflight_blocks'] : [];
+    $liveRisk = !empty($summary['live_risk_detected']) || !empty($liveGate['live_risk_detected']);
+
+    $goChecks = [
+        'fixture_preview_ok' => !empty($fixture['ok']),
+        'fixture_body_has_no_demo_test_canary_tokens' => empty($fixture['body_contains_demo_test_canary_tokens']),
+        'maildir_writer_design_ok' => !empty($design['ok']),
+        'maildir_preflight_ok' => !empty($preflight['ok']) && $preflightBlocks === [],
+        'maildir_paths_ready_for_future_explicit_writer' => !empty($preflight['maildir_paths_ready_for_future_explicit_writer']),
+        'maildir_authorization_packet_ready' => ((string)($authorization['packet_status'] ?? '') === 'packet_ready_awaiting_explicit_andreas_request'),
+        'write_probe_not_performed' => empty($preflight['write_probe_performed']) && empty($authorization['write_probe_performed']),
+        'maildir_write_not_made' => empty($fixture['maildir_write_made']) && empty($preflight['maildir_write_made']) && empty($authorization['maildir_write_made']),
+        'executable_mail_writer_not_added' => empty($fixture['executable_mail_writer_added']) && empty($design['executable_mail_writer_added']) && empty($preflight['executable_mail_writer_added']) && empty($authorization['executable_mail_writer_added']),
+        'live_gate_currently_disabled' => !empty($liveGate['expected_closed_pre_live_posture']) && empty($liveGate['enabled']),
+        'live_risk_not_detected' => !$liveRisk,
+        'explicit_andreas_request_still_required' => !empty($authorization['requires_explicit_andreas_maildir_write_request']),
+        'separate_writer_patch_still_required' => !empty($authorization['future_patch_required_for_maildir_write']),
+    ];
+
+    $failed = [];
+    foreach ($goChecks as $key => $value) {
+        if (!$value) { $failed[] = $key; }
+    }
+
+    $goReady = ($failed === []);
+    $outcome = $goReady
+        ? 'go_ready_for_explicit_separate_writer_patch_only'
+        : 'no_go_review_maildir_fixture_writer_blocks';
+    $label = $goReady
+        ? 'Read-only gates are ready. A separate explicit one-shot writer patch is still required before any Maildir file can be created.'
+        : 'One or more read-only gates failed. Do not add a writer and do not create a Maildir file.';
+
+    return [
+        'ok' => !empty($report['ok']) && !$liveRisk,
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_maildir_fixture_writer_go_no_go_snapshot',
+        'go_no_go_outcome' => $outcome,
+        'go_no_go_label' => $label,
+        'decision_color' => $goReady ? 'watch' : 'blocked',
+        'go_ready_for_future_explicit_writer_patch_only' => $goReady,
+        'authorization_packet_only' => true,
+        'design_only' => true,
+        'executable_mail_writer_added' => false,
+        'maildir_write_allowed_now' => false,
+        'maildir_write_made' => false,
+        'maildir_write_recommended_now' => 0,
+        'future_patch_required_for_maildir_write' => true,
+        'requires_explicit_andreas_maildir_write_request' => true,
+        'write_probe_performed' => false,
+        'live_submit_allowed_now' => false,
+        'live_submit_blocked_by_design' => true,
+        'edxeix_call_made' => false,
+        'db_write_made' => false,
+        'queue_mutation_made' => false,
+        'bolt_call_made' => false,
+        'aade_call_made' => false,
+        'cron_job_added' => false,
+        'notification_sent' => false,
+        'go_no_go_checks' => $goChecks,
+        'failed_go_no_go_checks' => $failed,
+        'component_results' => [
+            'fixture_preview_snapshot_mode' => (string)($fixture['snapshot_mode'] ?? ''),
+            'fixture_redacted_body_sha256' => (string)($fixture['redacted_body_sha256'] ?? ''),
+            'maildir_writer_design_outcome' => (string)($design['design_outcome'] ?? ''),
+            'maildir_preflight_outcome' => (string)($preflight['preflight_outcome'] ?? ''),
+            'maildir_authorization_packet_status' => (string)($authorization['packet_status'] ?? ''),
+            'maildir_new_path_ready' => !empty($authGates['maildir_new_path_ready']),
+            'maildir_tmp_path_ready' => !empty($authGates['maildir_tmp_path_ready']),
+            'maildir_new_entry_count_if_readable' => (int)($authorization['component_results']['maildir_new_entry_count_if_readable'] ?? 0),
+            'maildir_tmp_entry_count_if_readable' => (int)($authorization['component_results']['maildir_tmp_entry_count_if_readable'] ?? 0),
+            'live_gate_expected_closed' => !empty($liveGate['expected_closed_pre_live_posture']),
+            'live_gate_enabled' => !empty($liveGate['enabled']),
+            'live_gate_mode' => (string)($liveGate['mode'] ?? ''),
+            'live_gate_adapter' => (string)($liveGate['adapter'] ?? ''),
+        ],
+        'next_allowed_step' => $goReady
+            ? 'Andreas may explicitly request a separate one-shot Maildir fixture writer patch. This snapshot still does not add or run that writer.'
+            : 'Review failed go/no-go checks before any writer design proceeds.',
+        'non_goals_confirmed' => [
+            'does_not_create_mail_file' => true,
+            'does_not_add_executable_writer' => true,
+            'does_not_write_maildir' => true,
+            'does_not_trigger_intake' => true,
+            'does_not_submit_to_edxeix' => true,
+            'does_not_enable_live_gate' => true,
+            'does_not_mutate_queue' => true,
+            'does_not_write_database' => true,
+        ],
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($liveGate['expected_closed_pre_live_posture']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => 0,
+            'maildir_write_made' => false,
+            'write_probe_performed' => false,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+        ],
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-go-no-go-json',
+    ];
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -2254,6 +2374,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
     $maildirWriterPreflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
     $maildirWriterAuthorization = gov_v3rfccr_maildir_fixture_writer_authorization_packet($report);
+    $maildirWriterGoNoGo = gov_v3rfccr_maildir_fixture_writer_go_no_go_snapshot($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -2310,6 +2431,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($maildirWriterAuthorization['ok']) ? 0 : 1;
     }
 
+    if ($maildirWriterGoNoGoJson) {
+        echo json_encode($maildirWriterGoNoGo, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($maildirWriterGoNoGo['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -2327,6 +2453,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         $report['controlled_maildir_fixture_writer_design'] = $maildirWriterDesign;
         $report['controlled_maildir_fixture_writer_preflight'] = $maildirWriterPreflight;
         $report['maildir_fixture_writer_authorization_packet'] = $maildirWriterAuthorization;
+        $report['maildir_fixture_writer_go_no_go_snapshot'] = $maildirWriterGoNoGo;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -2354,6 +2481,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Controlled Maildir fixture writer design command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-design-json' . PHP_EOL;
     echo 'Maildir fixture writer preflight command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-preflight-json' . PHP_EOL;
     echo 'Maildir fixture writer authorization command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json' . PHP_EOL;
+    echo 'Maildir fixture writer go/no-go command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-go-no-go-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }

@@ -40,6 +40,9 @@
  *
  * v3.2.11:
  * - Adds Maildir fixture writer authorization packet section.
+ *
+ * v3.2.12:
+ * - Adds Maildir fixture writer go/no-go snapshot section.
  */
 
 declare(strict_types=1);
@@ -59,6 +62,7 @@ $demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
 $maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
 $maildirWriterPreflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
 $maildirWriterAuthorization = gov_v3rfccr_maildir_fixture_writer_authorization_packet($report);
+$maildirWriterGoNoGo = gov_v3rfccr_maildir_fixture_writer_go_no_go_snapshot($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -88,6 +92,9 @@ $maildirPreflightBlocks = is_array($maildirWriterPreflight['preflight_blocks'] ?
 $maildirAuthorizationGates = is_array($maildirWriterAuthorization['authorization_gates'] ?? null) ? $maildirWriterAuthorization['authorization_gates'] : [];
 $maildirAuthorizationRunbook = is_array($maildirWriterAuthorization['runbook_steps_for_future_explicit_writer_patch'] ?? null) ? $maildirWriterAuthorization['runbook_steps_for_future_explicit_writer_patch'] : [];
 $maildirAuthorizationComponents = is_array($maildirWriterAuthorization['component_results'] ?? null) ? $maildirWriterAuthorization['component_results'] : [];
+$maildirGoNoGoChecks = is_array($maildirWriterGoNoGo['go_no_go_checks'] ?? null) ? $maildirWriterGoNoGo['go_no_go_checks'] : [];
+$maildirGoNoGoFailed = is_array($maildirWriterGoNoGo['failed_go_no_go_checks'] ?? null) ? $maildirWriterGoNoGo['failed_go_no_go_checks'] : [];
+$maildirGoNoGoComponents = is_array($maildirWriterGoNoGo['component_results'] ?? null) ? $maildirWriterGoNoGo['component_results'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -142,7 +149,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.10')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.12')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -740,6 +747,46 @@ opsui_shell_begin([
             <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
         <?php endforeach; ?>
         <?php if (!$maildirAuthorizationComponents): ?><tr><td colspan="2">No Maildir authorization component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+
+<section class="panel">
+    <h2>Maildir Fixture Writer Go/No-Go Snapshot</h2>
+    <p>This read-only snapshot aggregates the fixture preview, Maildir writer design, path preflight, and authorization packet into one final non-executable go/no-go posture. It still does not add a writer and does not create a Maildir file.</p>
+    <div class="v3cap-next">
+        <p><strong>Go/no-go outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($maildirWriterGoNoGo['go_no_go_outcome'] ?? '')) ?></code></p>
+        <p><strong>Decision:</strong> <?= opsui_h((string)($maildirWriterGoNoGo['go_no_go_label'] ?? '')) ?></p>
+        <p><strong>Ready for future explicit writer patch only:</strong> <?= !empty($maildirWriterGoNoGo['go_ready_for_future_explicit_writer_patch_only']) ? 'yes' : 'no' ?> · <strong>Executable writer added:</strong> <?= !empty($maildirWriterGoNoGo['executable_mail_writer_added']) ? 'yes' : 'no' ?> · <strong>Maildir write allowed now:</strong> <?= !empty($maildirWriterGoNoGo['maildir_write_allowed_now']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> Maildir write <?= !empty($maildirWriterGoNoGo['maildir_write_made']) ? 'yes' : 'no' ?> · write probe <?= !empty($maildirWriterGoNoGo['write_probe_performed']) ? 'yes' : 'no' ?> · DB write <?= !empty($maildirWriterGoNoGo['db_write_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($maildirWriterGoNoGo['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p><strong>Next allowed step:</strong> <?= opsui_h((string)($maildirWriterGoNoGo['next_allowed_step'] ?? '')) ?></p>
+        <p class="v3cap-small">CLI go/no-go command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-go-no-go-json</code></p>
+    </div>
+    <?php if ($maildirGoNoGoFailed): ?>
+        <div class="v3cap-block"><strong>Failed go/no-go checks:</strong> <?= opsui_h(implode(', ', array_map('strval', $maildirGoNoGoFailed))) ?></div>
+    <?php endif; ?>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Go/no-go check</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirGoNoGoChecks as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirGoNoGoChecks): ?><tr><td colspan="2">No Maildir go/no-go checks are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Go/no-go component posture</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirGoNoGoComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirGoNoGoComponents): ?><tr><td colspan="2">No Maildir go/no-go component results are available.</td></tr><?php endif; ?>
         </tbody>
     </table>
     </div>
