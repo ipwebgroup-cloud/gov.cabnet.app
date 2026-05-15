@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.2.13
+ * gov.cabnet.app — shared operations UI shell v3.2.14
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -39,6 +39,9 @@
  *
  * v3.2.10:
  * - Notes Maildir fixture writer preflight audit support.
+ *
+ * v3.2.14:
+ * - Notes controlled one-shot Maildir fixture writer support.
  */
 
 declare(strict_types=1);
@@ -452,7 +455,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">V3.2.13 observation toolchain installed. Maildir writer go/no-go CLI dispatch fix is available. Routes were not deleted. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">V3.2.14 observation toolchain installed. Controlled one-shot Maildir fixture writer is available and preview-only by default. Routes were not deleted. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">

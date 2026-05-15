@@ -1,9 +1,3 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge from v3.2.13.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge project from v3.2.14. The V3 observation toolchain includes real-mail capture readiness, watch/evidence snapshots, EDXEIX dry-run preview, expired candidate safety audit, controlled live-submit readiness/runbook, demo mail fixture preview, Maildir writer design/preflight/authorization/go-no-go, and a controlled one-shot Maildir fixture writer that is preview-only by default.
 
-Current state:
-- V3.2.13 fixes CLI JSON dispatch for `--maildir-writer-go-no-go-json`.
-- Live EDXEIX submit remains disabled.
-- No executable Maildir writer exists.
-- Production Pre-Ride Tool remains untouched.
-
-Next safe step should remain read-only unless Andreas explicitly requests a one-shot Maildir writer patch or a separate single-row live-submit patch.
+Do not enable live EDXEIX submit unless Andreas explicitly requests it. Do not run the Maildir writer write mode unless Andreas explicitly asks for a controlled one-message fixture write.

@@ -1,20 +1,16 @@
-# gov.cabnet.app — Handoff through v3.2.13
+# gov.cabnet.app V3 Handoff — v3.2.14
 
-Current verified direction: V3 observation and Maildir fixture readiness toolchain only. Live EDXEIX submission remains disabled. The production Pre-Ride Tool remains untouched.
+Current state: controlled one-shot Maildir fixture writer added, preview-only by default.
 
-Latest patch: v3.2.13 — Maildir Fixture Writer Go/No-Go CLI Dispatch Fix.
+Safety:
+- Live EDXEIX submit remains disabled.
+- Production Pre-Ride Tool remains untouched.
+- No DB writes or queue mutations are made by preview mode.
+- Writer creates exactly one Maildir message only if explicit write flag and confirmation phrase are both provided.
+- No Bolt, EDXEIX, or AADE calls.
 
-Safety posture:
-- No live EDXEIX submit enabled.
-- No executable Maildir writer added.
-- No Maildir writes.
-- No write probe.
-- No DB writes or queue mutations.
-- No Bolt / EDXEIX / AADE calls.
+Primary verification command:
 
-Important verification command:
 ```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-go-no-go-json
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-fixture-writer-json
 ```
-
-Expected: JSON output with `snapshot_mode=read_only_maildir_fixture_writer_go_no_go_snapshot`.

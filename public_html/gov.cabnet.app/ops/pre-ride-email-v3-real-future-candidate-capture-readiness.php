@@ -46,6 +46,9 @@
  *
  * v3.2.13:
  * - Displays the go/no-go snapshot after CLI dispatch fix and cleans Maildir label spacing.
+ *
+ * v3.2.14:
+ * - Adds controlled one-shot Maildir fixture writer preview/default-safe section.
  */
 
 declare(strict_types=1);
@@ -66,6 +69,7 @@ $maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($rep
 $maildirWriterPreflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
 $maildirWriterAuthorization = gov_v3rfccr_maildir_fixture_writer_authorization_packet($report);
 $maildirWriterGoNoGo = gov_v3rfccr_maildir_fixture_writer_go_no_go_snapshot($report);
+$maildirFixtureWriter = gov_v3rfccr_one_shot_maildir_fixture_writer($report, []);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -98,6 +102,9 @@ $maildirAuthorizationComponents = is_array($maildirWriterAuthorization['componen
 $maildirGoNoGoChecks = is_array($maildirWriterGoNoGo['go_no_go_checks'] ?? null) ? $maildirWriterGoNoGo['go_no_go_checks'] : [];
 $maildirGoNoGoFailed = is_array($maildirWriterGoNoGo['failed_go_no_go_checks'] ?? null) ? $maildirWriterGoNoGo['failed_go_no_go_checks'] : [];
 $maildirGoNoGoComponents = is_array($maildirWriterGoNoGo['component_results'] ?? null) ? $maildirWriterGoNoGo['component_results'] : [];
+$maildirFixtureWriterBlocks = is_array($maildirFixtureWriter['blocks'] ?? null) ? $maildirFixtureWriter['blocks'] : [];
+$maildirFixtureWriterPreview = is_array($maildirFixtureWriter['fixture_preview'] ?? null) ? $maildirFixtureWriter['fixture_preview'] : [];
+$maildirFixtureWriterComponents = is_array($maildirFixtureWriter['component_results'] ?? null) ? $maildirFixtureWriter['component_results'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -152,7 +159,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.13')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.14')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -790,6 +797,45 @@ opsui_shell_begin([
             <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
         <?php endforeach; ?>
         <?php if (!$maildirGoNoGoComponents): ?><tr><td colspan="2">No Maildir go/no-go component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+
+<section class="panel">
+    <h2>Controlled One-Shot Maildir Fixture Writer</h2>
+    <p>This section shows the controlled writer posture. The writer defaults to preview-only and creates no Maildir file unless a separate terminal command includes both the explicit write flag and the exact confirmation phrase.</p>
+    <div class="v3cap-next">
+        <p><strong>Writer outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($maildirFixtureWriter['writer_outcome'] ?? '')) ?></code></p>
+        <p><strong>Preview-only default:</strong> <?= !empty($maildirFixtureWriter['preview_only_default']) ? 'yes' : 'no' ?> · <strong>Executable writer added:</strong> <?= !empty($maildirFixtureWriter['executable_mail_writer_added']) ? 'yes' : 'no' ?> · <strong>Maildir write made:</strong> <?= !empty($maildirFixtureWriter['maildir_write_made']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> DB write <?= !empty($maildirFixtureWriter['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($maildirFixtureWriter['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($maildirFixtureWriter['edxeix_call_made']) ? 'yes' : 'no' ?> · AADE call <?= !empty($maildirFixtureWriter['aade_call_made']) ? 'yes' : 'no' ?></p>
+        <p><strong>Confirmation phrase required:</strong> <code class="v3cap-code"><?= opsui_h((string)($maildirFixtureWriter['confirmation_phrase_required'] ?? '')) ?></code></p>
+        <p class="v3cap-small">Preview command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-fixture-writer-json</code></p>
+    </div>
+    <?php if ($maildirFixtureWriterBlocks): ?>
+        <div class="v3cap-warning"><strong>Preview/write blocks:</strong> <?= opsui_h(implode(', ', array_map('strval', $maildirFixtureWriterBlocks))) ?></div>
+    <?php endif; ?>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Fixture preview field</th><th>Value</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirFixtureWriterPreview as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirFixtureWriterPreview): ?><tr><td colspan="2">No writer fixture preview available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Writer component posture</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirFixtureWriterComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirFixtureWriterComponents): ?><tr><td colspan="2">No writer component posture available.</td></tr><?php endif; ?>
         </tbody>
     </table>
     </div>
