@@ -1,36 +1,37 @@
-# Patch README — V3 Candidate Watch Milestone Docs
+# gov.cabnet.app patch — v3.1.9 V3 Real-Mail Observation Overview
 
-## Package
+## What changed
 
-gov_v3_1_5_1_8_candidate_watch_milestone_docs_20260515.zip
+Adds a read-only consolidated V3 real-mail observation overview.
 
-## Type
+## Files included
 
-Documentation-only milestone package.
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_observation_overview.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-overview.php`
+- `docs/V3_REAL_MAIL_OBSERVATION_OVERVIEW_20260515.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
 
-## Files
+## Upload paths
 
-```text
-HANDOFF.md
-CONTINUE_PROMPT.md
-PATCH_README.md
-docs/V3_CANDIDATE_WATCH_AND_SHELL_CLEANUP_MILESTONE_20260515.md
-```
+Upload:
+
+- `gov.cabnet.app_app/cli/pre_ride_email_v3_observation_overview.php`
+  to `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_observation_overview.php`
+
+- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-overview.php`
+  to `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-overview.php`
+
+Optional docs mirror:
+
+- `docs/V3_REAL_MAIL_OBSERVATION_OVERVIEW_20260515.md`
+  to `/home/cabnet/docs/V3_REAL_MAIL_OBSERVATION_OVERVIEW_20260515.md`
 
 ## SQL
 
 None.
 
-## Upload
-
-Extract into the repo root for documentation continuity.
-
-Optional live docs mirror:
-
-```text
-/home/cabnet/docs/V3_CANDIDATE_WATCH_AND_SHELL_CLEANUP_MILESTONE_20260515.md
-```
-
 ## Safety
 
-No executable production files are included. No DB or secret files are included.
+No Bolt calls, no EDXEIX calls, no AADE calls, no DB writes, no queue mutations, no route moves/deletes/redirects.
