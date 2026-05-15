@@ -1,26 +1,27 @@
-# Patch README — V3 Git-Safe + DB Audit package option
+# PATCH README — v3.0.80 Navigation De-Bloat
 
 ## What changed
 
-Updated `/ops/handoff-center.php` to add a second button inside the Git-Safe Continuity ZIP section:
+Adds a no-delete navigation de-bloat update for the live gov.cabnet.app `/ops` shell.
 
-- `Build Git-Safe Continuity ZIP` — DB-free, commit-review starting point.
-- `Build Git-Safe + DB Audit ZIP` — includes `DATABASE_EXPORT.sql` for private live-site/database audit while keeping the runtime/session/proof-artifact scrubber active.
+Daily operator navigation is now shorter. V3 proof/readiness tools remain visible. Dev/test/mobile/evidence/package/helper pages remain available under a collapsed Developer Archive and the Route Index.
 
 ## Files included
 
-- `public_html/gov.cabnet.app/ops/handoff-center.php`
-- `docs/V3_GIT_SAFE_DB_AUDIT_OPTION_20260515.md`
-- `PATCH_README.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
+```text
+public_html/gov.cabnet.app/ops/_shell.php
+public_html/gov.cabnet.app/ops/route-index.php
+docs/LIVE_NAVIGATION_DEBLOAT_20260515.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+```
 
-## Upload path
-
-Upload only:
+## Upload paths
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
 ```
 
 ## SQL
@@ -30,42 +31,31 @@ None.
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
-
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
+curl -I --max-time 10 https://gov.cabnet.app/ops/route-index.php
 curl -I --max-time 10 https://gov.cabnet.app/ops/handoff-center.php
-
-grep -n "v3.0.78\|build_git_safe_continuity_zip_with_db\|GIT_SAFE_WITH_DB_AUDIT_NOTICE\|Git-Safe + DB Audit ZIP" \
-  /home/cabnet/public_html/gov.cabnet.app/ops/handoff-center.php
+grep -n "v3.0.80\|Developer archive\|Live Route Inventory" \
+  /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php \
+  /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
 ```
 
-Expected:
+Expected unauthenticated curl result:
 
-- PHP syntax passes.
-- Unauthenticated request redirects to `/ops/login.php`.
-- Grep finds the new v3.0.78 markers and DB audit action.
-
-## Package verification after generating DB audit ZIP
-
-```bash
-unzip -l /path/to/gov_cabnet_git_safe_with_db_audit_*.zip | grep -Ei "DATABASE_EXPORT|GIT_SAFE_WITH_DB_AUDIT_NOTICE|storage/runtime|edxeix_session|cookie_header|csrf|xsrf|laravel_session|storage/artifacts|\.bak|\.pre_"
+```text
+HTTP/1.1 302 Found
+Location: /ops/login.php?next=...
 ```
 
-Expected:
+## Expected browser result
 
-- `DATABASE_EXPORT.sql` is present.
-- `GIT_SAFE_WITH_DB_AUDIT_NOTICE.md` is present.
-- No runtime/session/cookie/proof-artifact/backup entries are present.
+After login:
 
-## Commit title
+- Sidebar is reduced and daily-focused.
+- Developer Archive is collapsed by default.
+- V3 proof/readiness links remain visible.
+- Route Index shows the static live route inventory.
 
-Add Git-safe DB audit package option
+## Safety
 
-## Commit description
-
-Adds a DB-audit package option to the Handoff Center Git-Safe section.
-
-The new button builds a package with `DATABASE_EXPORT.sql` included for private live-site/database audit while preserving the runtime/session/cookie/proof-artifact scrubber introduced in v3.0.77.
-
-The DB-free Git-Safe Continuity ZIP remains available for local repo continuity review before committing. The DB audit package is private operational material and must not be committed to GitHub.
-
-No SQL changes are required. Live EDXEIX submission remains disabled.
+No routes are deleted. No SQL changes are made. No live EDXEIX submit is enabled. No V0 workflow is changed.

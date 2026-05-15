@@ -1,13 +1,15 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v2.9
+ * gov.cabnet.app — shared operations UI shell v3.0.80
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v2.9:
- * - Replaces the long wrapping top menu with compact CSS-only dropdown groups.
- * - Keeps all existing routes accessible without changing workflow behavior.
+ * v3.0.80:
+ * - De-bloats daily navigation without deleting routes.
+ * - Keeps production and V3 proof routes visible.
+ * - Moves dev/test/mobile/simulation/support routes into a collapsible Developer Archive.
+ * - Keeps live EDXEIX submission disabled.
  */
 
 declare(strict_types=1);
@@ -288,30 +290,32 @@ function opsui_shell_begin(array $options = []): void
     $showSafetyNotice = (($prefs['show_safety_notices'] ?? '1') !== '0') || !empty($options['force_safe_notice']);
 
     $preRideItems = [
+        ['/ops/pre-ride-email-v3-dashboard.php', 'V3 Control Center'],
         ['/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool'],
-        ['/ops/pre-ride-email-toolv2.php', 'Pre-Ride Tool V2 Dev'],
-        ['/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review'],
-        ['/ops/mobile-compatibility.php', 'Mobile Compatibility'],
+        ['/ops/pre-ride-email-v3-live-operator-console.php', 'V3 Live Operator Console'],
+        ['/ops/pre-ride-email-v3-pre-live-switchboard.php', 'V3 Pre-Live Switchboard'],
+        ['/ops/pre-ride-email-v3-live-adapter-contract-test.php', 'V3 Contract Test'],
     ];
     $workflowItems = [
-        ['/ops/test-session.php', 'Test Session Control'],
+        ['/ops/quick-launch.php', 'Quick Launch'],
         ['/ops/preflight-review.php', 'Preflight Review'],
-        ['/ops/dev-accelerator.php', 'Dev Accelerator'],
-        ['/ops/workflow-guide.php', 'Workflow Guide'],
         ['/ops/safety-checklist.php', 'Safety Checklist'],
+        ['/ops/workflow-guide.php', 'Workflow Guide'],
+        ['/ops/route-index.php', 'Developer Archive / Route Index'],
     ];
     $helperItems = [
         ['/ops/firefox-extension.php', 'Firefox Helper Center'],
         ['/ops/firefox-extensions-status.php', 'Extension Pair Status'],
+        ['/ops/edxeix-session-readiness.php', 'EDXEIX Session Readiness'],
     ];
     $docsItems = [
+        ['/ops/handoff-center.php', 'Handoff Center'],
+        ['/ops/route-index.php', 'Route Index'],
         ['/ops/documentation-center.php', 'Documentation Center'],
-        ['/ops/quick-launch.php', 'Quick Launch'],
         ['/ops/tool-inventory.php', 'Tool Inventory'],
         ['/ops/system-status.php', 'System Status'],
         ['/ops/deployment-center.php', 'Deployment Center'],
-        ['/ops/handoff-center.php', 'Handoff Center'],
-        ['/ops/route-index.php', 'Route Index'],
+        ['/ops/handoff-package-tools.php', 'Package Tools'],
     ];
     $profileItems = [
         ['/ops/profile.php', 'Profile'],
@@ -355,6 +359,13 @@ function opsui_shell_begin(array $options = []): void
         .gov-nav-menu-item:hover,.gov-nav-menu-item.active{background:#eef1f8;color:#3f4b87;text-decoration:none;}
         .gov-top-links .gov-user-chip{margin-left:4px;flex:0 0 auto;white-space:nowrap;}
         .gov-brand{flex:0 0 auto;}
+        .gov-side-archive{margin-top:10px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px;}
+        .gov-side-archive summary{cursor:pointer;color:rgba(255,255,255,.78);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:8px 0;list-style:none;}
+        .gov-side-archive summary::-webkit-details-marker{display:none;}
+        .gov-side-archive summary:after{content:'▾';float:right;color:rgba(255,255,255,.55);}
+        .gov-side-archive[open] summary:after{content:'▴';}
+        .gov-side-archive .gov-side-link{opacity:.86;}
+        .gov-side-archive-note{font-size:11px;color:rgba(255,255,255,.62);line-height:1.35;margin:6px 0 8px;}
         @media (max-width:1180px){.gov-top-links{display:none!important;}}
     </style>
 </head>
@@ -400,53 +411,66 @@ function opsui_shell_begin(array $options = []): void
         <p><?= opsui_h($subtitle) ?></p>
 
         <div class="gov-side-group">
-            <div class="gov-side-group-title">Primary workflow</div>
+            <div class="gov-side-group-title">Daily operations</div>
             <?= opsui_side_link('/ops/home.php', 'Ops Home', $current) ?>
             <?= opsui_side_link('/ops/quick-launch.php', 'Quick Launch', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-dashboard.php', 'V3 Control Center', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool', $current) ?>
-            <?= opsui_side_link('/ops/pre-ride-email-toolv2.php', 'Pre-Ride Tool V2 Dev', $current) ?>
-            <?= opsui_side_link('/ops/test-session.php', 'Test Session Control', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-live-operator-console.php', 'Live Operator Console', $current) ?>
             <?= opsui_side_link('/ops/preflight-review.php', 'Preflight Review', $current) ?>
-            <?= opsui_side_link('/ops/dev-accelerator.php', 'Dev Accelerator', $current) ?>
 
-            <div class="gov-side-group-title">Evidence</div>
-            <?= opsui_side_link('/ops/evidence-bundle.php', 'Evidence Bundle', $current) ?>
-            <?= opsui_side_link('/ops/evidence-report.php', 'Evidence Report', $current) ?>
+            <div class="gov-side-group-title">V3 proof & readiness</div>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-live-adapter-contract-test.php', 'Live Adapter Contract Test', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-live-gate-drift-guard.php', 'Live Gate Drift Guard', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-pre-live-switchboard.php', 'Pre-Live Switchboard', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-adapter-payload-consistency.php', 'Payload Consistency', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-adapter-row-simulation.php', 'Adapter Row Simulation', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-pre-live-proof-bundle-export.php', 'Proof Bundle Export', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-readiness-focus.php', 'Readiness Focus', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-queue-focus.php', 'Queue Focus', $current) ?>
 
-            <div class="gov-side-group-title">Administration</div>
+            <div class="gov-side-group-title">Admin & audit</div>
             <?= opsui_side_link('/ops/admin-control.php', 'Admin Control', $current) ?>
             <?= opsui_side_link('/ops/readiness-control.php', 'Readiness Control', $current) ?>
             <?= opsui_side_link('/ops/mapping-control.php', 'Mapping Review', $current) ?>
             <?= opsui_side_link('/ops/jobs-control.php', 'Jobs Review', $current) ?>
-            <?= opsui_side_link('/ops/firefox-extension.php', 'Firefox Helper Center', $current) ?>
-            <?= opsui_side_link('/ops/firefox-extensions-status.php', 'Extension Pair Status', $current) ?>
-            <?= opsui_side_link('/ops/mobile-compatibility.php', 'Mobile Compatibility', $current) ?>
-            <?= opsui_side_link('/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review', $current) ?>
-            <?= opsui_side_link('/ops/workflow-guide.php', 'Workflow Guide', $current) ?>
-            <?= opsui_side_link('/ops/safety-checklist.php', 'Safety Checklist', $current) ?>
-            <?= opsui_side_link('/ops/documentation-center.php', 'Documentation Center', $current) ?>
-            <?= opsui_side_link('/ops/tool-inventory.php', 'Tool Inventory', $current) ?>
-            <?= opsui_side_link('/ops/system-status.php', 'System Status', $current) ?>
-            <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
             <?= opsui_side_link('/ops/handoff-center.php', 'Handoff Center', $current) ?>
-            <?= opsui_side_link('/ops/route-index.php', 'Route Index', $current) ?>
+            <?= opsui_side_link('/ops/route-index.php', 'Route Index / Archive', $current) ?>
+            <?= opsui_side_link('/ops/system-status.php', 'System Status', $current) ?>
+
+            <details class="gov-side-archive">
+                <summary>Developer archive</summary>
+                <p class="gov-side-archive-note">No routes were deleted. Older V2, mobile, test, evidence, package, and helper pages remain available here for supervised use.</p>
+                <?= opsui_side_link('/ops/pre-ride-email-toolv2.php', 'Pre-Ride Tool V2 Dev', $current) ?>
+                <?= opsui_side_link('/ops/test-session.php', 'Test Session Control', $current) ?>
+                <?= opsui_side_link('/ops/dev-accelerator.php', 'Dev Accelerator', $current) ?>
+                <?= opsui_side_link('/ops/evidence-bundle.php', 'Evidence Bundle', $current) ?>
+                <?= opsui_side_link('/ops/evidence-report.php', 'Evidence Report', $current) ?>
+                <?= opsui_side_link('/ops/firefox-extension.php', 'Firefox Helper Center', $current) ?>
+                <?= opsui_side_link('/ops/firefox-extensions-status.php', 'Extension Pair Status', $current) ?>
+                <?= opsui_side_link('/ops/mobile-compatibility.php', 'Mobile Compatibility', $current) ?>
+                <?= opsui_side_link('/ops/pre-ride-mobile-review.php', 'Mobile Pre-Ride Review', $current) ?>
+                <?= opsui_side_link('/ops/workflow-guide.php', 'Workflow Guide', $current) ?>
+                <?= opsui_side_link('/ops/safety-checklist.php', 'Safety Checklist', $current) ?>
+                <?= opsui_side_link('/ops/documentation-center.php', 'Documentation Center', $current) ?>
+                <?= opsui_side_link('/ops/tool-inventory.php', 'Tool Inventory', $current) ?>
+                <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
+                <?= opsui_side_link('/ops/handoff-package-tools.php', 'Package Tools', $current) ?>
+                <?= opsui_side_link('/ops/handoff-package-archive.php', 'Package Archive', $current) ?>
+                <?= opsui_side_link('/ops/handoff-package-validator.php', 'Package Validator', $current) ?>
+                <?= opsui_side_link('/ops/ui-shell-preview.php', 'UI Shell Preview', $current) ?>
+            </details>
 
             <div class="gov-side-group-title">User area</div>
             <?= opsui_side_link('/ops/my-start.php', 'My Start', $current) ?>
             <?= opsui_side_link('/ops/profile.php', 'Operator Profile', $current) ?>
-            <?= opsui_side_link('/ops/profile-edit.php', 'Edit Profile', $current) ?>
             <?= opsui_side_link('/ops/profile-preferences.php', 'Preferences', $current) ?>
-            <?= opsui_side_link('/ops/profile-password.php', 'Change Password', $current) ?>
-            <?= opsui_side_link('/ops/profile-activity.php', 'My Activity', $current) ?>
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/activity-center.php', 'Activity Center', $current) : '' ?>
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/users-control.php', 'Users Control', $current) : '' ?>
-            <?= opsui_is_admin($user) ? opsui_side_link('/ops/users-new.php', 'Create User', $current) : '' ?>
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
-            <?= opsui_is_admin($user) ? opsui_side_link('/ops/login-attempts.php', 'Login Attempts', $current) : '' ?>
-            <?= opsui_side_link('/ops/ui-shell-preview.php', 'UI Shell Preview', $current) ?>
         </div>
 
-        <div class="gov-side-note">Live EDXEIX submission remains blocked unless explicitly enabled later under a separate reviewed change.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">
@@ -457,16 +481,14 @@ function opsui_shell_begin(array $options = []): void
             </div>
             <div class="gov-tabs">
                 <?= opsui_tab('/ops/home.php', 'Καρτέλα', $current) ?>
-                <?= opsui_tab('/ops/my-start.php', 'My Start', $current) ?>
                 <?= opsui_tab('/ops/quick-launch.php', 'Launch', $current) ?>
+                <?= opsui_tab('/ops/pre-ride-email-v3-dashboard.php', 'V3 Control', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-tool.php', 'Pre-Ride', $current) ?>
-                <?= opsui_tab('/ops/pre-ride-email-toolv2.php', 'V2 Dev', $current) ?>
-                <?= opsui_tab('/ops/test-session.php', 'Test Session', $current) ?>
-                <?= opsui_tab('/ops/admin-control.php', 'Administration', $current) ?>
-                <?= opsui_tab('/ops/firefox-extension.php', 'Helper', $current) ?>
-                <?= opsui_tab('/ops/documentation-center.php', 'Docs', $current) ?>
+                <?= opsui_tab('/ops/pre-ride-email-v3-live-operator-console.php', 'Live Console', $current) ?>
+                <?= opsui_tab('/ops/mapping-control.php', 'Mapping', $current) ?>
+                <?= opsui_tab('/ops/handoff-center.php', 'Handoff', $current) ?>
+                <?= opsui_tab('/ops/route-index.php', 'Archive', $current) ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
-                <?= opsui_tab('/ops/profile-preferences.php', 'Preferences', $current) ?>
             </div>
         </div>
 

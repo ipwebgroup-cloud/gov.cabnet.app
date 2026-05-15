@@ -4,32 +4,56 @@ You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge
 
 ## Current state
 
-The live Handoff Center now has three package modes:
+The live site has been audited with a private Sophion route + DB package. This package is not for GitHub and is used only to keep the live app aligned with the Bolt → EDXEIX goal.
 
-1. Private Operational ZIP — includes database export; private only; never commit.
-2. Git-Safe Continuity ZIP — DB-free, runtime/session/proof-artifact scrubbed; intended for local repo continuity review.
-3. Git-Safe + DB Audit ZIP — includes `DATABASE_EXPORT.sql` for private live-site/database audit, while preserving runtime/session/proof-artifact scrubbing; never commit.
+Latest live safety posture:
 
-The Handoff Center version for this change is:
+- V3 live submit remains disabled.
+- EDXEIX adapter remains skeleton-only/non-live.
+- No V3 EDXEIX submit occurred.
+- No V3 AADE call occurred.
+- No production submission jobs are queued.
+- Runtime/session package leakage was fixed with v3.0.77/v3.0.78 Handoff Center hygiene.
+
+Latest V3 proof milestone:
 
 ```text
-v3.0.78-v3-git-safe-db-audit-option
+v3.0.75 live adapter contract test production-verified
+queue_id: 716
+payload_hash: e784e788532fc57824a46dad90debec9d0ad5a24f94679538c37d1d164e9f472
+contract_safe: true
+final_blocks: []
 ```
 
-## Safety rules
+## Current patch direction
 
-- Do not enable live EDXEIX submission unless Andreas explicitly asks.
-- Keep V3 closed-gate behavior.
-- Do not commit database exports, runtime sessions, proof artifacts, mailboxes, logs, or real config values.
-- No frameworks, Composer, Node, or heavy dependencies.
-- Preserve plain PHP/mysqli/cPanel/manual upload workflow.
+Proceed with no-delete navigation de-bloat:
 
-## Next safest audit step
+- Keep daily operator navigation small.
+- Keep V3 proof/readiness tools visible.
+- Move dev/test/mobile/evidence/package/helper routes to Developer Archive.
+- Do not delete routes.
+- Do not change SQL.
+- Do not enable live EDXEIX submit.
+- Do not touch V0 production workflow.
 
-Generate the new Git-Safe + DB Audit ZIP and inspect it for:
+Patch version:
 
-- `DATABASE_EXPORT.sql` present.
-- `GIT_SAFE_WITH_DB_AUDIT_NOTICE.md` present.
-- No `storage/runtime`, `edxeix_session`, `cookie_header`, `csrf`, `xsrf`, `laravel_session`, `storage/artifacts`, `.bak`, or `.pre_` entries.
+```text
+v3.0.80-navigation-debloat
+```
 
-Then use that private package for live-site/database audit only.
+Deploy files:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
+```
+
+Verification:
+
+```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
+curl -I --max-time 10 https://gov.cabnet.app/ops/route-index.php
+```
