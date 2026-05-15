@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-const GOV_PUBLIC_ROUTE_EXPOSURE_AUDIT_VERSION = 'v3.0.81-public-route-exposure-audit';
+const GOV_PUBLIC_ROUTE_EXPOSURE_AUDIT_VERSION = 'v3.0.82-public-route-exposure-audit-htaccess-detection';
 const GOV_PUBLIC_ROUTE_EXPOSURE_AUDIT_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. Read-only source scan.';
 
 /** @return array<string,string> */
@@ -60,6 +60,23 @@ function gov_pra_file_meta(string $path): array
         'size' => is_file($path) ? (int)filesize($path) : 0,
         'modified_at' => is_file($path) ? date('Y-m-d H:i:s', (int)filemtime($path)) : null,
     ];
+}
+
+function gov_pra_htaccess_denies_target(string $htRaw, string $target): bool
+{
+    $raw = strtolower($htRaw);
+    $target = strtolower($target);
+    $escaped = str_replace('.', '\\.', $target);
+    $regexTarget = preg_quote($target, '/');
+    $regexEscaped = preg_quote($escaped, '/');
+
+    if (str_contains($raw, strtolower($target)) || str_contains($raw, strtolower($escaped))) {
+        return str_contains($raw, 'require all denied')
+            || str_contains($raw, 'deny from all')
+            || str_contains($raw, 'forbidden');
+    }
+
+    return preg_match('/<' . 'files(?:match)?\b[^>]*>(?:(?!<\/' . 'files).)*(?:' . $regexTarget . '|' . $regexEscaped . ')(?:(?!<\/' . 'files).)*(?:require\s+all\s+denied|deny\s+from\s+all)/is', $htRaw) === 1;
 }
 
 function gov_pra_read(string $path): string
@@ -114,8 +131,8 @@ function gov_pra_auth_posture(string $publicRoot): array
         'auth_prepend_allows_internal_key' => str_contains($prependRaw, 'isInternalKeyAllowed'),
         'auth_prepend_blocks_helper_direct_access' => str_contains($prependRaw, '_auth_prepend.php') && str_contains($prependRaw, 'http_response_code(404)'),
         'htaccess_present' => is_file($htaccess) && is_readable($htaccess),
-        'htaccess_denies_auth_prepend' => preg_match('/_auth_prepend\\?\.php|_auth_prepend\\\\\.php|_auth_prepend\.php/i', $htRaw) === 1,
-        'htaccess_denies_user_ini' => preg_match('/\\?\.user\\?\.ini|\.user\.ini/i', $htRaw) === 1,
+        'htaccess_denies_auth_prepend' => gov_pra_htaccess_denies_target($htRaw, '_auth_prepend.php'),
+        'htaccess_denies_user_ini' => gov_pra_htaccess_denies_target($htRaw, '.user.ini'),
     ];
 
     $criticalBlocks = [];
