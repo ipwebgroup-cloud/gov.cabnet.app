@@ -1,14 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.0.97
+ * gov.cabnet.app — shared operations UI shell v3.0.99
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v3.0.97:
- * - Keeps daily production navigation unchanged.
- * - Adds Developer Archive link for read-only legacy public utility stats source audit.
- * - No route moves, no route deletions, no redirects, no live-submit changes.
+ * v3.0.99:
+ * - Adds Developer Archive navigation link for the Legacy Public Utility Readiness Board.
+ * - Navigation only; no route moves, deletes, redirects, or live-submit changes.
  */
 
 declare(strict_types=1);
@@ -118,96 +117,28 @@ function opsui_top_dropdown(string $label, array $items, ?string $current = null
         }
     }
 
-    $html = '<div class="gov-nav-menu' . ($isActive ? ' active' : '') . '">';
-    $html .= '<button type="button" aria-haspopup="true" aria-expanded="false">' . opsui_h($label) . ' <span aria-hidden="true">▾</span></button>';
-    $html .= '<div class="gov-nav-menu-panel" role="menu">';
+    $html = '<span class="gov-nav-menu' . ($isActive ? ' active' : '') . '">';
+    $html .= '<button type="button">' . opsui_h($label) . ' ▾</button>';
+    $html .= '<span class="gov-nav-menu-panel">';
     foreach ($items as $item) {
         $href = (string)($item[0] ?? '#');
         $text = (string)($item[1] ?? $href);
-        $html .= '<a class="gov-nav-menu-item' . opsui_active($href, $current) . '" href="' . opsui_h($href) . '" role="menuitem">' . opsui_h($text) . '</a>';
+        $html .= '<a class="gov-nav-menu-item' . opsui_active($href, $current) . '" href="' . opsui_h($href) . '">' . opsui_h($text) . '</a>';
     }
-    $html .= '</div></div>';
+    $html .= '</span></span>';
     return $html;
-}
-
-function opsui_badge(string $text, string $type = 'neutral'): string
-{
-    return '<span class="badge badge-' . opsui_h($type) . '">' . opsui_h($text) . '</span>';
-}
-
-function opsui_metric(mixed $value, string $label): string
-{
-    return '<div class="metric"><strong>' . opsui_h((string)$value) . '</strong><span>' . opsui_h($label) . '</span></div>';
-}
-
-function opsui_bool_badge(bool $value, string $yes = 'YES', string $no = 'NO'): string
-{
-    return opsui_badge($value ? $yes : $no, $value ? 'good' : 'bad');
 }
 
 function opsui_user_chip(array $user): string
 {
     $name = opsui_user_display($user);
     $role = opsui_user_role($user);
-    return '<a class="gov-user-chip" href="/ops/profile.php" title="Operator profile">'
-        . '<span class="gov-user-avatar">' . opsui_h(opsui_initials($name)) . '</span>'
-        . '<span class="gov-user-meta"><strong>' . opsui_h($name) . '</strong><span>' . opsui_h($role) . '</span></span>'
+    $initials = opsui_initials($name);
+
+    return '<a class="gov-user-chip" href="/ops/profile.php">'
+        . '<span class="gov-user-avatar">' . opsui_h($initials) . '</span>'
+        . '<span class="gov-user-chip-text"><strong>' . opsui_h($name) . '</strong><small>' . opsui_h($role) . '</small></span>'
         . '</a>';
-}
-
-function opsui_flash(string $message, string $type = 'neutral'): string
-{
-    $class = in_array($type, ['good', 'warn', 'bad', 'neutral'], true) ? $type : 'neutral';
-    return '<div class="gov-alert gov-alert-' . opsui_h($class) . '">' . opsui_h($message) . '</div>';
-}
-
-function opsui_table_exists(mysqli $db, string $table): bool
-{
-    try {
-        $stmt = $db->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
-        $stmt->bind_param('s', $table);
-        $stmt->execute();
-        return (bool)$stmt->get_result()->fetch_assoc();
-    } catch (Throwable) {
-        return false;
-    }
-}
-
-function opsui_preferences_defaults(): array
-{
-    return [
-        'default_landing_path' => '/ops/home.php',
-        'sidebar_density' => 'comfortable',
-        'table_density' => 'comfortable',
-        'show_safety_notices' => '1',
-    ];
-}
-
-function opsui_sanitize_preferences(array $prefs): array
-{
-    $defaults = opsui_preferences_defaults();
-    $allowedLanding = [
-        '/ops/home.php',
-        '/ops/pre-ride-email-tool.php',
-        '/ops/pre-ride-email-toolv2.php',
-        '/ops/test-session.php',
-        '/ops/preflight-review.php',
-        '/ops/profile.php',
-    ];
-    $allowedDensity = ['comfortable', 'compact'];
-
-    $out = array_merge($defaults, $prefs);
-    if (!in_array((string)$out['default_landing_path'], $allowedLanding, true)) {
-        $out['default_landing_path'] = $defaults['default_landing_path'];
-    }
-    if (!in_array((string)$out['sidebar_density'], $allowedDensity, true)) {
-        $out['sidebar_density'] = $defaults['sidebar_density'];
-    }
-    if (!in_array((string)$out['table_density'], $allowedDensity, true)) {
-        $out['table_density'] = $defaults['table_density'];
-    }
-    $out['show_safety_notices'] = ((string)$out['show_safety_notices'] === '0') ? '0' : '1';
-    return $out;
 }
 
 function opsui_preferences(): array
@@ -217,40 +148,24 @@ function opsui_preferences(): array
         return $cached;
     }
 
-    $defaults = opsui_preferences_defaults();
+    $defaults = [
+        'sidebar_density' => 'comfortable',
+        'table_density' => 'comfortable',
+        'show_safety_notices' => '1',
+    ];
+
     $user = opsui_current_user();
-    $userId = (int)($user['id'] ?? 0);
-    if ($userId <= 0) {
-        $cached = $defaults;
-        return $cached;
-    }
-
-    $bootstrap = dirname(__DIR__, 3) . '/gov.cabnet.app_app/src/bootstrap.php';
-    if (!is_file($bootstrap)) {
-        $cached = $defaults;
-        return $cached;
-    }
-
-    try {
-        $ctx = require $bootstrap;
-        if (!is_array($ctx) || !isset($ctx['db']) || !method_exists($ctx['db'], 'connection')) {
-            throw new RuntimeException('Invalid private app context.');
-        }
-        $db = $ctx['db']->connection();
-        if (!opsui_table_exists($db, 'ops_user_preferences')) {
-            $cached = $defaults;
+    $raw = $user['preferences_json'] ?? $user['preferences'] ?? null;
+    if (is_string($raw) && trim($raw) !== '') {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $cached = array_merge($defaults, $decoded);
             return $cached;
         }
-        $stmt = $db->prepare('SELECT default_landing_path, sidebar_density, table_density, show_safety_notices FROM ops_user_preferences WHERE user_id = ? LIMIT 1');
-        $stmt->bind_param('i', $userId);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $cached = is_array($row) ? opsui_sanitize_preferences($row) : $defaults;
-        return $cached;
-    } catch (Throwable) {
-        $cached = $defaults;
-        return $cached;
     }
+
+    $cached = $defaults;
+    return $cached;
 }
 
 function opsui_preference_body_class(array $prefs): string
@@ -458,7 +373,9 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_side_link('/ops/public-utility-reference-cleanup-phase2-preview.php', 'Public Utility Phase 2 Preview', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility.php', 'Legacy Public Utility Wrapper', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility-usage-audit.php', 'Legacy Utility Usage Audit', $current) ?>
+                <?= opsui_side_link('/ops/legacy-public-utility-quiet-period-audit.php', 'Legacy Quiet-Period Audit', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility-stats-source-audit.php', 'Legacy Stats Source Audit', $current) ?>
+                <?= opsui_side_link('/ops/legacy-public-utility-readiness-board.php', 'Legacy Utility Readiness Board', $current) ?>
                 <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-tools.php', 'Package Tools', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-archive.php', 'Package Archive', $current) ?>
@@ -475,7 +392,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">

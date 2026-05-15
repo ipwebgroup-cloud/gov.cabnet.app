@@ -1,29 +1,32 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-## Latest patch
+## Current checkpoint
 
-v3.0.98 — Legacy Public Utility Readiness Board
+v3.0.99 adds a navigation-only link to the Legacy Public Utility Readiness Board under Developer Archive.
 
-## State
+## Safety posture
 
-A read-only aggregate board was added for the legacy public-root utility cleanup audits.
+- Production Pre-Ride Tool untouched.
+- Live EDXEIX submission disabled.
+- Legacy public-root utilities untouched.
+- No routes moved.
+- No routes deleted.
+- No redirects added.
+- No SQL changes.
+- No Bolt, EDXEIX, AADE, DB, or filesystem write actions in this patch.
 
-Added:
+## Latest legacy utility audit posture
 
-- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_readiness_board.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-readiness-board.php`
+- v3.0.98 readiness board: ok=true, move_now=0, delete_now=0, redirect_now=0, final_blocks=[].
+- v3.0.96 stats source audit: cPanel stats/cache-only evidence for 4 routes, live_log=0.
+- v3.0.95 quiet-period audit: 2 future compatibility-stub review candidates, 4 routes requiring source-evidence caution.
+- v3.0.91 cleanup preview: actionable=32, safe_phase2=0 after filtering intentional wrapper/navigation noise.
 
-The board consumes existing read-only audit functions and summarizes:
+## Files changed in v3.0.99
 
-- usage audit
-- quiet-period audit
-- stats-source audit
-- Phase 2 reference preview
-
-## Safety
-
-No live behavior is changed. No routes are moved, deleted, redirected, included, or executed. No DB, Bolt, EDXEIX, or AADE calls are made. Live EDXEIX submission remains disabled. The production pre-ride tool is untouched.
+- public_html/gov.cabnet.app/ops/_shell.php
+- docs/LIVE_LEGACY_PUBLIC_UTILITY_READINESS_BOARD_NAV_20260515.md
 
 ## Next safe step
 
-Verify v3.0.98 on the live server. If clean, commit this checkpoint. Do not proceed to compatibility stubs unless Andreas explicitly approves that future phase.
+After upload verification, commit this checkpoint. Do not move, redirect, delete, or stub legacy utility routes without explicit approval.

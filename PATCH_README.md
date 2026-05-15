@@ -1,37 +1,28 @@
-# gov.cabnet.app patch — v3.0.98 Legacy Public Utility Readiness Board
+# gov.cabnet.app Patch — v3.0.99 Legacy Public Utility Readiness Board Navigation
 
 ## What changed
 
-Adds a read-only aggregate board for the legacy public utility cleanup audits.
+Adds a Developer Archive navigation link for:
 
-The board summarizes:
-
-- Usage Audit
-- Quiet-Period Audit
-- Stats Source Audit
-- Phase 2 Reference Preview
-
-It provides one supervised `/ops` page and one CLI JSON report.
+`/ops/legacy-public-utility-readiness-board.php`
 
 ## Files included
 
-```text
-gov.cabnet.app_app/cli/legacy_public_utility_readiness_board.php
-public_html/gov.cabnet.app/ops/legacy-public-utility-readiness-board.php
-docs/LIVE_LEGACY_PUBLIC_UTILITY_READINESS_BOARD_20260515.md
-PATCH_README.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-```
+- `public_html/gov.cabnet.app/ops/_shell.php`
+- `docs/LIVE_LEGACY_PUBLIC_UTILITY_READINESS_BOARD_NAV_20260515.md`
+- `PATCH_README.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
-## Upload paths
+## Upload path
 
-```text
-/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_readiness_board.php
-/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-readiness-board.php
-```
+Upload:
 
-Docs/continuity files can be kept in the repo.
+`public_html/gov.cabnet.app/ops/_shell.php`
+
+to:
+
+`/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
 
 ## SQL
 
@@ -40,43 +31,28 @@ None.
 ## Verification
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_readiness_board.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-readiness-board.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 
 curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-readiness-board.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_readiness_board.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "move_now=".($j["summary"]["move_recommended_now"]??"?").PHP_EOL; echo "delete_now=".($j["summary"]["delete_recommended_now"]??"?").PHP_EOL; echo "redirect_now=".($j["summary"]["redirect_recommended_now"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+grep -n "v3.0.99\|Legacy Utility Readiness Board"   /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
-Expected:
+## Expected result
 
-```text
-No syntax errors
-HTTP 302 to /ops/login.php when unauthenticated
-ok=true
-version=v3.0.98-legacy-public-utility-readiness-board
-move_now=0
-delete_now=0
-redirect_now=0
-final_blocks=[]
-```
-
-## Safety
-
-No routes are moved or deleted. No redirects are added. No SQL changes are made. No Bolt, EDXEIX, AADE, database, or filesystem write actions are performed. Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
+- No syntax errors.
+- Ops page remains auth-protected.
+- Developer Archive includes the Legacy Utility Readiness Board link.
 
 ## Commit title
 
-Add legacy public utility readiness board
+Add legacy readiness board navigation
 
 ## Commit description
 
-Adds a read-only aggregate readiness board for the guarded legacy public-root utility cleanup audits.
+Adds a Developer Archive navigation link for the read-only Legacy Public Utility Readiness Board.
 
-The board summarizes the legacy usage audit, quiet-period audit, stats-source audit, and Phase 2 reference preview into one supervised ops page and CLI JSON report.
-
-This creates a stable checkpoint for the legacy public utility cleanup phase without approving route retirement.
+This provides supervised access to the v3.0.98 aggregate checkpoint board without changing any production or legacy utility behavior.
 
 No routes are moved or deleted. No redirects are added. No SQL changes are made. No Bolt, EDXEIX, AADE, database, or filesystem write actions are performed.
 
