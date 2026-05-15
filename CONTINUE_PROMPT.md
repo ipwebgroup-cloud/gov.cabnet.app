@@ -2,58 +2,46 @@
 
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
+## Project identity
+
+- Domain: https://gov.cabnet.app
+- GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
+- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
+
 ## Current state
 
-The live site has been audited with a private Sophion route + DB package. This package is not for GitHub and is used only to keep the live app aligned with the Bolt → EDXEIX goal.
+The live site is being audited and de-bloated without disturbing production.
 
-Latest live safety posture:
+Recent completed milestones:
 
-- V3 live submit remains disabled.
+- V3 closed-gate pre-live canary validation around queue #716.
+- v3.0.75 live adapter contract test production-verified.
+- v3.0.77/v3.0.78 Handoff Center package hygiene and DB audit package option.
+- v3.0.80 ops navigation de-bloat without deleting routes.
+
+Prepared next patch:
+
+- v3.0.81 public route exposure audit.
+
+## Critical safety rules
+
+- `/ops/pre-ride-email-tool.php` is the current production tool. Do not modify it unless Andreas explicitly asks.
+- Live EDXEIX submission remains disabled.
 - EDXEIX adapter remains skeleton-only/non-live.
-- No V3 EDXEIX submit occurred.
-- No V3 AADE call occurred.
-- No production submission jobs are queued.
-- Runtime/session package leakage was fixed with v3.0.77/v3.0.78 Handoff Center hygiene.
+- Do not delete routes or DB tables without explicit approval.
+- Prefer read-only audit, classification, route inventory, and no-delete de-bloat.
+- Never expose real config, API keys, tokens, cookies, sessions, or database passwords.
 
-Latest V3 proof milestone:
+## Next safe step
 
-```text
-v3.0.75 live adapter contract test production-verified
-queue_id: 716
-payload_hash: e784e788532fc57824a46dad90debec9d0ad5a24f94679538c37d1d164e9f472
-contract_safe: true
-final_blocks: []
-```
-
-## Current patch direction
-
-Proceed with no-delete navigation de-bloat:
-
-- Keep daily operator navigation small.
-- Keep V3 proof/readiness tools visible.
-- Move dev/test/mobile/evidence/package/helper routes to Developer Archive.
-- Do not delete routes.
-- Do not change SQL.
-- Do not enable live EDXEIX submit.
-- Do not touch V0 production workflow.
-
-Patch version:
+Upload and verify v3.0.81:
 
 ```text
-v3.0.80-navigation-debloat
-```
-
-Deploy files:
-
-```text
+/home/cabnet/gov.cabnet.app_app/cli/public_route_exposure_audit.php
+/home/cabnet/public_html/gov.cabnet.app/ops/public-route-exposure-audit.php
 /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
 ```
 
-Verification:
-
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
-curl -I --max-time 10 https://gov.cabnet.app/ops/route-index.php
-```
+Then run syntax checks, auth redirect check, and CLI JSON audit.

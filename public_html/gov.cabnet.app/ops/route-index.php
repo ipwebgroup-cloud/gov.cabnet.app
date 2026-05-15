@@ -5,7 +5,7 @@
  * Static route inventory generated from the private Sophion live-site audit.
  * No Bolt call. No EDXEIX call. No AADE call. No DB writes. No route deletion.
  *
- * v3.0.80-navigation-debloat
+ * v3.0.81-public-route-exposure-audit
  */
 
 declare(strict_types=1);
@@ -50,6 +50,22 @@ function routeidx_rec_type(string $rec): string
 function routeidx_routes(): array
 {
     return [
+    [
+        'path' => 'public_html/gov.cabnet.app/ops/public-route-exposure-audit.php',
+        'name' => 'public-route-exposure-audit.php',
+        'area' => 'ops',
+        'bytes' => 0,
+        'tags' => 'audit_visibility,route_governance,no_delete',
+        'recommendation' => 'KEEP ADMIN/AUDIT',
+        'reason' => 'Read-only public-root exposure and auth-prepend audit added after live route de-bloat.',
+        'writes_db' => false,
+        'external_http' => false,
+        'shell_exec' => false,
+        'file_write' => false,
+        'session_cookie' => false,
+        'submit_terms' => false,
+        'aade_terms' => false,
+    ],
     [
         'path' => 'public_html/gov.cabnet.app/bolt-fleet-orders-watch.php',
         'name' => 'bolt-fleet-orders-watch.php',
@@ -2802,7 +2818,7 @@ if (strtolower((string)($_GET['format'] ?? '')) === 'json') {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'ok' => true,
-        'version' => 'v3.0.80-navigation-debloat',
+        'version' => 'v3.0.81-public-route-exposure-audit',
         'generated_from' => 'Sophion private live-site audit package',
         'generated_at' => $generatedAt,
         'safety' => 'Static inventory only. No Bolt, EDXEIX, AADE, DB write, route deletion, or live submit action.',
