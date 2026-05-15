@@ -1,15 +1,29 @@
-# gov.cabnet.app HANDOFF — v3.0.97 Legacy Stats Source Audit Navigation
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-The project remains in safe closed-gate posture. Live EDXEIX submission is disabled. Production Pre-Ride Tool is untouched.
+## Latest patch
 
-Latest change: v3.0.97 adds the read-only Legacy Stats Source Audit page to the Developer Archive navigation. This is a navigation-only update in `/ops/_shell.php`.
+v3.0.98 — Legacy Public Utility Readiness Board
 
-No routes were moved or deleted. No redirects were added. No SQL changes were made.
+## State
 
-Verification target:
+A read-only aggregate board was added for the legacy public-root utility cleanup audits.
 
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-stats-source-audit.php
-grep -n "v3.0.97\|Legacy Stats Source Audit" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-```
+Added:
+
+- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_readiness_board.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-readiness-board.php`
+
+The board consumes existing read-only audit functions and summarizes:
+
+- usage audit
+- quiet-period audit
+- stats-source audit
+- Phase 2 reference preview
+
+## Safety
+
+No live behavior is changed. No routes are moved, deleted, redirected, included, or executed. No DB, Bolt, EDXEIX, or AADE calls are made. Live EDXEIX submission remains disabled. The production pre-ride tool is untouched.
+
+## Next safe step
+
+Verify v3.0.98 on the live server. If clean, commit this checkpoint. Do not proceed to compatibility stubs unless Andreas explicitly approves that future phase.
