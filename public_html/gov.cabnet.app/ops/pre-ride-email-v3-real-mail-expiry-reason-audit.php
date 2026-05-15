@@ -2,8 +2,9 @@
 /**
  * gov.cabnet.app — V3 Real-Mail Expiry Reason Audit.
  *
- * v3.1.2:
+ * v3.1.4:
  * - Read-only explanation board for blocked/expired V3 real-mail queue rows.
+ * - Adds queue-health vs expiry-audit alignment counters.
  * - Does not call Bolt, EDXEIX, AADE, or mutate DB/queue/files.
  */
 
@@ -18,6 +19,7 @@ $queue = is_array($report['queue'] ?? null) ? $report['queue'] : [];
 $rows = is_array($queue['rows'] ?? null) ? $queue['rows'] : [];
 $warnings = is_array($report['warnings'] ?? null) ? $report['warnings'] : [];
 $finalBlocks = is_array($report['final_blocks'] ?? null) ? $report['final_blocks'] : [];
+$classificationCounts = is_array($report['classification_counts'] ?? null) ? $report['classification_counts'] : [];
 
 opsui_shell_begin([
     'title' => 'V3 Real-Mail Expiry Reason Audit',
@@ -42,7 +44,7 @@ opsui_shell_begin([
         <span class="expiry-badge">NO QUEUE MUTATION</span>
         <span class="expiry-badge">NO EDXEIX CALL</span>
         <span class="expiry-badge">NO AADE CALL</span>
-        <span class="expiry-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.1.2')) ?></span>
+        <span class="expiry-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.1.4')) ?></span>
     </div>
     <div class="expiry-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-real-mail-queue-health.php">Real-Mail Queue Health</a>
@@ -53,10 +55,40 @@ opsui_shell_begin([
 
 <section class="expiry-grid">
     <div class="expiry-card"><h3><?= opsui_h((string)($summary['rows_reviewed'] ?? 0)) ?></h3><p class="expiry-muted">rows reviewed</p></div>
+    <div class="expiry-card"><h3><?= opsui_h((string)($summary['possible_real_mail_rows'] ?? 0)) ?></h3><p class="expiry-muted">possible real-mail rows</p></div>
     <div class="expiry-card"><h3><?= opsui_h((string)($summary['expired_by_future_safety_guard'] ?? 0)) ?></h3><p class="expiry-muted">expired by V3 future-safety guard</p></div>
     <div class="expiry-card"><h3><?= opsui_h((string)($summary['possible_real_mail_expired_guard_rows'] ?? 0)) ?></h3><p class="expiry-muted">possible real-mail rows expired safely</p></div>
+    <div class="expiry-card"><h3><?= opsui_h((string)($summary['possible_real_mail_non_expired_guard_rows'] ?? 0)) ?></h3><p class="expiry-muted">possible real rows not counted in expired-guard total</p></div>
+    <div class="expiry-card"><h3><?= opsui_h((string)($summary['possible_real_mail_mapping_correction_rows'] ?? 0)) ?></h3><p class="expiry-muted">mapping-correction possible real rows</p></div>
     <div class="expiry-card"><h3><?= !empty($summary['live_risk_detected']) ? 'yes' : 'no' ?></h3><p class="expiry-muted">live risk detected</p></div>
     <div class="expiry-card"><h3><?= opsui_h((string)($summary['live_submit_recommended_now'] ?? 0)) ?></h3><p class="expiry-muted">live submit recommended now</p></div>
+</section>
+
+<section class="panel">
+    <h2>Queue-health alignment</h2>
+    <p><?= opsui_h((string)($summary['queue_health_vs_expiry_count_mismatch_note'] ?? 'Queue-health possible_real counts all non-canary rows; expiry totals classify only rows in the scanned error set.')) ?></p>
+    <table class="expiry-table">
+        <tbody>
+            <tr><th>Possible real rows</th><td><?= opsui_h((string)($summary['possible_real_mail_rows'] ?? 0)) ?></td></tr>
+            <tr><th>Possible real expired by guard</th><td><?= opsui_h((string)($summary['possible_real_mail_expired_guard_rows'] ?? 0)) ?></td></tr>
+            <tr><th>Possible real non-expired-guard rows</th><td><?= opsui_h((string)($summary['possible_real_mail_non_expired_guard_rows'] ?? 0)) ?></td></tr>
+            <tr><th>Mismatch explained</th><td><?= !empty($summary['queue_health_vs_expiry_count_mismatch_explained']) ? 'yes' : 'no' ?></td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section class="panel">
+    <h2>Classification counts</h2>
+    <table class="expiry-table">
+        <tbody>
+        <?php if (!$classificationCounts): ?>
+            <tr><td>No classification counts returned.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($classificationCounts as $name => $count): ?>
+            <tr><th><code class="expiry-code"><?= opsui_h((string)$name) ?></code></th><td><?= opsui_h((string)$count) ?></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
 </section>
 
 <?php foreach ($warnings as $warning): ?>
@@ -91,7 +123,7 @@ opsui_shell_begin([
                 <td><code class="expiry-code"><?= opsui_h((string)($row['id'] ?? '')) ?></code></td>
                 <td><?= opsui_h((string)($row['queue_status'] ?? '')) ?></td>
                 <td><?= opsui_h((string)($row['pickup_datetime'] ?? '')) ?><br><small><?= opsui_h((string)($row['minutes_past_pickup_now'] ?? '')) ?> min past now</small></td>
-                <td><?= opsui_h((string)($row['customer_name'] ?? '')) ?></td>
+                <td><?= opsui_h((string)($row['customer_name'] ?? '')) ?><br><small>real: <?= !empty($row['possible_real_mail']) ? 'yes' : 'no' ?> / canary: <?= !empty($row['is_canary']) ? 'yes' : 'no' ?></small></td>
                 <td><?= opsui_h((string)($row['driver_name'] ?? '')) ?><br><code class="expiry-code"><?= opsui_h((string)($row['vehicle_plate'] ?? '')) ?></code></td>
                 <td><code class="expiry-code"><?= opsui_h((string)($row['classification'] ?? '')) ?></code></td>
                 <td><?= opsui_h((string)($row['safe_interpretation'] ?? 'Review only.')) ?></td>
@@ -106,6 +138,7 @@ opsui_shell_begin([
     <ol>
         <li>No live submission is recommended by this audit.</li>
         <li>Rows blocked by <code>v3_queue_row_expired_pickup_not_future_safe</code> are expected closed-gate behavior after pickup time passes.</li>
+        <li>A possible-real row may be counted by queue health but not by the expired-guard total if it is a mapping-correction or other blocked row.</li>
         <li>Future real-mail readiness must be observed before pickup expires; this tool does not change queue status.</li>
         <li>Keep V3 closed-gate until a real future trip is observed and all preflight gates pass.</li>
     </ol>

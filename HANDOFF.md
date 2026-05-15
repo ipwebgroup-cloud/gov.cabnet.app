@@ -1,23 +1,27 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app V3 Real-Mail Expiry Audit Alignment
 
-Current checkpoint: v3.1.3 navigation patch prepared after v3.1.2 V3 Real-Mail Expiry Reason Audit verification.
+Current state: v3.1.4 patch prepared to improve read-only expiry-audit reporting.
 
-## Latest verified state
+## Safety facts
 
-- v3.1.2 real-mail expiry reason audit verified:
-  - `ok=true`
-  - `expired_guard=12`
-  - `possible_real_expired=11`
-  - `live_risk=false`
-  - `final_blocks=[]`
-- V3 live submission remains disabled.
+- Live EDXEIX submit remains disabled.
 - Production Pre-Ride Tool remains untouched.
 - V0 workflow remains untouched.
+- This patch performs no DB writes and no queue mutations.
+- This patch performs no Bolt, EDXEIX, or AADE calls.
 
-## This patch
+## What v3.1.4 adds
 
-Adds navigation links for:
+The V3 Real-Mail Expiry Reason Audit now exposes stable summary fields to explain queue-health vs expiry-audit count differences:
 
-- `/ops/pre-ride-email-v3-real-mail-expiry-reason-audit.php`
+- possible real rows
+- canary rows
+- possible-real expired-by-guard rows
+- possible-real non-expired-guard rows
+- possible-real mapping-correction rows
+- classification counts
+- mismatch explanation flag/note
 
-No live behavior changes.
+## Verification command
+
+Run the command in PATCH_README.md after upload.
