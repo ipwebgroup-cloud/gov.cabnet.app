@@ -1,13 +1,12 @@
-Continue gov.cabnet.app from v3.0.96 legacy public utility stats source audit.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge project from the safe closed-gate state.
+
+Current latest patch: v3.0.97 Legacy Stats Source Audit Navigation.
 
 Safety posture:
-- No live EDXEIX submission.
-- No route moves/deletions/redirects without explicit approval.
-- Production Pre-Ride Tool remains untouched.
-- Legacy public-root utilities remain in place.
+- Production Pre-Ride Tool untouched.
+- Live EDXEIX submission disabled.
+- No route moves/deletions/redirects.
+- No SQL changes.
+- No Bolt/EDXEIX/AADE calls.
 
-Latest added tools:
-- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_stats_source_audit.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-stats-source-audit.php`
-
-Next: verify v3.0.96 output and classify whether any future compatibility-stub review is safe. Do not change routes yet.
+Next safe step after verification: commit the audit/navigation state or prepare a read-only consolidated legacy utility audit dashboard. Do not stub, move, redirect, or delete legacy public-root utilities without explicit approval.

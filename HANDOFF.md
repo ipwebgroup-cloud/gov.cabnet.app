@@ -1,9 +1,15 @@
-# HANDOFF — gov.cabnet.app v3.0.96 Legacy Public Utility Stats Source Audit
+# gov.cabnet.app HANDOFF — v3.0.97 Legacy Stats Source Audit Navigation
 
-Current milestone: v3.0.96 adds a read-only stats source audit for legacy public-root utility usage evidence.
+The project remains in safe closed-gate posture. Live EDXEIX submission is disabled. Production Pre-Ride Tool is untouched.
 
-The audit clarifies whether usage evidence is cPanel stats/cache-only or raw/live access-log evidence. It does not move, delete, redirect, include, or execute any legacy utility.
+Latest change: v3.0.97 adds the read-only Legacy Stats Source Audit page to the Developer Archive navigation. This is a navigation-only update in `/ops/_shell.php`.
 
-Production Pre-Ride Tool remains untouched. Live EDXEIX submission remains disabled.
+No routes were moved or deleted. No redirects were added. No SQL changes were made.
 
-Next safest step after verification: use the v3.0.96 output to decide whether a future compatibility-stub review is safe. Do not stub, move, or delete without explicit approval.
+Verification target:
+
+```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-stats-source-audit.php
+grep -n "v3.0.97\|Legacy Stats Source Audit" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+```

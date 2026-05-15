@@ -1,14 +1,14 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.0.92
+ * gov.cabnet.app — shared operations UI shell v3.0.97
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v3.0.92:
+ * v3.0.97:
  * - Keeps daily production navigation unchanged.
- * - Adds Developer Archive link for read-only legacy public utility usage audit.
- * - No route moves, no route deletions, no live-submit changes.
+ * - Adds Developer Archive link for read-only legacy public utility stats source audit.
+ * - No route moves, no route deletions, no redirects, no live-submit changes.
  */
 
 declare(strict_types=1);
@@ -458,6 +458,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_side_link('/ops/public-utility-reference-cleanup-phase2-preview.php', 'Public Utility Phase 2 Preview', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility.php', 'Legacy Public Utility Wrapper', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility-usage-audit.php', 'Legacy Utility Usage Audit', $current) ?>
+                <?= opsui_side_link('/ops/legacy-public-utility-stats-source-audit.php', 'Legacy Stats Source Audit', $current) ?>
                 <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-tools.php', 'Package Tools', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-archive.php', 'Package Archive', $current) ?>
@@ -474,7 +475,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">
