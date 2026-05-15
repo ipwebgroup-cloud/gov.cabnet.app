@@ -48,3 +48,15 @@ Thumbs.db
 /public_html/gov.cabnet.app/bolt_schema_fix.php
 /public_html/gov.cabnet.app/bolt_time_columns_fix.php
 /public_html/gov.cabnet.app/ops/index.html
+
+# Private Sophion/live-site audit outputs (local only; do not commit)
+/GOV_LIVE_ROUTE_DB_DEBLOAT_AUDIT_*.md
+/GOV_LIVE_ROUTE_DB_DEBLOAT_AUDIT_*.json
+/live_route_inventory_*.csv
+/live_route_inventory_*.json
+/gov_live_route_db_debloat_audit_*.zip
+/gov_cabnet_git_safe_continuity_*.zip
+/gov_cabnet_git_safe_with_db_audit_*.zip
+/private_audit_do_not_commit_*/
+/DATABASE_EXPORT.sql
+/cabnet_gov*.sql
