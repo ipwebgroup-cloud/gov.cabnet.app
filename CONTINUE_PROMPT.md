@@ -1,20 +1,12 @@
-You are Sophion assisting Andreas with gov.cabnet.app.
+You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from v3.0.94 legacy public utility quiet-period audit.
+Continue from v3.0.95 legacy public utility quiet-period stable fields.
 
-Critical safety:
+The quiet-period audit should now expose stable route-level fields:
+- quiet_period_classification
+- stub_review_candidate
+- usage_evidence_unknown_date
+- compatibility_stub_review_candidate
 
-- Do not enable live EDXEIX submission.
-- Do not move/delete/redirect legacy public-root utility routes without explicit approval.
-- Production `/ops/pre-ride-email-tool.php` remains the current production tool and must not be touched.
-- Keep patches small, plain PHP/mysqli-compatible, cPanel/manual upload workflow.
-
-Latest expected files:
-
-- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_quiet_period_audit.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-quiet-period-audit.php`
-
-Next action:
-
-- Verify v3.0.94 syntax, auth redirect, and CLI JSON.
-- Use output to decide whether future compatibility-stub planning is safe. No route moves/deletes now.
+Do not move, delete, redirect, stub, or execute legacy public-root utilities unless Andreas explicitly approves.
+Keep live EDXEIX submission disabled.

@@ -1,22 +1,24 @@
-# gov.cabnet.app patch — v3.0.94 legacy utility quiet-period audit
+# Patch README — v3.0.95 legacy quiet-period stable fields
 
 ## What changed
 
-Adds a read-only quiet-period audit for legacy public-root utility usage evidence.
+Updates the read-only quiet-period audit CLI so route-level classifications are exposed with stable JSON keys.
 
 ## Files included
 
 - `gov.cabnet.app_app/cli/legacy_public_utility_quiet_period_audit.php`
-- `public_html/gov.cabnet.app/ops/legacy-public-utility-quiet-period-audit.php`
-- `docs/LIVE_LEGACY_PUBLIC_UTILITY_QUIET_PERIOD_AUDIT_20260515.md`
+- `docs/LIVE_LEGACY_PUBLIC_UTILITY_QUIET_PERIOD_STABLE_FIELDS_20260515.md`
 - `PATCH_README.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 
-## Upload paths
+## Upload path
+
+Upload:
 
 - `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_quiet_period_audit.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-quiet-period-audit.php`
+
+Docs/continuity files are for repo continuity.
 
 ## SQL
 
@@ -26,17 +28,9 @@ None.
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_quiet_period_audit.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-quiet-period-audit.php
-
-curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-quiet-period-audit.php
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_quiet_period_audit.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "candidates=".($j["summary"]["quiet_period_stub_review_candidates"]??"?").PHP_EOL; echo "unknown=".($j["summary"]["usage_evidence_with_unknown_date"]??"?").PHP_EOL; echo "move_now=".($j["summary"]["move_recommended_now"]??"?").PHP_EOL; echo "delete_now=".($j["summary"]["delete_recommended_now"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "summary=".json_encode($j["summary"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL; foreach (($j["routes"]??[]) as $r) { echo PHP_EOL; echo "route=".($r["route"]??"?").PHP_EOL; echo "classification=".($r["quiet_period_classification"]??"?").PHP_EOL; echo "stub_candidate=".(!empty($r["stub_review_candidate"])?"yes":"no").PHP_EOL; echo "unknown_date=".(!empty($r["usage_evidence_unknown_date"])?"yes":"no").PHP_EOL; }'
 ```
 
-## Expected result
-
-- Syntax checks pass.
-- Ops page redirects unauthenticated users to `/ops/login.php`.
-- CLI returns `ok=true` and `final_blocks=[]`.
-- `move_now=0` and `delete_now=0`.
+Expected: `ok=true`, version `v3.0.95-legacy-public-utility-quiet-period-stable-fields`, `move_recommended_now=0`, `delete_recommended_now=0`, and `final_blocks=[]`.
