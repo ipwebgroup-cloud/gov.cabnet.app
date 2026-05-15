@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_VERSION = 'v3.0.83-public-utility-relocation-plan';
+const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_VERSION = 'v3.0.84-public-utility-relocation-plan-permission-safe-scan';
 const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only source scan.';
 
 /** @return array<int,string> */
@@ -131,37 +131,103 @@ function gov_purp_token_scan(string $raw): array
     return $out;
 }
 
+/** @return bool */
+function gov_purp_should_skip_scan_path(string $path, bool $isDir): bool
+{
+    $lower = strtolower(str_replace('\\', '/', $path));
+
+    $skipSegments = [
+        '/.git/',
+        '/cache/',
+        '/tmp/',
+        '/temp/',
+        '/sessions/',
+        '/session/',
+        '/logs/',
+        '/log/',
+        '/mail/',
+        '/maildir/',
+        '/storage/runtime/',
+        '/storage/artifacts/',
+        '/storage/logs/',
+        '/storage/tmp/',
+        '/storage/temp/',
+        '/storage/patch_backups/',
+        '/patch_backups/',
+        '/handoff-packages/',
+        '/vendor/',
+        '/node_modules/',
+    ];
+
+    $probe = $lower . ($isDir ? '/' : '');
+    foreach ($skipSegments as $segment) {
+        if (str_contains($probe, $segment)) {
+            return true;
+        }
+    }
+
+    $base = strtolower(basename($path));
+    if (preg_match('/\.(zip|tar|tgz|gz|bz2|7z|rar|bak|backup|old|tmp|swp|swo)$/i', $base)) {
+        return true;
+    }
+
+    return false;
+}
+
 /** @return array<int,array<string,mixed>> */
 function gov_purp_scan_project_references(array $targetNames, array $roots): array
 {
     $refs = [];
     $targetPattern = '/(' . implode('|', array_map(static fn(string $s): string => preg_quote($s, '/'), $targetNames)) . ')/';
-    foreach ($roots as $root) {
-        if (!is_dir($root) || !is_readable($root)) {
-            continue;
+    $allowedFilePattern = '/\.(php|md|txt|json|sh|sql|htaccess|ini)$/i';
+
+    $scanDir = static function (string $dir) use (&$scanDir, &$refs, $targetPattern, $allowedFilePattern): void {
+        if (count($refs) >= 200) {
+            return;
         }
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-        foreach ($iterator as $item) {
-            if (!$item->isFile() || !$item->isReadable() || $item->isLink()) {
+        if (!is_dir($dir) || !is_readable($dir) || gov_purp_should_skip_scan_path($dir, true)) {
+            return;
+        }
+
+        $items = @scandir($dir);
+        if (!is_array($items)) {
+            return;
+        }
+
+        foreach ($items as $name) {
+            if ($name === '.' || $name === '..') {
                 continue;
             }
-            $path = $item->getPathname();
-            $lower = strtolower(str_replace('\\', '/', $path));
-            if (str_contains($lower, '/storage/runtime/') || str_contains($lower, '/storage/artifacts/') || str_contains($lower, '/storage/logs/') || str_contains($lower, '/cache/') || str_contains($lower, '/tmp/')) {
+            if (count($refs) >= 200) {
+                return;
+            }
+
+            $path = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $name;
+            if (is_link($path)) {
                 continue;
             }
-            if (!preg_match('/\.(php|md|txt|json|sh|sql|htaccess|ini)$/i', basename($path))) {
+
+            if (is_dir($path)) {
+                if (!is_readable($path) || gov_purp_should_skip_scan_path($path, true)) {
+                    continue;
+                }
+                $scanDir($path);
                 continue;
             }
+
+            if (!is_file($path) || !is_readable($path) || gov_purp_should_skip_scan_path($path, false)) {
+                continue;
+            }
+            if (!preg_match($allowedFilePattern, basename($path))) {
+                continue;
+            }
+
             $raw = @file($path, FILE_IGNORE_NEW_LINES);
             if (!is_array($raw)) {
                 continue;
             }
             foreach ($raw as $lineNo => $line) {
-                if (!preg_match($targetPattern, $line, $m)) {
+                if (!preg_match($targetPattern, (string)$line, $m)) {
                     continue;
                 }
                 $matched = (string)$m[1];
@@ -172,11 +238,19 @@ function gov_purp_scan_project_references(array $targetNames, array $roots): arr
                     'preview' => trim(substr((string)$line, 0, 220)),
                 ];
                 if (count($refs) >= 200) {
-                    return $refs;
+                    return;
                 }
             }
         }
+    };
+
+    foreach ($roots as $root) {
+        if (count($refs) >= 200) {
+            break;
+        }
+        $scanDir((string)$root);
     }
+
     return $refs;
 }
 

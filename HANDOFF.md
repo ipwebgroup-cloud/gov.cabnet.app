@@ -1,27 +1,6 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app
 
-Updated: 2026-05-15  
-Milestone: v3.0.83 public utility relocation plan prepared
+Updated: 2026-05-15
+Milestone: v3.0.84 public utility relocation planner permission-safe scan hotfix.
 
-## Current safety posture
-
-- Live EDXEIX submission remains disabled.
-- V3 live adapter remains skeleton-only/non-live.
-- Production `/ops/pre-ride-email-tool.php` remains untouched.
-- Public route exposure audit is installed and reports no final blocks.
-- Public utility relocation planner is read-only and does not move/delete routes.
-
-## Latest patch
-
-v3.0.83 adds:
-
-```text
-/home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php
-/home/cabnet/public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php
-```
-
-It also links the planner from the Developer Archive and Route Index.
-
-## Next safest step
-
-After upload, run the dependency search commands shown by the planner. Do not relocate public-root utilities until cron/monitor/bookmark usage is known.
+The public utility relocation planner remains read-only. v3.0.84 fixes the production 500 caused by unreadable app storage directories during source scanning. Live EDXEIX submission remains disabled. Production pre-ride tool is untouched.

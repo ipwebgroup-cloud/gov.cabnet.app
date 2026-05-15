@@ -1,74 +1,55 @@
-# PATCH README — v3.0.83 Public Utility Relocation Plan
+# gov.cabnet.app — v3.0.84 Public Utility Relocation Plan Permission-Safe Scan Hotfix
 
-## What changed
+Date: 2026-05-15
 
-Adds a read-only no-break relocation planner for guarded public-root utility endpoints.
+## Purpose
 
-## Files included
+Fixes a production 500 error in `/ops/public-utility-relocation-plan.php` caused by the read-only scanner attempting to recurse into an unreadable private storage directory:
+
+```text
+/home/cabnet/gov.cabnet.app_app/storage/patch_backups
+```
+
+## Safety
+
+- No Bolt call.
+- No EDXEIX call.
+- No AADE call.
+- No database connection.
+- No filesystem writes.
+- No route move.
+- No route deletion.
+- Production pre-ride tool is untouched.
+
+## Changed file
 
 ```text
 gov.cabnet.app_app/cli/public_utility_relocation_plan.php
-public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php
-public_html/gov.cabnet.app/ops/_shell.php
-public_html/gov.cabnet.app/ops/route-index.php
-docs/LIVE_PUBLIC_UTILITY_RELOCATION_PLAN_20260515.md
-PATCH_README.md
-HANDOFF.md
-CONTINUE_PROMPT.md
 ```
 
-## Upload paths
+## Upload path
 
 ```text
 /home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php
-/home/cabnet/public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-/home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
 ```
-
-## SQL
-
-None.
 
 ## Verification
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php --json" \
+| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
 
 curl -I --max-time 10 https://gov.cabnet.app/ops/public-utility-relocation-plan.php
-
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php --json"
-
-grep -n "v3.0.83\|Public Utility Relocation Plan\|public_utility_relocation_plan" \
-  /home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php \
-  /home/cabnet/public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php \
-  /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php \
-  /home/cabnet/public_html/gov.cabnet.app/ops/route-index.php
 ```
 
-## Expected result
-
-- CLI returns `ok=true`.
-- Route page is protected by ops login.
-- Delete recommended now remains `0`.
-- Move recommended now remains `0`.
-- The tool provides dependency-check commands before any future relocation.
-
-## Git commit title
+Expected:
 
 ```text
-Add public utility relocation plan
-```
-
-## Git commit description
-
-```text
-Adds a read-only no-break relocation planner for guarded public-root utility endpoints identified by the live public route exposure audit.
-
-The planner classifies six public-root Bolt/EDXEIX utility routes, recommends future CLI or supervised ops targets, and provides dependency-check commands for cron, monitor, bookmark, and project references.
-
-No routes are moved or deleted. No SQL changes are made. No Bolt, EDXEIX, AADE, DB, or filesystem write actions are performed. Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
+No syntax errors detected
+ok=true
+version=v3.0.84-public-utility-relocation-plan-permission-safe-scan
+final_blocks=[]
+HTTP/1.1 302 Found when unauthenticated, or page loads after login
 ```
