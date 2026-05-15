@@ -31,13 +31,17 @@
  * v3.2.6:
  * - Adds single-row controlled live-submit design draft output.
  * - Design-only snapshot for a future explicit live-submit patch; no executable submitter is added.
+ *
+ * v3.2.7:
+ * - Adds controlled live-submit runbook / authorization packet output.
+ * - Packet is read-only and non-executable; no live-submit capability is added.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.6-v3-single-row-controlled-live-submit-design-draft';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_single_row_controlled_live_submit_design_draft';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, and single-row live-submit design snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.7-v3-controlled-live-submit-runbook-authorization-packet';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_controlled_live_submit_runbook_authorization_packet';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, and authorization packet snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -1532,6 +1536,157 @@ function gov_v3rfccr_single_row_live_submit_design_draft(array $report): array
     ];
 }
 
+/** @return array<string,mixed> */
+function gov_v3rfccr_controlled_live_submit_authorization_packet(array $report): array
+{
+    $watch = gov_v3rfccr_watch_snapshot($report);
+    $evidence = gov_v3rfccr_candidate_evidence_snapshot($report);
+    $preview = gov_v3rfccr_edxeix_payload_preview($report);
+    $expired = gov_v3rfccr_expired_candidate_safety_audit($report);
+    $readiness = gov_v3rfccr_controlled_live_submit_readiness($report);
+    $design = gov_v3rfccr_single_row_live_submit_design_draft($report);
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $liveGate = is_array($report['live_gate'] ?? null) ? $report['live_gate'] : [];
+
+    $candidateFound = !empty($preview['candidate_found']) && !empty($evidence['candidate_found']);
+    $previewPassed = (string)($preview['preflight_outcome'] ?? '') === 'dry_run_preview_passed_live_submit_still_blocked';
+    $expiredPassed = !empty($expired['eligibility_regression_passed']) && empty($expired['regression_failures']);
+    $readinessOutcome = (string)($readiness['readiness_outcome'] ?? '');
+    $designOutcome = (string)($design['design_outcome'] ?? '');
+    $liveRisk = !empty($summary['live_risk_detected']) || !empty($liveGate['live_risk_detected']) || !empty($readiness['safety_confirmed']['live_risk_detected']);
+    $hardNoGo = is_array($readiness['hard_no_go_reasons'] ?? null) ? array_values(array_map('strval', $readiness['hard_no_go_reasons'])) : [];
+    $finalBlocks = is_array($report['final_blocks'] ?? null) ? array_values(array_map('strval', $report['final_blocks'])) : [];
+
+    $packetStatus = 'not_authorizable_no_current_candidate';
+    $packetLabel = 'No current future candidate exists. Authorization packet remains a runbook template only.';
+    if ($liveRisk || $hardNoGo !== [] || $finalBlocks !== []) {
+        $packetStatus = 'not_authorizable_safety_blocks_present';
+        $packetLabel = 'Safety blocks are present. Do not authorize or build any live-submit patch.';
+    } elseif ($candidateFound && $previewPassed && $expiredPassed && $readinessOutcome === 'pre_live_candidate_ready_for_manual_decision_only') {
+        $packetStatus = 'candidate_packet_draft_ready_for_explicit_future_patch_request_only';
+        $packetLabel = 'A candidate is packet-ready for human authorization review, but this output is still non-executable and cannot submit live.';
+    } elseif ($candidateFound) {
+        $packetStatus = 'not_authorizable_candidate_incomplete_or_preflight_blocked';
+        $packetLabel = 'A candidate is visible, but one or more packet gates are not satisfied.';
+    }
+
+    $previewCandidate = is_array($preview['candidate'] ?? null) ? $preview['candidate'] : [];
+    $payload = is_array($preview['normalized_payload_preview'] ?? null) ? $preview['normalized_payload_preview'] : [];
+    $mapping = is_array($payload['edxeix_mapping_ids'] ?? null) ? $payload['edxeix_mapping_ids'] : [];
+    $times = is_array($payload['ride_times'] ?? null) ? $payload['ride_times'] : [];
+    $route = is_array($payload['route'] ?? null) ? $payload['route'] : [];
+    $price = is_array($payload['price'] ?? null) ? $payload['price'] : [];
+    $passenger = is_array($payload['passenger_fields'] ?? null) ? $payload['passenger_fields'] : [];
+
+    $candidate = null;
+    if ($candidateFound) {
+        $candidate = [
+            'queue_id' => $previewCandidate['queue_id'] ?? null,
+            'queue_status' => (string)($previewCandidate['queue_status'] ?? ''),
+            'preview_hash_sha256' => (string)($preview['preview_hash_sha256'] ?? ''),
+            'minutes_until_pickup_now' => $times['minutes_until_pickup_now'] ?? null,
+            'pickup_datetime' => (string)($times['pickup_datetime'] ?? ''),
+            'edxeix_mapping_ids' => [
+                'lessor_id' => (string)($mapping['lessor_id'] ?? ''),
+                'driver_id' => (string)($mapping['driver_id'] ?? ''),
+                'vehicle_id' => (string)($mapping['vehicle_id'] ?? ''),
+                'starting_point_id' => (string)($mapping['starting_point_id'] ?? ''),
+            ],
+            'route_preview' => [
+                'pickup_address' => (string)($route['pickup_address'] ?? ''),
+                'dropoff_address' => (string)($route['dropoff_address'] ?? ''),
+            ],
+            'price_preview' => [
+                'amount' => (string)($price['amount'] ?? ''),
+                'currency' => (string)($price['currency'] ?? 'EUR'),
+            ],
+            'passenger_preview' => [
+                'customer_name_preview' => (string)($passenger['customer_name_preview'] ?? ''),
+                'customer_phone_preview' => (string)($passenger['customer_phone_preview'] ?? ''),
+                'unmasked_values_hidden' => true,
+            ],
+        ];
+    }
+
+    return [
+        'ok' => !empty($report['ok']) && !$liveRisk,
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_controlled_live_submit_runbook_authorization_packet',
+        'packet_status' => $packetStatus,
+        'packet_label' => $packetLabel,
+        'authorization_packet_only' => true,
+        'design_only' => true,
+        'executable_submitter_added' => false,
+        'live_submit_allowed_now' => false,
+        'live_submit_recommended_now' => 0,
+        'live_submit_blocked_by_design' => true,
+        'future_patch_required_for_any_live_submit' => true,
+        'requires_explicit_andreas_live_submit_request' => true,
+        'candidate_found' => $candidateFound,
+        'candidate' => $candidate,
+        'authorization_gates' => [
+            'fresh_future_candidate_visible' => (int)($summary['future_possible_real_rows'] ?? 0) === 1,
+            'complete_future_candidate' => (int)($summary['complete_future_possible_real_rows'] ?? 0) === 1,
+            'evidence_snapshot_passed' => !empty($evidence['candidate_found']) && (string)($evidence['operator_review_outcome'] ?? '') === 'eligible_for_closed_gate_operator_review_only',
+            'edxeix_preview_passed' => $previewPassed,
+            'expired_candidate_regression_passed' => $expiredPassed,
+            'controlled_readiness_passed' => $readinessOutcome === 'pre_live_candidate_ready_for_manual_decision_only',
+            'single_row_design_ready' => in_array($designOutcome, ['single_row_design_ready_for_future_explicit_patch_request_only', 'design_only_wait_for_fresh_candidate'], true),
+            'live_gate_currently_disabled' => empty($liveGate['enabled']) && (string)($liveGate['mode'] ?? '') === 'disabled',
+            'operator_mapping_confirmation_still_required' => true,
+            'explicit_andreas_authorization_still_required' => true,
+        ],
+        'runbook_steps_for_future_explicit_patch' => [
+            '1_generate_this_authorization_packet_immediately_after_a_fresh_candidate_appears',
+            '2_record_edxeix_preview_hash_and_queue_id',
+            '3_operator_confirms_lessor_driver_vehicle_starting_point_inside_edxeix_form',
+            '4_andreas_explicitly_requests_single_row_live_submit_patch_for_that_queue_id',
+            '5_apply_separate_one_shot_submit_patch_with_live_gate_disabled_by_default',
+            '6_enable_gate_only_for_one_queue_id_under_operator_supervision',
+            '7_submit_once_or_abort_without_retrying',
+            '8_immediately_revert_gate_to_disabled',
+            '9_run_expired_safety_and_go_no_go_audits_after_revert',
+            '10_commit_only_after_live_result_and_rollback_are_verified',
+        ],
+        'non_goals_confirmed' => [
+            'does_not_submit_to_edxeix' => true,
+            'does_not_enable_live_gate' => true,
+            'does_not_add_cron' => true,
+            'does_not_touch_production_pre_ride_tool' => true,
+            'does_not_process_batches' => true,
+            'does_not_mutate_queue' => true,
+            'does_not_write_database' => true,
+        ],
+        'component_results' => [
+            'watch_action_code' => (string)($watch['action_code'] ?? 'UNKNOWN'),
+            'watch_severity' => (string)($watch['severity'] ?? 'unknown'),
+            'readiness_outcome' => $readinessOutcome,
+            'design_outcome' => $designOutcome,
+            'edxeix_preview_preflight_outcome' => (string)($preview['preflight_outcome'] ?? ''),
+            'expired_audit_outcome' => (string)($expired['audit_outcome'] ?? ''),
+            'live_gate_enabled' => !empty($liveGate['enabled']),
+            'live_gate_mode' => (string)($liveGate['mode'] ?? ''),
+            'live_gate_adapter' => (string)($liveGate['adapter'] ?? ''),
+        ],
+        'hard_no_go_reasons' => $hardNoGo,
+        'final_blocks' => $finalBlocks,
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($readiness['safety_confirmed']['live_gate_expected_closed']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => 0,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+            'cron_job_added' => false,
+            'notification_sent' => false,
+        ],
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --authorization-packet-json',
+    ];
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -1564,6 +1719,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $expiredSafetyJson = in_array('--expired-safety-json', $argv, true) || in_array('--stale-ready-audit-json', $argv, true) || in_array('--regression-audit-json', $argv, true);
     $liveReadinessJson = in_array('--live-readiness-json', $argv, true) || in_array('--controlled-live-readiness-json', $argv, true) || in_array('--go-no-go-json', $argv, true);
     $singleRowLiveDesignJson = in_array('--single-row-live-design-json', $argv, true) || in_array('--first-live-test-design-json', $argv, true) || in_array('--controlled-live-submit-design-json', $argv, true);
+    $authorizationPacketJson = in_array('--authorization-packet-json', $argv, true) || in_array('--controlled-live-runbook-json', $argv, true) || in_array('--first-live-authorization-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
@@ -1572,6 +1728,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
     $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
     $singleRowLiveDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
+    $authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -1603,6 +1760,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($singleRowLiveDesign['ok']) ? 0 : 1;
     }
 
+    if ($authorizationPacketJson) {
+        echo json_encode($authorizationPacket, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($authorizationPacket['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -1615,6 +1777,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         $report['expired_candidate_safety_audit'] = $expiredSafetyAudit;
         $report['controlled_live_submit_readiness'] = $liveReadiness;
         $report['single_row_controlled_live_submit_design'] = $singleRowLiveDesign;
+        $report['controlled_live_submit_authorization_packet'] = $authorizationPacket;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -1637,6 +1800,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Expired candidate safety audit command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --expired-safety-json' . PHP_EOL;
     echo 'Controlled live-submit readiness command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --live-readiness-json' . PHP_EOL;
     echo 'Single-row live-submit design command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --single-row-live-design-json' . PHP_EOL;
+    echo 'Authorization packet command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --authorization-packet-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }

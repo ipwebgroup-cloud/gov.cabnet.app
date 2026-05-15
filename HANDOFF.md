@@ -122,3 +122,11 @@ After v3.2.3 is verified and committed, the next phase can design a controlled, 
 - New CLI modes: `--single-row-live-design-json`, `--first-live-test-design-json`, `--controlled-live-submit-design-json`.
 - No live submitter was added; live EDXEIX submission remains blocked.
 - No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
+
+
+## v3.2.7 — Controlled Live-Submit Runbook / Authorization Packet
+
+- Added read-only authorization packet output for a future first controlled single-row live test.
+- New CLI modes: `--authorization-packet-json`, `--controlled-live-runbook-json`, `--first-live-authorization-json`.
+- No executable live submitter was added; live EDXEIX submission remains blocked.
+- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.

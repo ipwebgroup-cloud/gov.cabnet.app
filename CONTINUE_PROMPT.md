@@ -37,3 +37,6 @@ Latest installed target after this package: v3.2.5 — Controlled Live-Submit Re
 
 
 Current latest patch: v3.2.6 — Single-Row Controlled Live-Submit Design Draft. Continue with read-only preflight/design work unless Andreas explicitly requests a live-submit update. Live submit remains disabled.
+
+
+Current latest patch: v3.2.7 — Controlled Live-Submit Runbook / Authorization Packet. Continue with read-only preflight/runbook work unless Andreas explicitly requests a live-submit update. Live submit remains disabled.

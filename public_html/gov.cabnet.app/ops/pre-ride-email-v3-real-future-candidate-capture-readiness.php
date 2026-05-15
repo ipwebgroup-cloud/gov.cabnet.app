@@ -25,6 +25,9 @@
  *
  * v3.2.6:
  * - Adds single-row controlled live-submit design draft section.
+ *
+ * v3.2.7:
+ * - Adds controlled live-submit runbook / authorization packet section.
  */
 
 declare(strict_types=1);
@@ -39,6 +42,7 @@ $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
 $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
 $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
 $singleRowDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
+$authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -51,6 +55,9 @@ $liveReadinessNoGo = is_array($liveReadiness['hard_no_go_reasons'] ?? null) ? $l
 $singleRowPolicy = is_array($singleRowDesign['single_row_policy'] ?? null) ? $singleRowDesign['single_row_policy'] : [];
 $singleRowSequence = is_array($singleRowDesign['pre_execution_gate_sequence'] ?? null) ? $singleRowDesign['pre_execution_gate_sequence'] : [];
 $singleRowComponents = is_array($singleRowDesign['component_results'] ?? null) ? $singleRowDesign['component_results'] : [];
+$authorizationGates = is_array($authorizationPacket['authorization_gates'] ?? null) ? $authorizationPacket['authorization_gates'] : [];
+$authorizationRunbook = is_array($authorizationPacket['runbook_steps_for_future_explicit_patch'] ?? null) ? $authorizationPacket['runbook_steps_for_future_explicit_patch'] : [];
+$authorizationComponents = is_array($authorizationPacket['component_results'] ?? null) ? $authorizationPacket['component_results'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -105,7 +112,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.6')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.7')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -326,6 +333,47 @@ opsui_shell_begin([
         <li><code class="v3cap-code"><?= opsui_h((string)$step) ?></code></li>
     <?php endforeach; ?>
     </ol>
+</section>
+
+<section class="panel">
+    <h2>Controlled Live-Submit Runbook / Authorization Packet</h2>
+    <p>This is a non-executable authorization packet for a future first live test. It does not enable the live gate, does not submit to EDXEIX, and does not mutate queue state.</p>
+    <div class="v3cap-next">
+        <p><strong>Packet status:</strong> <code class="v3cap-code"><?= opsui_h((string)($authorizationPacket['packet_status'] ?? '')) ?></code></p>
+        <p><strong>Decision:</strong> <?= opsui_h((string)($authorizationPacket['packet_label'] ?? '')) ?></p>
+        <p><strong>Packet only:</strong> <?= !empty($authorizationPacket['authorization_packet_only']) ? 'yes' : 'no' ?> · <strong>Executable submitter added:</strong> <?= !empty($authorizationPacket['executable_submitter_added']) ? 'yes' : 'no' ?> · <strong>Live submit allowed now:</strong> <?= !empty($authorizationPacket['live_submit_allowed_now']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> live risk <?= !empty($authorizationPacket['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no' ?> · DB write <?= !empty($authorizationPacket['safety_confirmed']['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($authorizationPacket['safety_confirmed']['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($authorizationPacket['safety_confirmed']['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI authorization packet command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --authorization-packet-json</code></p>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Authorization gate</th><th>Status</th></tr></thead>
+        <tbody>
+        <?php foreach ($authorizationGates as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$authorizationGates): ?><tr><td colspan="2">No authorization gates are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Future explicit-patch runbook</h3>
+    <ol>
+    <?php foreach ($authorizationRunbook as $step): ?>
+        <li><code class="v3cap-code"><?= opsui_h((string)$step) ?></code></li>
+    <?php endforeach; ?>
+    </ol>
+    <h3>Component posture</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($authorizationComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$authorizationComponents): ?><tr><td colspan="2">No component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
 </section>
 
 
