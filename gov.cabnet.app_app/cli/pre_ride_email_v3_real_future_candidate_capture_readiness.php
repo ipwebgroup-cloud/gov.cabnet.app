@@ -15,13 +15,17 @@
  * v3.2.2:
  * - Adds sanitized candidate evidence snapshot export for closed-gate operator review.
  * - Hides raw payloads, parsed JSON, hashes, and unnecessary passenger data from the export.
+ *
+ * v3.2.3:
+ * - Adds read-only EDXEIX payload preview / dry-run preflight output.
+ * - Shows normalized submission fields in sanitized form while live submit remains blocked.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.2-v3-candidate-evidence-snapshot-export';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_candidate_evidence_snapshot_export';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch and evidence snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.3-v3-edxeix-payload-preview-dry-run-preflight';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_edxeix_payload_preview_dry_run_preflight';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, and EDXEIX payload preview snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -759,6 +763,18 @@ function gov_v3rfccr_source_basename(string $source): string
     return basename($source);
 }
 
+function gov_v3rfccr_mask_name(string $name): string
+{
+    $name = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+    if ($name === '') { return ''; }
+    $parts = preg_split('/\s+/', $name) ?: [];
+    if (count($parts) === 1) { return $parts[0]; }
+    $first = (string)$parts[0];
+    $last = (string)end($parts);
+    $initial = mb_substr($last, 0, 1, 'UTF-8');
+    return $first . ($initial !== '' ? ' ' . $initial . '.' : '');
+}
+
 /** @return array<string,mixed> */
 function gov_v3rfccr_candidate_evidence_snapshot(array $report): array
 {
@@ -888,6 +904,179 @@ function gov_v3rfccr_candidate_evidence_snapshot(array $report): array
     return $base;
 }
 
+/** @return array<string,mixed> */
+function gov_v3rfccr_edxeix_payload_preview(array $report): array
+{
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $queue = is_array($report['queue'] ?? null) ? $report['queue'] : [];
+    $reviewRows = is_array($queue['closed_gate_operator_review_rows'] ?? null) ? $queue['closed_gate_operator_review_rows'] : [];
+    $futureRows = is_array($queue['future_possible_real_rows'] ?? null) ? $queue['future_possible_real_rows'] : [];
+    $candidate = null;
+    if (isset($reviewRows[0]) && is_array($reviewRows[0])) {
+        $candidate = $reviewRows[0];
+    } elseif (is_array($queue['next_future_possible_real_row'] ?? null)) {
+        $candidate = $queue['next_future_possible_real_row'];
+    } elseif (isset($futureRows[0]) && is_array($futureRows[0])) {
+        $candidate = $futureRows[0];
+    }
+
+    $warnings = is_array($report['warnings'] ?? null) ? $report['warnings'] : [];
+    $finalBlocks = is_array($report['final_blocks'] ?? null) ? $report['final_blocks'] : [];
+    $liveGateClosed = !empty($summary['live_gate_expected_closed']) && empty($summary['live_risk_detected']);
+
+    $base = [
+        'ok' => !empty($report['ok']),
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_edxeix_payload_preview_dry_run_preflight',
+        'candidate_found' => $candidate !== null,
+        'dry_run_only' => true,
+        'live_submit_allowed_now' => false,
+        'live_submit_blocked_by_design' => true,
+        'edxeix_call_made' => false,
+        'queue_mutation_made' => false,
+        'db_write_made' => false,
+        'safety_notice' => 'Dry-run preview only. This does not submit to EDXEIX, does not open the live gate, does not mutate queue state, and does not write to the database.',
+        'warnings' => array_values(array_map('strval', $warnings)),
+        'final_blocks' => array_values(array_map('strval', $finalBlocks)),
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($summary['live_gate_expected_closed']),
+            'live_risk_detected' => !empty($summary['live_risk_detected']),
+            'live_submit_recommended_now' => (int)($summary['live_submit_recommended_now'] ?? 0),
+            'db_write_made' => !empty($summary['db_write_made']),
+            'queue_mutation_made' => !empty($summary['queue_mutation_made']),
+            'bolt_call_made' => !empty($summary['bolt_call_made']),
+            'edxeix_call_made' => !empty($summary['edxeix_call_made']),
+            'aade_call_made' => !empty($summary['aade_call_made']),
+        ],
+        'hidden_from_preview' => [
+            'payload_json',
+            'parsed_fields_json',
+            'raw_email_preview',
+            'source_hash',
+            'email_hash',
+            'full_source_mailbox_path',
+            'unmasked_customer_phone',
+            'raw_message_headers',
+            'secrets_or_credentials',
+        ],
+        'preflight_outcome' => 'no_candidate_visible',
+        'preflight_blocks' => [],
+        'candidate' => null,
+        'normalized_payload_preview' => null,
+    ];
+
+    if (!$candidate) {
+        $base['preflight_blocks'][] = 'candidate: no future possible-real candidate visible';
+        return $base;
+    }
+
+    $missing = is_array($candidate['missing_required_fields'] ?? null) ? array_values(array_map('strval', $candidate['missing_required_fields'])) : [];
+    $complete = !empty($candidate['complete']);
+    $reviewQualified = !empty($candidate['qualifies_for_closed_gate_operator_review']);
+    $isFuture = !empty($candidate['is_future_now']);
+    $parserOk = !empty($candidate['parser_ok']);
+    $mappingOk = !empty($candidate['mapping_ok']);
+    $futureOk = !empty($candidate['future_ok_flag']);
+    $possibleReal = !empty($candidate['possible_real_mail']);
+    $isCanary = !empty($candidate['is_canary_or_test']);
+    $submitted = !empty($candidate['submitted']);
+    $terminal = !empty($candidate['terminal_or_failed_or_blocked']);
+    $lastError = trim((string)($candidate['last_error'] ?? ''));
+
+    $checks = [
+        'candidate_found' => true,
+        'complete' => $complete,
+        'missing_required_fields' => $missing,
+        'is_future_now' => $isFuture,
+        'parser_ok' => $parserOk,
+        'mapping_ok' => $mappingOk,
+        'future_ok_flag' => $futureOk,
+        'possible_real_mail' => $possibleReal,
+        'is_canary_or_test' => $isCanary,
+        'not_submitted' => !$submitted,
+        'not_terminal_or_blocked' => !$terminal,
+        'last_error_empty' => $lastError === '',
+        'closed_gate_operator_review' => $reviewQualified,
+        'live_gate_expected_closed' => $liveGateClosed,
+        'live_submit_allowed_now' => false,
+    ];
+
+    if (!$complete) { $base['preflight_blocks'][] = 'candidate: incomplete'; }
+    if ($missing !== []) { $base['preflight_blocks'][] = 'candidate: missing required fields'; }
+    if (!$isFuture) { $base['preflight_blocks'][] = 'candidate: pickup is not future-safe now'; }
+    if (!$parserOk) { $base['preflight_blocks'][] = 'candidate: parser_ok is false'; }
+    if (!$mappingOk) { $base['preflight_blocks'][] = 'candidate: mapping_ok is false'; }
+    if (!$futureOk) { $base['preflight_blocks'][] = 'candidate: future_ok flag is false'; }
+    if (!$possibleReal) { $base['preflight_blocks'][] = 'candidate: possible_real_mail is false'; }
+    if ($isCanary) { $base['preflight_blocks'][] = 'candidate: canary/test row'; }
+    if ($submitted) { $base['preflight_blocks'][] = 'candidate: already submitted'; }
+    if ($terminal) { $base['preflight_blocks'][] = 'candidate: terminal/failed/blocked'; }
+    if ($lastError !== '') { $base['preflight_blocks'][] = 'candidate: last_error is present'; }
+    if (!$reviewQualified) { $base['preflight_blocks'][] = 'candidate: not qualified for closed-gate review'; }
+    if (!$liveGateClosed) { $base['preflight_blocks'][] = 'safety: live gate is not confirmed closed'; }
+
+    $priceAmount = trim((string)($candidate['price_amount'] ?? ''));
+    $normalized = [
+        'target_system' => 'EDXEIX',
+        'operation' => 'pre_ride_contract_create_preview_only',
+        'dry_run_only' => true,
+        'identifiers' => [
+            'queue_id' => $candidate['id'] ?? null,
+            'source_mailbox_file' => gov_v3rfccr_source_basename((string)($candidate['source_mailbox'] ?? '')),
+        ],
+        'edxeix_mapping_ids' => [
+            'lessor_id' => (string)($candidate['lessor_id'] ?? ''),
+            'driver_id' => (string)($candidate['driver_id'] ?? ''),
+            'vehicle_id' => (string)($candidate['vehicle_id'] ?? ''),
+            'starting_point_id' => (string)($candidate['starting_point_id'] ?? ''),
+        ],
+        'ride_times' => [
+            'pickup_datetime' => (string)($candidate['pickup_datetime'] ?? ''),
+            'estimated_end_datetime' => (string)($candidate['estimated_end_datetime'] ?? ''),
+            'minutes_until_pickup_now' => $candidate['minutes_until_pickup_now'] ?? null,
+        ],
+        'route' => [
+            'pickup_address' => (string)($candidate['pickup_address'] ?? ''),
+            'dropoff_address' => (string)($candidate['dropoff_address'] ?? ''),
+        ],
+        'price' => [
+            'amount' => $priceAmount,
+            'currency' => 'EUR',
+            'source_text' => (string)($candidate['price_text'] ?? ''),
+        ],
+        'passenger_fields' => [
+            'customer_name_present' => trim((string)($candidate['customer_name'] ?? '')) !== '',
+            'customer_name_preview' => gov_v3rfccr_mask_name((string)($candidate['customer_name'] ?? '')),
+            'customer_phone_present' => trim((string)($candidate['customer_phone'] ?? '')) !== '',
+            'customer_phone_preview' => gov_v3rfccr_mask_phone((string)($candidate['customer_phone'] ?? '')),
+            'unmasked_values_hidden_in_preview' => true,
+        ],
+        'context' => [
+            'driver_name' => (string)($candidate['driver_name'] ?? ''),
+            'vehicle_plate' => (string)($candidate['vehicle_plate'] ?? ''),
+            'lessor_source' => (string)($candidate['lessor_source'] ?? ''),
+            'queue_status' => (string)($candidate['queue_status'] ?? ''),
+        ],
+    ];
+
+    $base['candidate'] = [
+        'queue_id' => $candidate['id'] ?? null,
+        'queue_status' => (string)($candidate['queue_status'] ?? ''),
+        'capture_readiness' => (string)($candidate['capture_readiness'] ?? ''),
+        'reason' => (string)($candidate['reason'] ?? ''),
+        'operator_alert_priority' => (string)($candidate['operator_alert_priority'] ?? 'none'),
+    ];
+    $base['dry_run_preflight_checks'] = $checks;
+    $base['normalized_payload_preview'] = $normalized;
+    $base['preview_hash_sha256'] = hash('sha256', json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    $base['preflight_outcome'] = $base['preflight_blocks'] === []
+        ? 'dry_run_preview_passed_live_submit_still_blocked'
+        : 'dry_run_preview_blocked_or_incomplete';
+
+    return $base;
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -916,10 +1105,12 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $json = in_array('--json', $argv, true);
     $watchJson = in_array('--watch-json', $argv, true) || in_array('--snapshot-json', $argv, true);
     $evidenceJson = in_array('--evidence-json', $argv, true) || in_array('--candidate-evidence-json', $argv, true);
+    $edxeixPreviewJson = in_array('--edxeix-preview-json', $argv, true) || in_array('--payload-preview-json', $argv, true) || in_array('--dry-run-preflight-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
     $evidence = gov_v3rfccr_candidate_evidence_snapshot($report);
+    $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -931,6 +1122,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($report['ok']) ? 0 : 1;
     }
 
+    if ($edxeixPreviewJson) {
+        echo json_encode($edxeixPreview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($report['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -939,6 +1135,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     if ($json) {
         $report['watch_snapshot'] = $snapshot;
         $report['candidate_evidence_snapshot'] = $evidence;
+        $report['edxeix_payload_preview'] = $edxeixPreview;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -957,6 +1154,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Final blocks: ' . implode('; ', $report['final_blocks'] ?? []) . PHP_EOL;
     echo 'Manual watch command: watch -n 30 \'/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line\'' . PHP_EOL;
     echo 'Evidence snapshot command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json' . PHP_EOL;
+    echo 'EDXEIX dry-run preview command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --edxeix-preview-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }

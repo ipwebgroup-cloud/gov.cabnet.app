@@ -13,6 +13,9 @@
  *
  * v3.2.2:
  * - Adds sanitized candidate evidence snapshot section for closed-gate review.
+ *
+ * v3.2.3:
+ * - Adds EDXEIX payload preview / dry-run preflight section.
  */
 
 declare(strict_types=1);
@@ -23,6 +26,11 @@ require_once '/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_
 $report = gov_v3_real_future_candidate_capture_readiness_run();
 $watchSnapshot = gov_v3rfccr_watch_snapshot($report);
 $evidenceSnapshot = gov_v3rfccr_candidate_evidence_snapshot($report);
+$edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
+$edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
+$edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
+$edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
+$edxeixBlocks = is_array($edxeixPreview['preflight_blocks'] ?? null) ? $edxeixPreview['preflight_blocks'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -77,7 +85,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.2')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.3')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -136,6 +144,40 @@ opsui_shell_begin([
             <p><strong>Negative checks:</strong> canary/test <?= !empty($evidenceNegative['is_canary_or_test']) ? 'yes' : 'no' ?> · submitted <?= !empty($evidenceNegative['submitted']) ? 'yes' : 'no' ?> · terminal/blocked <?= !empty($evidenceNegative['terminal_or_failed_or_blocked']) ? 'yes' : 'no' ?> · last error <?= !empty($evidenceNegative['last_error_present']) ? 'yes' : 'no' ?></p>
             <p><strong>Safety:</strong> live risk <?= !empty($evidenceSnapshot['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no' ?> · live submit recommended <?= opsui_h((string)($evidenceSnapshot['safety_confirmed']['live_submit_recommended_now'] ?? 0)) ?> · EDXEIX call <?= !empty($evidenceSnapshot['safety_confirmed']['edxeix_call_made']) ? 'yes' : 'no' ?></p>
             <p class="v3cap-small">CLI evidence command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json</code></p>
+        </div>
+    <?php endif; ?>
+</section>
+
+
+<section class="panel">
+    <h2>EDXEIX Payload Preview / Dry-Run Preflight</h2>
+    <p>This is a read-only preview of the normalized fields that would feed an EDXEIX pre-ride contract submission. It does not submit, does not open the live gate, does not mutate the queue, and masks passenger contact details in this preview.</p>
+    <?php if (empty($edxeixPreview['candidate_found']) || !$edxeixPayload): ?>
+        <p>No EDXEIX payload preview is available because no real future candidate is currently visible.</p>
+    <?php else: ?>
+        <div class="v3cap-next">
+            <p><strong>Outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($edxeixPreview['preflight_outcome'] ?? '')) ?></code></p>
+            <p><strong>Dry-run only:</strong> <?= !empty($edxeixPreview['dry_run_only']) ? 'yes' : 'no' ?> · <strong>Live submit allowed now:</strong> <?= !empty($edxeixPreview['live_submit_allowed_now']) ? 'yes' : 'no' ?> · <strong>EDXEIX call:</strong> <?= !empty($edxeixPreview['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+            <p><strong>Candidate:</strong> queue <code class="v3cap-code"><?= opsui_h((string)($edxeixCandidate['queue_id'] ?? '')) ?></code> · status <code class="v3cap-code"><?= opsui_h((string)($edxeixCandidate['queue_status'] ?? '')) ?></code> · readiness <code class="v3cap-code"><?= opsui_h((string)($edxeixCandidate['capture_readiness'] ?? '')) ?></code></p>
+            <?php $map = is_array($edxeixPayload['edxeix_mapping_ids'] ?? null) ? $edxeixPayload['edxeix_mapping_ids'] : []; ?>
+            <?php $times = is_array($edxeixPayload['ride_times'] ?? null) ? $edxeixPayload['ride_times'] : []; ?>
+            <?php $route = is_array($edxeixPayload['route'] ?? null) ? $edxeixPayload['route'] : []; ?>
+            <?php $price = is_array($edxeixPayload['price'] ?? null) ? $edxeixPayload['price'] : []; ?>
+            <?php $passenger = is_array($edxeixPayload['passenger_fields'] ?? null) ? $edxeixPayload['passenger_fields'] : []; ?>
+            <?php $context = is_array($edxeixPayload['context'] ?? null) ? $edxeixPayload['context'] : []; ?>
+            <p><strong>EDXEIX IDs:</strong> lessor <?= opsui_h((string)($map['lessor_id'] ?? '')) ?> · driver <?= opsui_h((string)($map['driver_id'] ?? '')) ?> · vehicle <?= opsui_h((string)($map['vehicle_id'] ?? '')) ?> · start <?= opsui_h((string)($map['starting_point_id'] ?? '')) ?></p>
+            <p><strong>Times:</strong> pickup <?= opsui_h((string)($times['pickup_datetime'] ?? '')) ?> · end <?= opsui_h((string)($times['estimated_end_datetime'] ?? '')) ?> · <?= opsui_h((string)($times['minutes_until_pickup_now'] ?? '')) ?> minutes remaining.</p>
+            <p><strong>Passenger:</strong> name <?= opsui_h((string)($passenger['customer_name_preview'] ?? '')) ?> · phone <?= opsui_h((string)($passenger['customer_phone_preview'] ?? '')) ?> · unmasked values hidden <?= !empty($passenger['unmasked_values_hidden_in_preview']) ? 'yes' : 'no' ?></p>
+            <p><strong>Route:</strong> <?= opsui_h((string)($route['pickup_address'] ?? '')) ?> → <?= opsui_h((string)($route['dropoff_address'] ?? '')) ?></p>
+            <p><strong>Price:</strong> <?= opsui_h((string)($price['amount'] ?? '')) ?> <?= opsui_h((string)($price['currency'] ?? 'EUR')) ?> · source <code class="v3cap-code"><?= opsui_h((string)($price['source_text'] ?? '')) ?></code></p>
+            <p><strong>Context:</strong> driver <?= opsui_h((string)($context['driver_name'] ?? '')) ?> · vehicle <code class="v3cap-code"><?= opsui_h((string)($context['vehicle_plate'] ?? '')) ?></code> · lessor source <?= opsui_h((string)($context['lessor_source'] ?? '')) ?></p>
+            <p><strong>Preview hash:</strong> <code class="v3cap-code"><?= opsui_h((string)($edxeixPreview['preview_hash_sha256'] ?? '')) ?></code></p>
+            <?php if ($edxeixBlocks): ?>
+                <p><strong>Preflight blocks:</strong> <?= opsui_h(implode('; ', array_map('strval', $edxeixBlocks))) ?></p>
+            <?php else: ?>
+                <p><strong>Preflight blocks:</strong> none. Preview passed, but live submission remains blocked by design.</p>
+            <?php endif; ?>
+            <p class="v3cap-small">CLI dry-run preview command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --edxeix-preview-json</code></p>
         </div>
     <?php endif; ?>
 </section>
