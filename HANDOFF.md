@@ -1,21 +1,27 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
 Updated: 2026-05-15  
-Milestone: v3.0.82 public route exposure audit detection hotfix
+Milestone: v3.0.83 public utility relocation plan prepared
 
-## Current live posture
+## Current safety posture
 
-- Production pre-ride tool remains untouched: `/ops/pre-ride-email-tool.php`.
-- V3 live EDXEIX submission remains disabled.
-- Live adapter remains skeleton-only / non-live.
-- Ops routes remain protected by global `.user.ini` auto-prepend auth.
-- Navigation has been de-bloated without deleting routes.
-- Public route exposure audit exists and is read-only.
+- Live EDXEIX submission remains disabled.
+- V3 live adapter remains skeleton-only/non-live.
+- Production `/ops/pre-ride-email-tool.php` remains untouched.
+- Public route exposure audit is installed and reports no final blocks.
+- Public utility relocation planner is read-only and does not move/delete routes.
 
 ## Latest patch
 
-v3.0.82 fixes a false warning in the public route exposure audit. The live `.htaccess` already denies direct access to `.user.ini`, but v3.0.81 did not reliably detect escaped `FilesMatch` patterns. The audit detector now recognizes literal and escaped forms.
+v3.0.83 adds:
 
-## Safety
+```text
+/home/cabnet/gov.cabnet.app_app/cli/public_utility_relocation_plan.php
+/home/cabnet/public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php
+```
 
-No SQL changes. No route deletion. No Bolt call. No EDXEIX call. No AADE call. No DB connection. No filesystem writes from the audit.
+It also links the planner from the Developer Archive and Route Index.
+
+## Next safest step
+
+After upload, run the dependency search commands shown by the planner. Do not relocate public-root utilities until cron/monitor/bookmark usage is known.

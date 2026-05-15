@@ -5,7 +5,7 @@
  * Static route inventory generated from the private Sophion live-site audit.
  * No Bolt call. No EDXEIX call. No AADE call. No DB writes. No route deletion.
  *
- * v3.0.81-public-route-exposure-audit
+ * v3.0.83-public-utility-relocation-plan
  */
 
 declare(strict_types=1);
@@ -50,6 +50,22 @@ function routeidx_rec_type(string $rec): string
 function routeidx_routes(): array
 {
     return [
+    [
+        'path' => 'public_html/gov.cabnet.app/ops/public-utility-relocation-plan.php',
+        'name' => 'public-utility-relocation-plan.php',
+        'area' => 'ops',
+        'bytes' => 0,
+        'tags' => 'audit_visibility,route_governance,no_delete,relocation_plan',
+        'recommendation' => 'KEEP ADMIN/AUDIT',
+        'reason' => 'Read-only no-break relocation plan for guarded public-root utilities. It does not move or delete routes.',
+        'writes_db' => false,
+        'external_http' => false,
+        'shell_exec' => false,
+        'file_write' => false,
+        'session_cookie' => false,
+        'submit_terms' => false,
+        'aade_terms' => false,
+    ],
     [
         'path' => 'public_html/gov.cabnet.app/ops/public-route-exposure-audit.php',
         'name' => 'public-route-exposure-audit.php',
@@ -2818,7 +2834,7 @@ if (strtolower((string)($_GET['format'] ?? '')) === 'json') {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'ok' => true,
-        'version' => 'v3.0.81-public-route-exposure-audit',
+        'version' => 'v3.0.83-public-utility-relocation-plan',
         'generated_from' => 'Sophion private live-site audit package',
         'generated_at' => $generatedAt,
         'safety' => 'Static inventory only. No Bolt, EDXEIX, AADE, DB write, route deletion, or live submit action.',

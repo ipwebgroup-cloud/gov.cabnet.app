@@ -1,19 +1,15 @@
 # CONTINUE PROMPT — gov.cabnet.app Bolt → EDXEIX Bridge
 
-Continue assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge.
 
-Current live audit state:
+Current state:
 
-- v3.0.80 navigation de-bloat installed and verified.
-- v3.0.81 public route exposure audit installed and verified.
-- v3.0.82 hotfix corrects `.htaccess` detection for `.user.ini` deny rules.
-- Production pre-ride tool `/ops/pre-ride-email-tool.php` is the current production tool and must remain untouched unless explicitly requested.
-- V3 live submission remains disabled and closed-gate only.
-- Do not enable live EDXEIX submission.
-- Prefer read-only audit, no-delete cleanup, and operator safety improvements.
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload.
+- Live EDXEIX submission remains disabled.
+- Production pre-ride tool `/ops/pre-ride-email-tool.php` must remain untouched unless Andreas explicitly requests a production hotfix.
+- v3.0.83 public utility relocation planner has been prepared/installed as a read-only tool.
+- The planner targets six guarded public-root utilities for future no-break relocation planning only.
 
-Next safe work:
+Next safest action:
 
-1. Verify v3.0.82 on the live server.
-2. Continue no-delete route cleanup planning.
-3. Consider a later public-root utility relocation plan, but do not move or delete routes without explicit approval.
+Run and review the dependency search commands from `/ops/public-utility-relocation-plan.php`. Do not move, delete, disable, or rewrite public-root utility routes until cron/monitor/bookmark usage is known.

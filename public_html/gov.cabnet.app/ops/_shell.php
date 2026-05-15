@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.0.81
+ * gov.cabnet.app — shared operations UI shell v3.0.83
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -455,6 +455,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_side_link('/ops/documentation-center.php', 'Documentation Center', $current) ?>
                 <?= opsui_side_link('/ops/tool-inventory.php', 'Tool Inventory', $current) ?>
                 <?= opsui_side_link('/ops/public-route-exposure-audit.php', 'Public Route Exposure Audit', $current) ?>
+                <?= opsui_side_link('/ops/public-utility-relocation-plan.php', 'Public Utility Relocation Plan', $current) ?>
                 <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-tools.php', 'Package Tools', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-archive.php', 'Package Archive', $current) ?>
@@ -471,7 +472,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">
