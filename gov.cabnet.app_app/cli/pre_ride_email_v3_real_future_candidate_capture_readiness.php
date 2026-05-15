@@ -7,13 +7,17 @@
  * - Shows minutes until pickup, completeness, missing fields, closed-gate review qualification,
  *   urgency/expiry posture, and whether an operator alert would be appropriate.
  * - No Bolt calls, no EDXEIX calls, no AADE calls, no DB writes, no queue mutations, no filesystem writes.
+ *
+ * v3.2.1:
+ * - Adds compact one-shot watch snapshot output for operator polling.
+ * - Keeps the same read-only/no-submit safety posture.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.0-v3-real-future-candidate-capture-readiness';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_real_future_candidate_capture_readiness';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.1-v3-real-future-candidate-watch-snapshot';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_real_future_candidate_capture_readiness_watch_snapshot';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch snapshot is one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -628,13 +632,151 @@ function gov_v3_real_future_candidate_capture_readiness_run(): array
     return $report;
 }
 
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_watch_snapshot(array $report): array
+{
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $queue = is_array($report['queue'] ?? null) ? $report['queue'] : [];
+    $nextCandidate = is_array($queue['next_future_possible_real_row'] ?? null) ? $queue['next_future_possible_real_row'] : null;
+    $reviewRows = is_array($queue['closed_gate_operator_review_rows'] ?? null) ? $queue['closed_gate_operator_review_rows'] : [];
+    $alertRows = is_array($queue['operator_alert_rows'] ?? null) ? $queue['operator_alert_rows'] : [];
+    $finalBlocks = is_array($report['final_blocks'] ?? null) ? $report['final_blocks'] : [];
+    $warnings = is_array($report['warnings'] ?? null) ? $report['warnings'] : [];
+
+    $futureCount = (int)($summary['future_possible_real_rows'] ?? 0);
+    $completeFutureCount = (int)($summary['complete_future_possible_real_rows'] ?? 0);
+    $incompleteFutureCount = (int)($summary['incomplete_future_possible_real_rows'] ?? 0);
+    $reviewCount = (int)($summary['closed_gate_operator_review_candidates'] ?? count($reviewRows));
+    $alertCount = (int)($summary['operator_alerts_appropriate'] ?? count($alertRows));
+    $urgentCount = (int)($summary['urgent_or_about_to_expire_rows'] ?? 0);
+    $liveRisk = !empty($summary['live_risk_detected']);
+
+    $actionCode = 'WAIT_NO_CANDIDATE';
+    $actionLabel = 'No real future candidate is visible. Keep observing.';
+    $severity = 'clear';
+
+    if ($finalBlocks !== []) {
+        $actionCode = 'BLOCKED_FINAL_BLOCKS';
+        $actionLabel = 'Audit has final blocks. Fix blocks before relying on candidate capture.';
+        $severity = 'blocked';
+    } elseif ($liveRisk) {
+        $actionCode = 'BLOCKED_LIVE_GATE_RISK';
+        $actionLabel = 'Live gate posture is risky. Do not proceed until gate is closed again.';
+        $severity = 'blocked';
+    } elseif ($reviewCount > 0) {
+        $actionCode = 'REVIEW_COMPLETE_FUTURE_CANDIDATE';
+        $actionLabel = 'A complete real future candidate is ready for closed-gate operator review only. Do not submit live.';
+        $severity = $urgentCount > 0 ? 'urgent' : 'review';
+    } elseif ($alertCount > 0) {
+        $actionCode = 'REVIEW_OPERATOR_ALERT';
+        $actionLabel = 'A future candidate needs operator attention before expiry. Review missing fields/mapping; do not submit live.';
+        $severity = $urgentCount > 0 ? 'urgent' : 'warning';
+    } elseif ($futureCount > 0) {
+        $actionCode = 'REVIEW_INCOMPLETE_FUTURE_CANDIDATE';
+        $actionLabel = 'A future possible-real candidate exists but is not complete. Inspect missing fields before expiry.';
+        $severity = $urgentCount > 0 ? 'urgent' : 'warning';
+    }
+
+    $next = null;
+    if ($nextCandidate) {
+        $missing = is_array($nextCandidate['missing_required_fields'] ?? null) ? $nextCandidate['missing_required_fields'] : [];
+        $next = [
+            'id' => $nextCandidate['id'] ?? null,
+            'pickup_datetime' => (string)($nextCandidate['pickup_datetime'] ?? ''),
+            'minutes_until_pickup_now' => $nextCandidate['minutes_until_pickup_now'] ?? null,
+            'complete' => !empty($nextCandidate['complete']),
+            'missing_required_fields' => array_values(array_map('strval', $missing)),
+            'capture_readiness' => (string)($nextCandidate['capture_readiness'] ?? ''),
+            'reason' => (string)($nextCandidate['reason'] ?? ''),
+            'operator_alert_appropriate' => !empty($nextCandidate['operator_alert_appropriate']),
+            'operator_alert_priority' => (string)($nextCandidate['operator_alert_priority'] ?? 'none'),
+            'customer_name_present' => trim((string)($nextCandidate['customer_name'] ?? '')) !== '',
+            'customer_phone_present' => trim((string)($nextCandidate['customer_phone'] ?? '')) !== '',
+            'driver_id' => (string)($nextCandidate['driver_id'] ?? ''),
+            'vehicle_id' => (string)($nextCandidate['vehicle_id'] ?? ''),
+            'lessor_id' => (string)($nextCandidate['lessor_id'] ?? ''),
+            'starting_point_id' => (string)($nextCandidate['starting_point_id'] ?? ''),
+        ];
+    }
+
+    return [
+        'ok' => !empty($report['ok']),
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_one_shot_operator_watch_snapshot',
+        'action_code' => $actionCode,
+        'action_label' => $actionLabel,
+        'severity' => $severity,
+        'counts' => [
+            'future_possible_real_rows' => $futureCount,
+            'complete_future_possible_real_rows' => $completeFutureCount,
+            'incomplete_future_possible_real_rows' => $incompleteFutureCount,
+            'closed_gate_operator_review_candidates' => $reviewCount,
+            'operator_alerts_appropriate' => $alertCount,
+            'urgent_or_about_to_expire_rows' => $urgentCount,
+        ],
+        'next_candidate' => $next,
+        'warnings' => array_values(array_map('strval', $warnings)),
+        'final_blocks' => array_values(array_map('strval', $finalBlocks)),
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($summary['live_gate_expected_closed']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => (int)($summary['live_submit_recommended_now'] ?? 0),
+            'db_write_made' => !empty($summary['db_write_made']),
+            'queue_mutation_made' => !empty($summary['queue_mutation_made']),
+            'bolt_call_made' => !empty($summary['bolt_call_made']),
+            'edxeix_call_made' => !empty($summary['edxeix_call_made']),
+            'aade_call_made' => !empty($summary['aade_call_made']),
+        ],
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --watch-json',
+        'safe_polling_hint' => 'For manual terminal monitoring only: watch -n 30 \'/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line\'',
+    ];
+}
+
+function gov_v3rfccr_status_line(array $snapshot): string
+{
+    $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
+    $next = is_array($snapshot['next_candidate'] ?? null) ? $snapshot['next_candidate'] : null;
+    $parts = [
+        'action=' . (string)($snapshot['action_code'] ?? 'UNKNOWN'),
+        'severity=' . (string)($snapshot['severity'] ?? 'unknown'),
+        'future=' . (string)($counts['future_possible_real_rows'] ?? 0),
+        'review=' . (string)($counts['closed_gate_operator_review_candidates'] ?? 0),
+        'alerts=' . (string)($counts['operator_alerts_appropriate'] ?? 0),
+        'urgent=' . (string)($counts['urgent_or_about_to_expire_rows'] ?? 0),
+        'live_risk=' . (!empty($snapshot['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no'),
+    ];
+    if ($next) {
+        $parts[] = 'next_id=' . (string)($next['id'] ?? '');
+        $parts[] = 'minutes=' . (string)($next['minutes_until_pickup_now'] ?? '');
+        $parts[] = 'complete=' . (!empty($next['complete']) ? 'yes' : 'no');
+        $parts[] = 'priority=' . (string)($next['operator_alert_priority'] ?? 'none');
+    }
+    return implode(' | ', $parts);
+}
+
 /** @param array<int,string> $argv */
 function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
 {
     $json = in_array('--json', $argv, true);
+    $watchJson = in_array('--watch-json', $argv, true) || in_array('--snapshot-json', $argv, true);
+    $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
+    $snapshot = gov_v3rfccr_watch_snapshot($report);
+
+    if ($watchJson) {
+        echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($report['ok']) ? 0 : 1;
+    }
+
+    if ($statusLine) {
+        echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
+        return !empty($report['ok']) ? 0 : 1;
+    }
 
     if ($json) {
+        $report['watch_snapshot'] = $snapshot;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -642,6 +784,8 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
     echo 'V3 real future candidate capture readiness ' . GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION . PHP_EOL;
     echo 'OK: ' . (!empty($report['ok']) ? 'yes' : 'no') . PHP_EOL;
+    echo 'Watch snapshot action: ' . (string)($snapshot['action_code'] ?? 'UNKNOWN') . PHP_EOL;
+    echo 'Watch snapshot severity: ' . (string)($snapshot['severity'] ?? 'unknown') . PHP_EOL;
     echo 'Future possible-real rows: ' . (string)($summary['future_possible_real_rows'] ?? 0) . PHP_EOL;
     echo 'Complete future rows: ' . (string)($summary['complete_future_possible_real_rows'] ?? 0) . PHP_EOL;
     echo 'Closed-gate review candidates: ' . (string)($summary['closed_gate_operator_review_candidates'] ?? 0) . PHP_EOL;
@@ -649,6 +793,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Urgent/about-to-expire rows: ' . (string)($summary['urgent_or_about_to_expire_rows'] ?? 0) . PHP_EOL;
     echo 'Live risk: ' . (!empty($summary['live_risk_detected']) ? 'yes' : 'no') . PHP_EOL;
     echo 'Final blocks: ' . implode('; ', $report['final_blocks'] ?? []) . PHP_EOL;
+    echo 'Manual watch command: watch -n 30 \'/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line\'' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }

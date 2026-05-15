@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.2.0 adds the read-only V3 Real Future Candidate Capture Readiness page to shared legacy Ops navigation while keeping V0 untouched and live submit disabled. The shell follows the established Ops Home palette:
+ * v3.2.1 keeps the read-only V3 Real Future Candidate Capture Readiness page in shared legacy Ops navigation and adds no new live-submit pathway; V0 remains untouched and live submit remains disabled. The shell follows the established Ops Home palette:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */

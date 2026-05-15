@@ -1,20 +1,13 @@
-# Patch README — v3.2.0 Real Future Candidate Capture Readiness
+# gov.cabnet.app patch — v3.2.1 Real Future Candidate Watch Snapshot
 
 ## What changed
 
-Adds a read-only V3 Real Future Candidate Capture Readiness tool.
-
-It detects whether a new possible-real future pre-ride queue row exists and displays:
-
-- minutes until pickup,
-- completeness,
-- missing fields,
-- parser/mapping/future-safety posture,
-- closed-gate operator review qualification,
-- urgency/about-to-expire posture,
-- whether an operator alert would be appropriate.
-
-It does **not** submit to EDXEIX and does **not** mutate the queue.
+- Extended the existing v3.2.0 read-only capture readiness CLI to v3.2.1.
+- Added compact `--watch-json` / `--snapshot-json` output.
+- Added `--status-line` output for manual terminal polling.
+- Added an Operator Watch Snapshot section to the Ops readiness page.
+- Fixed the Latest rows scanned table column alignment.
+- Normalized the historical shared-shell side note wording from the live typo `inv3.1.6` to `in v3.1.6`.
 
 ## Files included
 
@@ -23,25 +16,23 @@ gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness
 public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
 public_html/gov.cabnet.app/ops/_shell.php
 public_html/gov.cabnet.app/ops/_ops-nav.php
-docs/V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_20260515.md
+docs/V3_REAL_FUTURE_CANDIDATE_WATCH_SNAPSHOT_20260515.md
 HANDOFF.md
 CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## Exact upload paths
-
-Upload each file to the matching live path:
+## Upload paths
 
 ```text
 /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
 /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
 /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-/home/cabnet/docs/V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_20260515.md
+/home/cabnet/docs/V3_REAL_FUTURE_CANDIDATE_WATCH_SNAPSHOT_20260515.md
 ```
 
-For local repo continuity, also keep these at repo root:
+Repo root:
 
 ```text
 HANDOFF.md
@@ -49,9 +40,22 @@ CONTINUE_PROMPT.md
 PATCH_README.md
 ```
 
-## SQL to run
+## SQL
 
-None.
+No SQL.
+
+## Safety
+
+- Production Pre-Ride Tool untouched.
+- No Bolt calls.
+- No EDXEIX calls.
+- No AADE calls.
+- No DB writes.
+- No queue mutations.
+- No filesystem writes from the tool.
+- No cron installation.
+- No notifications.
+- No live-submit enablement.
 
 ## Verification commands
 
@@ -62,70 +66,43 @@ php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
 
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --json
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --watch-json
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line
 
 curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
 
-grep -n "v3.2.0\|real-future-candidate-capture-readiness\|Future Candidate Capture" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+grep -n "v3.2.1\|inv3.1.6\|Watch Snapshot\|status-line" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
 ```
 
 ## Expected result
 
-Lint:
+- Syntax passes.
+- CLI JSON returns `ok=true` and version `v3.2.1-v3-real-future-candidate-watch-snapshot`.
+- Watch JSON returns `snapshot_mode=read_only_one_shot_operator_watch_snapshot`.
+- Status line returns compact action/severity/counts.
+- If no real future candidate is visible, expected status includes:
 
 ```text
-No syntax errors detected
+action=WAIT_NO_CANDIDATE | severity=clear | future=0 | review=0 | alerts=0 | urgent=0 | live_risk=no
 ```
 
-CLI JSON should include:
-
-```text
-ok=true
-version=v3.2.0-v3-real-future-candidate-capture-readiness
-live_risk_detected=false
-live_submit_recommended_now=0
-db_write_made=false
-queue_mutation_made=false
-bolt_call_made=false
-edxeix_call_made=false
-aade_call_made=false
-final_blocks=[]
-```
-
-Unauthenticated web route:
-
-```text
-HTTP 302 to /ops/login.php?next=%2Fops%2Fpre-ride-email-v3-real-future-candidate-capture-readiness.php
-```
-
-Authenticated web page:
-
-```text
-V3 Real Future Candidate Capture Readiness page renders with safety banner, v3.2.0 badge, metrics, and candidate/missing-field tables.
-```
+- Web route remains protected by login and returns HTTP 302 when unauthenticated.
+- `inv3.1.6` should not appear.
 
 ## Git commit title
 
 ```text
-Add V3 real future candidate capture readiness
+Add V3 real future candidate watch snapshot
 ```
 
 ## Git commit description
 
 ```text
-- Add read-only CLI and Ops page for real future candidate capture readiness.
-- Show minutes until pickup, completeness, missing fields, closed-gate review status, urgency, and operator-alert suitability.
-- Add shared navigation entries for the new V3 capture readiness page.
-- Add v3.2.0 handoff, continue prompt, and documentation.
+- Add compact read-only watch snapshot output to the V3 real future candidate capture readiness CLI.
+- Add --watch-json / --snapshot-json and --status-line CLI modes for manual operator polling.
+- Add an Operator Watch Snapshot section to the Ops readiness page.
+- Fix Latest rows scanned table column alignment.
+- Normalize the historical shared-shell v3.1.6 side-note wording.
 - Keep production Pre-Ride Tool untouched and live EDXEIX submission disabled.
-- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, or AADE calls.
+- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, or notifications.
 ```
-
-## Safety
-
-Production Pre-Ride Tool remains untouched:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
-```
-
-Live EDXEIX submission remains disabled. This patch only observes current queue/config state.

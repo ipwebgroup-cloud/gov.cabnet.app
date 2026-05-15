@@ -1,75 +1,86 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
+# gov.cabnet.app — Bolt → EDXEIX Bridge Handoff
 
-## Current patch
+Current patch: v3.2.1 — Real Future Candidate Watch Snapshot
+Date: 2026-05-15
 
-v3.2.0 adds **V3 Real Future Candidate Capture Readiness**.
+## Project identity
 
-This is a read-only readiness layer for detecting a real future possible-real pre-ride queue row before pickup expiry while the V3 live gate remains closed.
+- Domain: https://gov.cabnet.app
+- Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
+- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
+- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
 
-## What changed
+## Production safety posture
 
-New read-only CLI:
-
-```text
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
-```
-
-New authenticated Ops page:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-```
-
-Navigation updates:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-/home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-```
-
-Documentation:
-
-```text
-/home/cabnet/docs/V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_20260515.md
-```
-
-## Current safe posture
-
-- Production Pre-Ride Tool untouched.
+- Production Pre-Ride Tool remains untouched:
+  `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
 - V0 workflow untouched.
 - Live EDXEIX submit disabled.
-- V3 live gate remains closed.
+- V3 live gate closed.
+- No Bolt calls from v3.2.1.
+- No EDXEIX calls from v3.2.1.
+- No AADE calls from v3.2.1.
+- No DB writes from v3.2.1.
+- No queue mutations from v3.2.1.
 - No SQL changes.
-- No DB writes.
-- No queue mutations.
-- No Bolt, EDXEIX, or AADE calls.
 - No route moves/deletes/redirects.
 
-## v3.2.0 expected output
+## Latest verified state before v3.2.1
 
-When no real future candidate is visible:
+v3.2.0 production verification passed:
 
-```text
-ok=true
-version=v3.2.0-v3-real-future-candidate-capture-readiness
-future_possible_real_rows=0
-closed_gate_operator_review_candidates=0
-operator_alerts_appropriate=0
-live_risk_detected=false
-final_blocks=[]
+- CLI syntax ok.
+- Ops page syntax ok.
+- `_shell.php` syntax ok.
+- `_ops-nav.php` syntax ok.
+- CLI returned `ok=true`.
+- DB connected to `cabnet_gov`.
+- live gate exists and is closed.
+- `future_possible_real_rows=0`.
+- `operator_alerts_appropriate=0`.
+- `live_risk_detected=false`.
+- `live_submit_recommended_now=0`.
+- web route returned HTTP 302 to login.
+
+## v3.2.1 changes
+
+- Adds compact one-shot watch snapshot output to the existing read-only candidate capture readiness CLI.
+- Adds `--watch-json` / `--snapshot-json` output.
+- Adds `--status-line` output for manual terminal polling.
+- Adds an Operator Watch Snapshot section to the Ops readiness page.
+- Fixes Latest rows table column alignment on the Ops page.
+- Normalizes the historical shell side-note wording: `in v3.1.6`.
+
+## Verification commands
+
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
+
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --json
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --watch-json
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line
+
+curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
+
+grep -n "v3.2.1\|inv3.1.6\|Watch Snapshot\|status-line" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
 ```
 
-When a real future candidate appears, the tool should show:
+## Expected result
 
-```text
-minutes_until_pickup_now
-complete
-missing_required_fields
-qualifies_for_closed_gate_operator_review
-urgent_about_to_expire
-operator_alert_appropriate
-```
+- `ok=true`
+- version `v3.2.1-v3-real-future-candidate-watch-snapshot`
+- `live_risk_detected=false`
+- `live_submit_recommended_now=0`
+- `db_write_made=false`
+- `queue_mutation_made=false`
+- `bolt_call_made=false`
+- `edxeix_call_made=false`
+- `aade_call_made=false`
+- No `inv3.1.6` typo token present.
 
-## Next step
+## Next safest direction
 
-Upload v3.2.0, verify lint/CLI/web route, then continue watching for a real future possible-real pre-ride email before pickup expiry. Do not enable live submit.
+Continue observing. When a real future possible-real candidate appears, use the v3.2.1 snapshot/status-line output and Ops board to inspect completeness and missing fields while the live gate remains closed.

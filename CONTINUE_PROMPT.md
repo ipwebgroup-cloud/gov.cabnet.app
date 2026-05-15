@@ -1,50 +1,35 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from v3.2.0. The latest patch added V3 Real Future Candidate Capture Readiness:
+Current state:
+- Latest patch: v3.2.1 — Real Future Candidate Watch Snapshot.
+- Production Pre-Ride Tool remains untouched: /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php
+- Live EDXEIX submit remains disabled.
+- V3 live gate remains closed.
+- v3.2.1 is read-only and performs no Bolt, EDXEIX, AADE, DB write, queue mutation, SQL change, route move, route delete, redirect, cron install, notification, log write, or live submit.
 
-- CLI: /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
-- Ops page: /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-- Nav updates: /ops/_shell.php and /ops/_ops-nav.php
-- Doc: /home/cabnet/docs/V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_20260515.md
+v3.2.1 added:
+- One-shot watch snapshot CLI mode:
+  /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --watch-json
+- Single-line CLI mode:
+  /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line
+- Manual terminal polling example:
+  watch -n 30 '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line'
+- Operator Watch Snapshot section on:
+  /ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
+- Latest rows table column alignment fix.
+- Historical shell note typo normalized to `in v3.1.6`.
 
-Purpose:
-- Detect whether a real possible-real future pre-ride queue row exists.
-- Show minutes until pickup.
-- Show completeness and missing fields.
-- Show whether the row qualifies for closed-gate operator review.
-- Show urgent/about-to-expire status.
-- Show whether an operator alert would be appropriate.
+Expected safe no-candidate status-line:
+- action=WAIT_NO_CANDIDATE
+- severity=clear
+- future=0
+- review=0
+- alerts=0
+- urgent=0
+- live_risk=no
 
-Safety state:
-- Production Pre-Ride Tool untouched.
-- V0 workflow untouched.
-- Live EDXEIX submit disabled.
-- V3 live gate closed.
-- No SQL changes.
-- No DB writes.
-- No queue mutations.
-- No Bolt, EDXEIX, or AADE calls.
-
-Verification commands:
-
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --json
-curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-
-Expected safe result:
-- ok=true
-- version=v3.2.0-v3-real-future-candidate-capture-readiness
-- live_risk_detected=false
-- live_submit_recommended_now=0
-- db_write_made=false
-- queue_mutation_made=false
-- bolt_call_made=false
-- edxeix_call_made=false
-- aade_call_made=false
-- final_blocks=[]
-
-Next safest direction:
-Continue observation until a real future possible-real candidate appears. Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update and all gates pass.
+Next safest action:
+- Verify v3.2.1 in production using the commands in HANDOFF.md / PATCH_README.md.
+- If no future candidate is visible, continue observing.
+- If a real future candidate appears, inspect completeness, missing fields, mapping, driver, vehicle, lessor, starting point, and minutes until pickup.
+- Do not enable live EDXEIX submission unless Andreas explicitly asks for a separate live-submit update and all live gates pass.

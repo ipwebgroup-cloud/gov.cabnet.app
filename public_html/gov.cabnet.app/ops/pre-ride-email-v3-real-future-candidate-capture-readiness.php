@@ -7,6 +7,9 @@
  * - Shows minutes until pickup, completeness, missing fields, closed-gate review qualification,
  *   urgency/expiry posture, and operator-alert suitability.
  * - Does not call Bolt, EDXEIX, AADE, or mutate DB/queue/files.
+ *
+ * v3.2.1:
+ * - Adds compact operator watch snapshot and fixes Latest rows table column alignment.
  */
 
 declare(strict_types=1);
@@ -15,6 +18,9 @@ require_once __DIR__ . '/_shell.php';
 require_once '/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php';
 
 $report = gov_v3_real_future_candidate_capture_readiness_run();
+$watchSnapshot = gov_v3rfccr_watch_snapshot($report);
+$watchCounts = is_array($watchSnapshot['counts'] ?? null) ? $watchSnapshot['counts'] : [];
+$watchNext = is_array($watchSnapshot['next_candidate'] ?? null) ? $watchSnapshot['next_candidate'] : null;
 $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
 $queue = is_array($report['queue'] ?? null) ? $report['queue'] : [];
 $nextCandidate = is_array($queue['next_future_possible_real_row'] ?? null) ? $queue['next_future_possible_real_row'] : null;
@@ -47,7 +53,7 @@ opsui_shell_begin([
 ]);
 ?>
 <style>
-.v3cap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:16px 0}.v3cap-card{background:#fff;border:1px solid #d8dde7;border-radius:8px;padding:16px}.v3cap-card h3{margin:0 0 8px;color:#17386f;font-size:28px}.v3cap-muted{color:#55637f}.v3cap-badges{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.v3cap-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;background:#e8f6ea;color:#176b24;border:1px solid #c8e9cc}.v3cap-badge.warn{background:#fff4dd;color:#885b00;border-color:#f0d49a}.v3cap-badge.bad{background:#feeceb;color:#9d241d;border-color:#f3b8b4}.v3cap-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d8dde7;border-radius:8px;overflow:hidden}.v3cap-table th,.v3cap-table td{padding:10px;border-bottom:1px solid #e5e9f1;text-align:left;vertical-align:top}.v3cap-table th{background:#f6f8fb;color:#1d3764}.v3cap-code{display:inline-block;background:#f4f6fa;border:1px solid #d8dde7;border-radius:5px;padding:2px 5px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;max-width:100%;overflow-wrap:anywhere}.v3cap-warning{background:#fff4dd;border:1px solid #f0d49a;color:#704a00;border-radius:8px;padding:12px;margin:10px 0}.v3cap-block{background:#feeceb;border:1px solid #f3b8b4;color:#7e211b;border-radius:8px;padding:12px;margin:10px 0}.v3cap-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:#586482;color:#fff;text-decoration:none;padding:10px 14px;font-weight:800}.btn.primary{background:#4f5fad}.btn:hover{text-decoration:none;filter:brightness(.97)}.v3cap-next{background:#f7fbff;border:1px solid #cfe1ff;border-radius:10px;padding:16px;margin:16px 0}.v3cap-next strong{color:#17386f}.v3cap-small{font-size:12px;color:#55637f}.v3cap-scroll{overflow:auto}
+.v3cap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:16px 0}.v3cap-card{background:#fff;border:1px solid #d8dde7;border-radius:8px;padding:16px}.v3cap-card h3{margin:0 0 8px;color:#17386f;font-size:28px}.v3cap-muted{color:#55637f}.v3cap-badges{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.v3cap-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;background:#e8f6ea;color:#176b24;border:1px solid #c8e9cc}.v3cap-badge.warn{background:#fff4dd;color:#885b00;border-color:#f0d49a}.v3cap-badge.bad{background:#feeceb;color:#9d241d;border-color:#f3b8b4}.v3cap-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d8dde7;border-radius:8px;overflow:hidden}.v3cap-table th,.v3cap-table td{padding:10px;border-bottom:1px solid #e5e9f1;text-align:left;vertical-align:top}.v3cap-table th{background:#f6f8fb;color:#1d3764}.v3cap-code{display:inline-block;background:#f4f6fa;border:1px solid #d8dde7;border-radius:5px;padding:2px 5px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;max-width:100%;overflow-wrap:anywhere}.v3cap-warning{background:#fff4dd;border:1px solid #f0d49a;color:#704a00;border-radius:8px;padding:12px;margin:10px 0}.v3cap-block{background:#feeceb;border:1px solid #f3b8b4;color:#7e211b;border-radius:8px;padding:12px;margin:10px 0}.v3cap-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:#586482;color:#fff;text-decoration:none;padding:10px 14px;font-weight:800}.btn.primary{background:#4f5fad}.btn:hover{text-decoration:none;filter:brightness(.97)}.v3cap-next{background:#f7fbff;border:1px solid #cfe1ff;border-radius:10px;padding:16px;margin:16px 0}.v3cap-next strong{color:#17386f}.v3cap-small{font-size:12px;color:#55637f}.v3cap-scroll{overflow:auto}.v3cap-watch{background:#fbfcff;border:1px solid #cfd8ea;border-radius:10px;padding:16px;margin:16px 0}.v3cap-watch h2{margin-top:0}.v3cap-watch .status{font-size:18px;font-weight:900;color:#17386f}.v3cap-watch .status.urgent{color:#9d241d}.v3cap-watch .status.warning{color:#885b00}.v3cap-watch pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f6fa;border:1px solid #d8dde7;border-radius:8px;padding:10px}.v3cap-scroll{overflow:auto}
 </style>
 
 <section class="panel">
@@ -60,7 +66,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.0')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.1')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -77,6 +83,26 @@ opsui_shell_begin([
     <div class="v3cap-card"><h3><?= opsui_h((string)($summary['operator_alerts_appropriate'] ?? 0)) ?></h3><p class="v3cap-muted">operator alerts appropriate</p></div>
     <div class="v3cap-card"><h3><?= opsui_h((string)($summary['urgent_or_about_to_expire_rows'] ?? 0)) ?></h3><p class="v3cap-muted">urgent/about-to-expire rows</p></div>
     <div class="v3cap-card"><h3><?= !empty($summary['live_risk_detected']) ? 'yes' : 'no' ?></h3><p class="v3cap-muted">live risk detected</p></div>
+</section>
+
+<section class="v3cap-watch">
+    <h2>Operator Watch Snapshot</h2>
+    <p class="status <?= opsui_h((string)($watchSnapshot['severity'] ?? 'clear')) ?>"><?= opsui_h((string)($watchSnapshot['action_code'] ?? 'UNKNOWN')) ?></p>
+    <p><?= opsui_h((string)($watchSnapshot['action_label'] ?? 'No watch status available.')) ?></p>
+    <div class="v3cap-grid">
+        <div class="v3cap-card"><h3><?= opsui_h((string)($watchCounts['future_possible_real_rows'] ?? 0)) ?></h3><p class="v3cap-muted">watch future rows</p></div>
+        <div class="v3cap-card"><h3><?= opsui_h((string)($watchCounts['closed_gate_operator_review_candidates'] ?? 0)) ?></h3><p class="v3cap-muted">watch review candidates</p></div>
+        <div class="v3cap-card"><h3><?= opsui_h((string)($watchCounts['operator_alerts_appropriate'] ?? 0)) ?></h3><p class="v3cap-muted">watch alerts</p></div>
+        <div class="v3cap-card"><h3><?= opsui_h((string)($watchCounts['urgent_or_about_to_expire_rows'] ?? 0)) ?></h3><p class="v3cap-muted">watch urgent rows</p></div>
+    </div>
+    <?php if ($watchNext): ?>
+        <p><strong>Next candidate:</strong> queue <code class="v3cap-code"><?= opsui_h((string)($watchNext['id'] ?? '')) ?></code>, pickup <?= opsui_h((string)($watchNext['pickup_datetime'] ?? '')) ?>, <?= opsui_h((string)($watchNext['minutes_until_pickup_now'] ?? '')) ?> minutes, complete <?= !empty($watchNext['complete']) ? 'yes' : 'no' ?>.</p>
+    <?php else: ?>
+        <p>No next candidate is currently visible in the watch snapshot.</p>
+    <?php endif; ?>
+    <p><strong>Manual terminal watch:</strong></p>
+    <pre>watch -n 30 '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line'</pre>
+    <p class="v3cap-small">This is manual terminal polling only. It does not create cron jobs, notifications, logs, DB writes, queue changes, or live submissions.</p>
 </section>
 
 <?php foreach ($warnings as $warning): ?>
