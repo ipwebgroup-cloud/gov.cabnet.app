@@ -29,3 +29,5 @@ Next safest action:
 - If verified, commit with the provided title/description.
 - Next development can design a controlled single-candidate live-submit gate only if Andreas explicitly asks for a live-submit update.
 - Do not enable live EDXEIX submission unless Andreas explicitly asks for a separate live-submit update and all gates pass.
+
+Current latest patch: v3.2.4 — Expired Candidate Safety Regression Audit. Use the uploaded/live verification output as source of truth. Next safest step after verification is to decide whether to build a controlled live-submit gate simulator/approval checklist, still without enabling live EDXEIX submission unless Andreas explicitly requests it.

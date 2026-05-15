@@ -99,3 +99,11 @@ grep -n "v3.2.3\|edxeix-preview-json\|EDXEIX Payload Preview\|dry_run_preview\|l
 ## Next safest direction
 
 After v3.2.3 is verified and committed, the next phase can design a controlled, explicit, single-candidate live-submit gate. Do not enable live EDXEIX submission until Andreas explicitly requests that separate live-submit update and all preflight gates pass.
+
+## v3.2.4 — Expired Candidate Safety Regression Audit
+- Adds read-only expired-candidate safety regression audit to the V3 real future candidate capture readiness CLI/Ops page.
+- New CLI modes: `--expired-safety-json`, `--stale-ready-audit-json`, `--regression-audit-json`.
+- Detects stale `live_submit_ready` rows whose pickup time is no longer future-safe.
+- Proves stale ready rows are not eligible for closed-gate review, operator alert, or live submission.
+- Keeps live EDXEIX submission disabled.
+- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or Pre-Ride Tool changes.

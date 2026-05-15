@@ -19,13 +19,17 @@
  * v3.2.3:
  * - Adds read-only EDXEIX payload preview / dry-run preflight output.
  * - Shows normalized submission fields in sanitized form while live submit remains blocked.
+ *
+ * v3.2.4:
+ * - Adds expired candidate safety regression audit for stale live_submit_ready rows.
+ * - Proves rows that were once ready cannot remain eligible after pickup time passes.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.3-v3-edxeix-payload-preview-dry-run-preflight';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_edxeix_payload_preview_dry_run_preflight';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, and EDXEIX payload preview snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.4-v3-expired-candidate-safety-regression-audit';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_expired_candidate_safety_regression_audit';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, and expired-candidate safety audit snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -255,6 +259,17 @@ function gov_v3rfccr_terminal_statuses(): array
     ];
 }
 
+/** @return array<int,string> */
+function gov_v3rfccr_live_submit_ready_statuses(): array
+{
+    return [
+        'live_submit_ready',
+        'ready_for_live_submit',
+        'edxeix_live_ready',
+        'edxeix_submit_ready',
+    ];
+}
+
 function gov_v3rfccr_bool_value(mixed $value, bool $default = false): bool
 {
     if ($value === null) { return $default; }
@@ -359,6 +374,7 @@ function gov_v3rfccr_classify_row(array $row, array $columns, array $liveGate): 
     $isCanary = gov_v3rfccr_is_canary($row);
     $possibleReal = !$isCanary;
     $terminalStatus = in_array($statusLower, gov_v3rfccr_terminal_statuses(), true);
+    $liveSubmitReadyStatus = in_array($statusLower, gov_v3rfccr_live_submit_ready_statuses(), true);
     $submitted = trim((string)($row['submitted_at'] ?? '')) !== '' || $statusLower === 'submitted';
     $failedOrBlocked = trim((string)($row['failed_at'] ?? '')) !== '' || $terminalStatus;
     $lastError = trim((string)($row['last_error'] ?? ''));
@@ -369,6 +385,7 @@ function gov_v3rfccr_classify_row(array $row, array $columns, array $liveGate): 
     $missing = gov_v3rfccr_missing_required($row, $columns);
     $complete = $missing === [] && $parserOk && $mappingOk && $futureOkFlag && $lastError === '';
     $gateClosed = !empty($liveGate['expected_closed_pre_live_posture']) && empty($liveGate['live_risk_detected']);
+    $staleLiveSubmitReady = $possibleReal && $liveSubmitReadyStatus && !$submitted && !$isFuture;
 
     $closedGateReviewQualified = $possibleReal
         && $isFuture
@@ -388,6 +405,9 @@ function gov_v3rfccr_classify_row(array $row, array $columns, array $liveGate): 
     if ($isCanary) {
         $captureReadiness = 'test_or_canary_row';
         $reason = 'generated_canary_or_test_row';
+    } elseif ($staleLiveSubmitReady) {
+        $captureReadiness = 'expired_live_submit_ready_safety_block';
+        $reason = 'live_submit_ready_row_is_no_longer_future_safe';
     } elseif (!$isFuture) {
         $captureReadiness = 'not_future_or_expired';
         $reason = 'pickup_not_future_safe_now';
@@ -447,6 +467,9 @@ function gov_v3rfccr_classify_row(array $row, array $columns, array $liveGate): 
         'inside_operator_alert_window' => $insideAlertWindow,
         'is_canary_or_test' => $isCanary,
         'possible_real_mail' => $possibleReal,
+        'live_submit_ready_status' => $liveSubmitReadyStatus,
+        'stale_live_submit_ready_after_pickup' => $staleLiveSubmitReady,
+        'expired_live_ready_safety_block' => $staleLiveSubmitReady,
         'parser_ok' => $parserOk,
         'mapping_ok' => $mappingOk,
         'future_ok_flag' => $futureOkFlag,
@@ -473,9 +496,11 @@ function gov_v3rfccr_classify_row(array $row, array $columns, array $liveGate): 
         'qualifies_for_closed_gate_operator_review' => $closedGateReviewQualified,
         'operator_alert_appropriate' => $operatorAlertAppropriate,
         'operator_alert_priority' => $alertPriority,
-        'safe_interpretation' => $closedGateReviewQualified
-            ? 'Complete future possible-real row is ready for closed-gate operator review only. Live EDXEIX submission remains disabled.'
-            : ($operatorAlertAppropriate ? 'Operator attention is useful before expiry, but live submission remains disabled.' : 'No operator action required by this read-only readiness layer.'),
+        'safe_interpretation' => $staleLiveSubmitReady
+            ? 'Stale live_submit_ready row is no longer future-safe and must not be submitted. Read-only safety audit only.'
+            : ($closedGateReviewQualified
+                ? 'Complete future possible-real row is ready for closed-gate operator review only. Live EDXEIX submission remains disabled.'
+                : ($operatorAlertAppropriate ? 'Operator attention is useful before expiry, but live submission remains disabled.' : 'No operator action required by this read-only readiness layer.')),
         'created_at' => $row['created_at'] ?? null,
         'updated_at' => $row['updated_at'] ?? null,
         'queued_at' => $row['queued_at'] ?? null,
@@ -520,6 +545,7 @@ function gov_v3_real_future_candidate_capture_readiness_run(): array
             'closed_gate_operator_review_rows' => [],
             'operator_alert_rows' => [],
             'future_possible_real_rows' => [],
+            'stale_live_submit_ready_rows' => [],
             'latest_rows' => [],
         ],
         'summary' => [
@@ -533,6 +559,8 @@ function gov_v3_real_future_candidate_capture_readiness_run(): array
             'operator_alerts_appropriate' => 0,
             'urgent_or_about_to_expire_rows' => 0,
             'terminal_or_submitted_future_rows' => 0,
+            'stale_live_submit_ready_rows' => 0,
+            'expired_live_ready_safety_blocks' => 0,
             'live_gate_expected_closed' => !empty($liveGate['expected_closed_pre_live_posture']),
             'live_risk_detected' => !empty($liveGate['live_risk_detected']),
             'live_submit_recommended_now' => 0,
@@ -579,6 +607,7 @@ function gov_v3_real_future_candidate_capture_readiness_run(): array
     $futurePossible = [];
     $reviewRows = [];
     $alertRows = [];
+    $staleLiveReadyRows = [];
 
     foreach ($rows as $row) {
         $item = gov_v3rfccr_classify_row($row, $columns, $liveGate);
@@ -612,6 +641,12 @@ function gov_v3_real_future_candidate_capture_readiness_run(): array
             $report['summary']['closed_gate_operator_review_candidates']++;
         }
 
+        if (!empty($item['stale_live_submit_ready_after_pickup'])) {
+            $staleLiveReadyRows[] = $item;
+            $report['summary']['stale_live_submit_ready_rows']++;
+            $report['summary']['expired_live_ready_safety_blocks']++;
+        }
+
         if (!empty($item['operator_alert_appropriate'])) {
             $alertRows[] = $item;
             $report['summary']['operator_alerts_appropriate']++;
@@ -623,7 +658,13 @@ function gov_v3_real_future_candidate_capture_readiness_run(): array
     $report['queue']['future_possible_real_rows'] = array_slice($futurePossible, 0, 25);
     $report['queue']['closed_gate_operator_review_rows'] = array_slice($reviewRows, 0, 25);
     $report['queue']['operator_alert_rows'] = array_slice($alertRows, 0, 25);
+    $report['queue']['stale_live_submit_ready_rows'] = array_slice($staleLiveReadyRows, 0, 25);
     $report['queue']['next_future_possible_real_row'] = $futurePossible[0] ?? null;
+
+    if ((int)$report['summary']['stale_live_submit_ready_rows'] > 0) {
+        $report['warnings'][] = 'A stale live_submit_ready row exists after pickup time. It is not future-safe and must not be submitted.';
+        $report['recommended_next_step'] = 'Confirm the stale live_submit_ready row is blocked by the expired-candidate safety audit. Keep live EDXEIX submission disabled.';
+    }
 
     if ((int)$report['summary']['closed_gate_operator_review_candidates'] > 0) {
         $report['warnings'][] = 'A complete future possible-real row exists for closed-gate operator review only. Live submit remains disabled.';
@@ -1077,6 +1118,126 @@ function gov_v3rfccr_edxeix_payload_preview(array $report): array
     return $base;
 }
 
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_expired_candidate_safety_audit(array $report): array
+{
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $queue = is_array($report['queue'] ?? null) ? $report['queue'] : [];
+    $staleRows = is_array($queue['stale_live_submit_ready_rows'] ?? null) ? $queue['stale_live_submit_ready_rows'] : [];
+    $finalBlocks = is_array($report['final_blocks'] ?? null) ? $report['final_blocks'] : [];
+    $warnings = is_array($report['warnings'] ?? null) ? $report['warnings'] : [];
+
+    $sanitizedRows = [];
+    $regressionFailures = [];
+    foreach ($staleRows as $row) {
+        if (!is_array($row)) { continue; }
+        $isFuture = !empty($row['is_future_now']);
+        $review = !empty($row['qualifies_for_closed_gate_operator_review']);
+        $alert = !empty($row['operator_alert_appropriate']);
+        $submitted = !empty($row['submitted']);
+        $terminal = !empty($row['terminal_or_failed_or_blocked']);
+        $id = $row['id'] ?? null;
+
+        if ($isFuture || $review || $alert) {
+            $regressionFailures[] = 'stale row ' . (string)$id . ' still appears eligible or alertable';
+        }
+
+        $sanitizedRows[] = [
+            'queue_id' => $id,
+            'queue_status' => (string)($row['queue_status'] ?? ''),
+            'pickup_datetime' => (string)($row['pickup_datetime'] ?? ''),
+            'estimated_end_datetime' => (string)($row['estimated_end_datetime'] ?? ''),
+            'minutes_until_pickup_now' => $row['minutes_until_pickup_now'] ?? null,
+            'minutes_until_at_intake' => (string)($row['minutes_until_at_intake'] ?? ''),
+            'source_mailbox_file' => gov_v3rfccr_source_basename((string)($row['source_mailbox'] ?? '')),
+            'was_live_submit_ready_status' => !empty($row['live_submit_ready_status']),
+            'is_future_now' => $isFuture,
+            'complete' => !empty($row['complete']),
+            'missing_required_fields' => is_array($row['missing_required_fields'] ?? null) ? $row['missing_required_fields'] : [],
+            'parser_ok' => !empty($row['parser_ok']),
+            'mapping_ok' => !empty($row['mapping_ok']),
+            'future_ok_flag' => !empty($row['future_ok_flag']),
+            'possible_real_mail' => !empty($row['possible_real_mail']),
+            'is_canary_or_test' => !empty($row['is_canary_or_test']),
+            'submitted' => $submitted,
+            'terminal_or_failed_or_blocked' => $terminal,
+            'last_error_present' => trim((string)($row['last_error'] ?? '')) !== '',
+            'capture_readiness' => (string)($row['capture_readiness'] ?? ''),
+            'reason' => (string)($row['reason'] ?? ''),
+            'qualifies_for_closed_gate_operator_review' => $review,
+            'operator_alert_appropriate' => $alert,
+            'would_block_live_submit_now' => !$isFuture || $submitted || $terminal || $review === false,
+            'expected_preflight_outcome' => 'dry_run_preview_blocked_or_incomplete',
+            'mapping_ids' => [
+                'lessor_id' => (string)($row['lessor_id'] ?? ''),
+                'driver_id' => (string)($row['driver_id'] ?? ''),
+                'vehicle_id' => (string)($row['vehicle_id'] ?? ''),
+                'starting_point_id' => (string)($row['starting_point_id'] ?? ''),
+            ],
+            'route_preview' => [
+                'pickup_address' => (string)($row['pickup_address'] ?? ''),
+                'dropoff_address' => (string)($row['dropoff_address'] ?? ''),
+            ],
+            'passenger_presence' => [
+                'customer_name_present' => trim((string)($row['customer_name'] ?? '')) !== '',
+                'customer_phone_present' => trim((string)($row['customer_phone'] ?? '')) !== '',
+                'customer_phone_masked' => gov_v3rfccr_mask_phone((string)($row['customer_phone'] ?? '')),
+            ],
+            'safe_interpretation' => (string)($row['safe_interpretation'] ?? 'Stale row is not eligible for live submission.'),
+        ];
+    }
+
+    $staleCount = count($sanitizedRows);
+    $liveRisk = !empty($summary['live_risk_detected']);
+    $auditBlocks = $finalBlocks;
+    foreach ($regressionFailures as $failure) {
+        $auditBlocks[] = $failure;
+    }
+
+    $outcome = 'no_stale_live_ready_rows_detected';
+    if ($liveRisk) {
+        $outcome = 'blocked_live_gate_risk_detected';
+    } elseif ($staleCount > 0 && $regressionFailures === []) {
+        $outcome = 'stale_live_ready_rows_safely_blocked';
+    } elseif ($regressionFailures !== []) {
+        $outcome = 'regression_failure_review_immediately';
+    }
+
+    return [
+        'ok' => $auditBlocks === [],
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_expired_candidate_safety_regression_audit',
+        'audit_outcome' => $outcome,
+        'stale_live_submit_ready_rows_found' => $staleCount,
+        'expired_live_ready_safety_blocks' => (int)($summary['expired_live_ready_safety_blocks'] ?? $staleCount),
+        'eligibility_regression_passed' => $regressionFailures === [],
+        'regression_failures' => $regressionFailures,
+        'warnings' => $warnings,
+        'final_blocks' => $auditBlocks,
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($summary['live_gate_expected_closed']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => 0,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+        ],
+        'audit_rules' => [
+            'live_submit_ready_after_pickup_is_not_eligible' => true,
+            'pickup_must_be_future_safe' => true,
+            'closed_gate_review_requires_future_candidate' => true,
+            'dry_run_preview_must_block_expired_candidate' => true,
+            'live_submit_remains_disabled' => true,
+        ],
+        'stale_live_submit_ready_rows' => $sanitizedRows,
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --expired-safety-json',
+    ];
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -1106,11 +1267,13 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $watchJson = in_array('--watch-json', $argv, true) || in_array('--snapshot-json', $argv, true);
     $evidenceJson = in_array('--evidence-json', $argv, true) || in_array('--candidate-evidence-json', $argv, true);
     $edxeixPreviewJson = in_array('--edxeix-preview-json', $argv, true) || in_array('--payload-preview-json', $argv, true) || in_array('--dry-run-preflight-json', $argv, true);
+    $expiredSafetyJson = in_array('--expired-safety-json', $argv, true) || in_array('--stale-ready-audit-json', $argv, true) || in_array('--regression-audit-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
     $evidence = gov_v3rfccr_candidate_evidence_snapshot($report);
     $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
+    $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -1127,6 +1290,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($report['ok']) ? 0 : 1;
     }
 
+    if ($expiredSafetyJson) {
+        echo json_encode($expiredSafetyAudit, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($expiredSafetyAudit['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -1136,6 +1304,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         $report['watch_snapshot'] = $snapshot;
         $report['candidate_evidence_snapshot'] = $evidence;
         $report['edxeix_payload_preview'] = $edxeixPreview;
+        $report['expired_candidate_safety_audit'] = $expiredSafetyAudit;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -1155,6 +1324,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Manual watch command: watch -n 30 \'/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line\'' . PHP_EOL;
     echo 'Evidence snapshot command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json' . PHP_EOL;
     echo 'EDXEIX dry-run preview command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --edxeix-preview-json' . PHP_EOL;
+    echo 'Expired candidate safety audit command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --expired-safety-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }

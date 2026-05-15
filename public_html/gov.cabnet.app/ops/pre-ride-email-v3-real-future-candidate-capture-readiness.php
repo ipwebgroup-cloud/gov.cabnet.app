@@ -16,6 +16,9 @@
  *
  * v3.2.3:
  * - Adds EDXEIX payload preview / dry-run preflight section.
+ *
+ * v3.2.4:
+ * - Adds expired candidate safety regression audit section.
  */
 
 declare(strict_types=1);
@@ -27,10 +30,13 @@ $report = gov_v3_real_future_candidate_capture_readiness_run();
 $watchSnapshot = gov_v3rfccr_watch_snapshot($report);
 $evidenceSnapshot = gov_v3rfccr_candidate_evidence_snapshot($report);
 $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
+$expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
 $edxeixBlocks = is_array($edxeixPreview['preflight_blocks'] ?? null) ? $edxeixPreview['preflight_blocks'] : [];
+$expiredStaleRows = is_array($expiredSafetyAudit['stale_live_submit_ready_rows'] ?? null) ? $expiredSafetyAudit['stale_live_submit_ready_rows'] : [];
+$expiredAuditRules = is_array($expiredSafetyAudit['audit_rules'] ?? null) ? $expiredSafetyAudit['audit_rules'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -85,7 +91,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.3')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.4')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -101,6 +107,7 @@ opsui_shell_begin([
     <div class="v3cap-card"><h3><?= opsui_h((string)($summary['closed_gate_operator_review_candidates'] ?? 0)) ?></h3><p class="v3cap-muted">closed-gate review candidates</p></div>
     <div class="v3cap-card"><h3><?= opsui_h((string)($summary['operator_alerts_appropriate'] ?? 0)) ?></h3><p class="v3cap-muted">operator alerts appropriate</p></div>
     <div class="v3cap-card"><h3><?= opsui_h((string)($summary['urgent_or_about_to_expire_rows'] ?? 0)) ?></h3><p class="v3cap-muted">urgent/about-to-expire rows</p></div>
+    <div class="v3cap-card"><h3><?= opsui_h((string)($summary['stale_live_submit_ready_rows'] ?? 0)) ?></h3><p class="v3cap-muted">stale live-ready rows</p></div>
     <div class="v3cap-card"><h3><?= !empty($summary['live_risk_detected']) ? 'yes' : 'no' ?></h3><p class="v3cap-muted">live risk detected</p></div>
 </section>
 
@@ -180,6 +187,48 @@ opsui_shell_begin([
             <p class="v3cap-small">CLI dry-run preview command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --edxeix-preview-json</code></p>
         </div>
     <?php endif; ?>
+</section>
+
+
+<section class="panel">
+    <h2>Expired Candidate Safety Regression Audit</h2>
+    <p>This read-only audit proves that a row which was once <code class="v3cap-code">live_submit_ready</code> cannot remain eligible after pickup time passes. It does not mutate queue state and does not call EDXEIX.</p>
+    <div class="v3cap-next">
+        <p><strong>Outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($expiredSafetyAudit['audit_outcome'] ?? '')) ?></code></p>
+        <p><strong>Stale live-ready rows:</strong> <?= opsui_h((string)($expiredSafetyAudit['stale_live_submit_ready_rows_found'] ?? 0)) ?> · <strong>Safety blocks:</strong> <?= opsui_h((string)($expiredSafetyAudit['expired_live_ready_safety_blocks'] ?? 0)) ?> · <strong>Regression passed:</strong> <?= !empty($expiredSafetyAudit['eligibility_regression_passed']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> live risk <?= !empty($expiredSafetyAudit['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no' ?> · DB write <?= !empty($expiredSafetyAudit['safety_confirmed']['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($expiredSafetyAudit['safety_confirmed']['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($expiredSafetyAudit['safety_confirmed']['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI expired safety audit command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --expired-safety-json</code></p>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Status / pickup</th>
+                <th>Future?</th>
+                <th>Review eligible?</th>
+                <th>Would block live submit?</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if (!$expiredStaleRows): ?>
+            <tr><td colspan="6">No stale live_submit_ready rows are currently visible.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($expiredStaleRows as $row): ?>
+            <?php if (!is_array($row)) { continue; } ?>
+            <tr>
+                <td><code class="v3cap-code"><?= opsui_h((string)($row['queue_id'] ?? '')) ?></code></td>
+                <td><code class="v3cap-code"><?= opsui_h((string)($row['queue_status'] ?? '')) ?></code><br><small><?= opsui_h((string)($row['pickup_datetime'] ?? '')) ?> / <?= opsui_h((string)($row['minutes_until_pickup_now'] ?? '')) ?> min</small></td>
+                <td><?= !empty($row['is_future_now']) ? 'yes' : 'no' ?></td>
+                <td><?= !empty($row['qualifies_for_closed_gate_operator_review']) ? 'yes' : 'no' ?></td>
+                <td><?= !empty($row['would_block_live_submit_now']) ? 'yes' : 'no' ?></td>
+                <td><code class="v3cap-code"><?= opsui_h((string)($row['reason'] ?? '')) ?></code><br><small><?= opsui_h((string)($row['safe_interpretation'] ?? '')) ?></small></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
 </section>
 
 <?php foreach ($warnings as $warning): ?>
