@@ -107,3 +107,10 @@ After v3.2.3 is verified and committed, the next phase can design a controlled, 
 - Proves stale ready rows are not eligible for closed-gate review, operator alert, or live submission.
 - Keeps live EDXEIX submission disabled.
 - No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or Pre-Ride Tool changes.
+
+
+## v3.2.5 — Controlled Live-Submit Readiness Checklist
+- Adds read-only go/no-go snapshot via `--live-readiness-json`, `--controlled-live-readiness-json`, and `--go-no-go-json`.
+- Aggregates watch snapshot, evidence snapshot, EDXEIX dry-run preview, expired candidate safety audit, live gate posture, DB/queue availability, and manual gates.
+- Does not enable live submit and performs no DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, or notifications.
+- Live EDXEIX submission remains blocked by design and requires an explicit future Andreas request before any live-submit patch is created.

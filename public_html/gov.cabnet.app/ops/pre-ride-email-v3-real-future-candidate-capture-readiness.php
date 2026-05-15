@@ -19,6 +19,9 @@
  *
  * v3.2.4:
  * - Adds expired candidate safety regression audit section.
+ *
+ * v3.2.5:
+ * - Adds controlled live-submit readiness checklist / go-no-go section.
  */
 
 declare(strict_types=1);
@@ -31,12 +34,16 @@ $watchSnapshot = gov_v3rfccr_watch_snapshot($report);
 $evidenceSnapshot = gov_v3rfccr_candidate_evidence_snapshot($report);
 $edxeixPreview = gov_v3rfccr_edxeix_payload_preview($report);
 $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
+$liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
 $edxeixBlocks = is_array($edxeixPreview['preflight_blocks'] ?? null) ? $edxeixPreview['preflight_blocks'] : [];
 $expiredStaleRows = is_array($expiredSafetyAudit['stale_live_submit_ready_rows'] ?? null) ? $expiredSafetyAudit['stale_live_submit_ready_rows'] : [];
 $expiredAuditRules = is_array($expiredSafetyAudit['audit_rules'] ?? null) ? $expiredSafetyAudit['audit_rules'] : [];
+$liveReadinessComponents = is_array($liveReadiness['component_results'] ?? null) ? $liveReadiness['component_results'] : [];
+$liveReadinessManualGates = is_array($liveReadiness['manual_gates_before_any_future_live_submit_patch'] ?? null) ? $liveReadiness['manual_gates_before_any_future_live_submit_patch'] : [];
+$liveReadinessNoGo = is_array($liveReadiness['hard_no_go_reasons'] ?? null) ? $liveReadiness['hard_no_go_reasons'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -91,7 +98,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.4')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.5')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -229,6 +236,48 @@ opsui_shell_begin([
         </tbody>
     </table>
     </div>
+</section>
+
+
+<section class="panel">
+    <h2>Controlled Live-Submit Readiness Checklist</h2>
+    <p>This read-only go/no-go snapshot summarizes whether the system is even ready for a future controlled live-submit discussion. It does not enable live submit and does not call EDXEIX.</p>
+    <div class="v3cap-next">
+        <p><strong>Outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($liveReadiness['readiness_outcome'] ?? '')) ?></code></p>
+        <p><strong>Decision:</strong> <?= opsui_h((string)($liveReadiness['readiness_label'] ?? '')) ?></p>
+        <p><strong>Live submit allowed now:</strong> <?= !empty($liveReadiness['live_submit_allowed_now']) ? 'yes' : 'no' ?> · <strong>Blocked by design:</strong> <?= !empty($liveReadiness['live_submit_blocked_by_design']) ? 'yes' : 'no' ?> · <strong>Explicit Andreas request required:</strong> <?= !empty($liveReadiness['requires_explicit_andreas_live_submit_request']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> live risk <?= !empty($liveReadiness['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no' ?> · DB write <?= !empty($liveReadiness['safety_confirmed']['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($liveReadiness['safety_confirmed']['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($liveReadiness['safety_confirmed']['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI live-readiness command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --live-readiness-json</code></p>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($liveReadinessComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$liveReadinessComponents): ?>
+            <tr><td colspan="2">No component results are available.</td></tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Hard no-go reasons</h3>
+    <?php if (!$liveReadinessNoGo): ?>
+        <p>No hard no-go reason is currently reported by this checklist. Live submit is still blocked by design.</p>
+    <?php else: ?>
+        <ul>
+        <?php foreach ($liveReadinessNoGo as $reason): ?>
+            <li><code class="v3cap-code"><?= opsui_h((string)$reason) ?></code></li>
+        <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+    <h3>Manual gates before any future live-submit patch</h3>
+    <ul>
+    <?php foreach ($liveReadinessManualGates as $gate => $required): ?>
+        <li><code class="v3cap-code"><?= opsui_h((string)$gate) ?></code>: <?= !empty($required) ? 'required' : 'not required' ?></li>
+    <?php endforeach; ?>
+    </ul>
 </section>
 
 <?php foreach ($warnings as $warning): ?>

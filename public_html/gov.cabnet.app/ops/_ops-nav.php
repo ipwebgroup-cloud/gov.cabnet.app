@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.2.4 keeps the read-only V3 Real Future Candidate Capture Readiness page in shared legacy Ops navigation, adds sanitized evidence snapshot, EDXEIX payload preview/dry-run preflight, and expired candidate safety regression audit support, and adds no new live-submit pathway; V0 remains untouched and live submit remains disabled. The shell follows the established Ops Home palette:
+ * v3.2.5 keeps the read-only V3 Real Future Candidate Capture Readiness page in shared legacy Ops navigation, adds sanitized evidence snapshot, EDXEIX payload preview/dry-run preflight, and expired candidate safety regression audit support, controlled live-submit readiness checklist support, and adds no new live-submit pathway; V0 remains untouched and live submit remains disabled. The shell follows the established Ops Home palette:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */

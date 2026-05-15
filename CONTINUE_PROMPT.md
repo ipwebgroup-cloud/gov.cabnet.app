@@ -31,3 +31,6 @@ Next safest action:
 - Do not enable live EDXEIX submission unless Andreas explicitly asks for a separate live-submit update and all gates pass.
 
 Current latest patch: v3.2.4 — Expired Candidate Safety Regression Audit. Use the uploaded/live verification output as source of truth. Next safest step after verification is to decide whether to build a controlled live-submit gate simulator/approval checklist, still without enabling live EDXEIX submission unless Andreas explicitly requests it.
+
+
+Latest installed target after this package: v3.2.5 — Controlled Live-Submit Readiness Checklist. Use `--live-readiness-json` to summarize go/no-go state. Keep live submit disabled unless Andreas explicitly requests a live-submit update in a future message.
