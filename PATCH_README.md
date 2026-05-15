@@ -1,32 +1,37 @@
-# Patch README — V3 Next Real-Mail Candidate Watch v3.1.5
+# gov.cabnet.app patch — v3.1.6 V3 Next Real-Mail Candidate Watch navigation
 
 ## What changed
 
-Adds a read-only V3 watcher for the next possible real pre-ride email queue row before it expires.
+Navigation-only update to expose the read-only V3 Next Real-Mail Candidate Watch page from the shared operations shell.
+
+Added route link:
+
+- `/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php`
+
+Added to:
+
+- Pre-Ride top dropdown
+- Daily Operations sidebar
+
+No live behavior changes.
 
 ## Files included
 
-```text
-gov.cabnet.app_app/cli/pre_ride_email_v3_next_real_mail_candidate_watch.php
-public_html/gov.cabnet.app/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php
-docs/V3_NEXT_REAL_MAIL_CANDIDATE_WATCH_20260515.md
-PATCH_README.md
-HANDOFF.md
-CONTINUE_PROMPT.md
-```
+- `public_html/gov.cabnet.app/ops/_shell.php`
+- `docs/V3_NEXT_REAL_MAIL_CANDIDATE_WATCH_NAV_20260515.md`
+- `PATCH_README.md`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
 
-## Upload paths
+## Upload path
 
-```text
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_next_real_mail_candidate_watch.php
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php
-```
+Upload:
 
-Optional docs mirror:
+- `public_html/gov.cabnet.app/ops/_shell.php`
 
-```text
-/home/cabnet/docs/V3_NEXT_REAL_MAIL_CANDIDATE_WATCH_20260515.md
-```
+To:
+
+- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
 
 ## SQL
 
@@ -35,33 +40,29 @@ None.
 ## Verification
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_next_real_mail_candidate_watch.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 
 curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_next_real_mail_candidate_watch.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "future_possible=".($j["summary"]["future_possible_real_rows"]??"?").PHP_EOL; echo "operator_candidates=".($j["summary"]["operator_review_candidates"]??"?").PHP_EOL; echo "live_risk=".(($j["summary"]["live_risk_detected"]??false)?"true":"false").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+grep -n "v3.1.6\|Next Candidate Watch\|next real-mail candidate watch navigation"   /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
-## Expected result
+Expected:
 
-- PHP syntax clean.
-- Public ops page redirects unauthenticated users to `/ops/login.php`.
-- `ok=true` if DB and queue are readable and the live gate is safely closed.
-- `live_risk=false`.
-- `final_blocks=[]`.
+- No syntax errors
+- HTTP 302 to `/ops/login.php` when unauthenticated
+- `v3.1.6` marker present
+- `Next Candidate Watch` links present
 
-## Git commit title
+## Safety
 
-Add V3 next real-mail candidate watch
-
-## Git commit description
-
-Adds a read-only V3 watcher for the next possible real pre-ride email queue row before it expires.
-
-The watcher highlights future possible-real rows, complete operator-review candidates, urgent candidates, missing required fields, last_error rows, and closed live-gate posture.
-
-No routes are moved or deleted. No redirects are added. No SQL changes are made. No Bolt, EDXEIX, AADE, database write, queue mutation, or filesystem write actions are performed.
-
-Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
+- Production Pre-Ride Tool untouched
+- V0 workflow untouched
+- No route moves/deletes/redirects
+- No SQL changes
+- No DB writes
+- No queue mutations
+- No Bolt calls
+- No EDXEIX calls
+- No AADE calls
+- Live EDXEIX submission remains disabled

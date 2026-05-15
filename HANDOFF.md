@@ -1,26 +1,35 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current checkpoint: V3 closed-gate real-mail observation continues.
+## Current checkpoint
 
-Latest patch: v3.1.5 adds a read-only V3 Next Real-Mail Candidate Watch.
+v3.1.6 navigation-only patch prepared for the read-only V3 Next Real-Mail Candidate Watch.
 
-The watcher reports future possible-real rows and operator review candidates before pickup expires. It does not write to the database, change queue rows, call Bolt, call EDXEIX, call AADE, or enable live submission.
+## Latest verified V3 watch result
 
-Safety posture remains unchanged:
+- v3.1.5 watcher syntax clean
+- Ops page auth-protected with 302 to login
+- `ok=true`
+- `future_possible=0`
+- `operator_candidates=0`
+- `live_risk=false`
+- `final_blocks=[]`
 
-- Production Pre-Ride Tool untouched.
-- V0 workflow untouched.
-- No SQL changes.
-- No queue mutations.
-- No routes moved, deleted, or redirected.
-- Live EDXEIX submit remains disabled.
-- V3 live gate remains closed.
+## v3.1.6 change
 
-Verification command:
+Adds the watcher link to:
 
-```bash
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_next_real_mail_candidate_watch.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "future_possible=".($j["summary"]["future_possible_real_rows"]??"?").PHP_EOL; echo "operator_candidates=".($j["summary"]["operator_review_candidates"]??"?").PHP_EOL; echo "live_risk=".(($j["summary"]["live_risk_detected"]??false)?"true":"false").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
-```
+- Pre-Ride top dropdown
+- Daily Operations sidebar
 
-Next safest step after verification: add navigation for the watcher as a separate tiny `_shell.php` patch, or continue observing until a real future Bolt pre-ride email arrives.
+## Safety posture
+
+- Production Pre-Ride Tool untouched
+- V0 workflow untouched
+- No queue mutations
+- No DB writes
+- No SQL changes
+- No Bolt calls
+- No EDXEIX calls
+- No AADE calls
+- Live EDXEIX submit disabled
+- V3 live gate closed
