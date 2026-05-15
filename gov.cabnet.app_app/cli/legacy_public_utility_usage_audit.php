@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-const GOV_LEGACY_PUBLIC_UTILITY_USAGE_AUDIT_VERSION = 'v3.0.92-legacy-public-utility-usage-audit';
+const GOV_LEGACY_PUBLIC_UTILITY_USAGE_AUDIT_VERSION = 'v3.0.93-legacy-public-utility-usage-audit-route-summary';
 const GOV_LEGACY_PUBLIC_UTILITY_USAGE_AUDIT_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only log/stat evidence scan only.';
 
 /** @return array<int,string> */
@@ -208,6 +208,87 @@ function gov_lpuua_scan_one_file(string $path, array $targets): array
     return $result;
 }
 
+/**
+ * @param array<int,array<string,mixed>> $scannedSources
+ * @return array<string,array<string,mixed>>
+ */
+function gov_lpuua_evidence_by_file(array $scannedSources, array $targets): array
+{
+    $out = [];
+    foreach ($targets as $item) {
+        $file = (string)($item['legacy_file'] ?? '');
+        if ($file !== '') {
+            $out[$file] = [
+                'mention_count' => 0,
+                'last_seen' => null,
+                'last_seen_source' => '',
+                'source_kinds' => [],
+                'sample_hits' => [],
+            ];
+        }
+    }
+
+    foreach ($scannedSources as $source) {
+        if (!is_array($source)) {
+            continue;
+        }
+        $sourcePath = (string)($source['path'] ?? '');
+        $sourceKind = (string)($source['kind'] ?? 'unknown');
+        foreach ((array)($source['mentions_by_target'] ?? []) as $targetFile => $count) {
+            $targetFile = (string)$targetFile;
+            if (!isset($out[$targetFile])) {
+                $out[$targetFile] = [
+                    'mention_count' => 0,
+                    'last_seen' => null,
+                    'last_seen_source' => '',
+                    'source_kinds' => [],
+                    'sample_hits' => [],
+                ];
+            }
+            $out[$targetFile]['mention_count'] = (int)$out[$targetFile]['mention_count'] + (int)$count;
+            $out[$targetFile]['source_kinds'][$sourceKind] = ((int)($out[$targetFile]['source_kinds'][$sourceKind] ?? 0)) + (int)$count;
+        }
+
+        foreach ((array)($source['sample_hits'] ?? []) as $hit) {
+            if (!is_array($hit)) {
+                continue;
+            }
+            $targetFile = (string)($hit['target'] ?? '');
+            if ($targetFile === '') {
+                continue;
+            }
+            if (!isset($out[$targetFile])) {
+                continue;
+            }
+            if (count($out[$targetFile]['sample_hits']) < 8) {
+                $out[$targetFile]['sample_hits'][] = [
+                    'source' => $sourcePath,
+                    'source_kind' => $sourceKind,
+                    'line' => (int)($hit['line'] ?? 0),
+                    'timestamp_hint' => $hit['timestamp_hint'] ?? null,
+                ];
+            }
+            $timestamp = $hit['timestamp_hint'] ?? null;
+            if (is_string($timestamp) && $timestamp !== '') {
+                // Best-effort string comparison only. Formats vary between PHP logs, Apache logs, and cPanel stats caches.
+                $current = $out[$targetFile]['last_seen'];
+                if (!is_string($current) || $timestamp > $current) {
+                    $out[$targetFile]['last_seen'] = $timestamp;
+                    $out[$targetFile]['last_seen_source'] = $sourcePath;
+                }
+            }
+        }
+    }
+
+    foreach ($out as $file => $row) {
+        if (is_array($row['source_kinds'] ?? null)) {
+            ksort($out[$file]['source_kinds']);
+        }
+    }
+
+    return $out;
+}
+
 /** @return array<string,mixed> */
 function gov_legacy_public_utility_usage_audit_run(): array
 {
@@ -234,7 +315,10 @@ function gov_legacy_public_utility_usage_audit_run(): array
         }
     }
 
+    $evidenceByFile = gov_lpuua_evidence_by_file($scanned, $targets);
+
     $routes = [];
+    $routeMentionSummary = [];
     $legacyFilesPresent = 0;
     foreach ($targets as $key => $item) {
         $file = (string)($item['legacy_file'] ?? '');
@@ -243,17 +327,38 @@ function gov_legacy_public_utility_usage_audit_run(): array
         if (!empty($meta['exists'])) {
             $legacyFilesPresent++;
         }
-        $routes[] = [
+        $evidence = is_array($evidenceByFile[$file] ?? null) ? $evidenceByFile[$file] : [];
+        $mentionCount = (int)($totalsByTarget[$file] ?? ($evidence['mention_count'] ?? 0));
+        $lastSeen = $evidence['last_seen'] ?? null;
+        $sourceKinds = is_array($evidence['source_kinds'] ?? null) ? $evidence['source_kinds'] : [];
+        $sampleHits = is_array($evidence['sample_hits'] ?? null) ? $evidence['sample_hits'] : [];
+
+        $summaryRow = [
             'key' => (string)$key,
             'label' => (string)($item['label'] ?? $file),
+            'file' => $file,
             'legacy_file' => $file,
+            'route' => $route,
+            'current_route' => $route,
             'legacy_route' => $route,
-            'file_meta' => $meta,
-            'usage_mentions_total' => (int)($totalsByTarget[$file] ?? 0),
+            'mentions' => $mentionCount,
+            'mention_count' => $mentionCount,
+            'usage_mentions' => $mentionCount,
+            'usage_mentions_total' => $mentionCount,
+            'last_seen' => $lastSeen,
+            'latest_seen' => $lastSeen,
+            'last_seen_source' => (string)($evidence['last_seen_source'] ?? ''),
+            'source_kinds' => $sourceKinds,
+            'sample_hits' => $sampleHits,
             'move_now' => false,
             'delete_now' => false,
             'recommended_action' => 'Keep compatibility route in place. Review log evidence and quiet-period history before any future wrapper/stub or retirement action.',
         ];
+        $routeMentionSummary[] = $summaryRow;
+
+        $routes[] = array_merge($summaryRow, [
+            'file_meta' => $meta,
+        ]);
     }
 
     ksort($totalsByTarget);
@@ -288,6 +393,8 @@ function gov_legacy_public_utility_usage_audit_run(): array
         ],
         'usage_by_target' => $totalsByTarget,
         'usage_by_source_kind' => $totalsByKind,
+        'route_mention_summary' => $routeMentionSummary,
+        'utilities' => $routeMentionSummary,
         'routes' => $routes,
         'scanned_sources' => $scanned,
         'warnings' => $warnings,

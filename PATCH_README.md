@@ -1,24 +1,26 @@
-# gov.cabnet.app patch — v3.0.92 legacy public utility usage audit
+# Patch: v3.0.93 Legacy Public Utility Usage Audit Route Summary
 
 ## What changed
 
-Adds a read-only usage audit for legacy guarded public-root utilities and links it from the Developer Archive.
+Updates the read-only legacy usage audit JSON so route summaries expose stable field names for CLI inspection.
 
 ## Files included
 
 - `gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php`
-- `public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php`
-- `public_html/gov.cabnet.app/ops/_shell.php`
-- `docs/LIVE_LEGACY_PUBLIC_UTILITY_USAGE_AUDIT_20260515.md`
+- `docs/LIVE_LEGACY_PUBLIC_UTILITY_USAGE_AUDIT_ROUTE_SUMMARY_20260515.md`
+- `PATCH_README.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
 
 ## Upload paths
 
-- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+Upload:
+
+```text
+/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php
+```
+
+Docs/continuity files are for the local repo.
 
 ## SQL
 
@@ -28,18 +30,18 @@ None.
 
 ```bash
 php -l /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-
-curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-usage-audit.php
 
 su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "files_scanned=".($j["summary"]["files_scanned"]??"?").PHP_EOL; echo "mentions=".($j["summary"]["usage_mentions_total"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
-
-grep -n "v3.0.92\|Legacy Utility Usage Audit\|legacy_public_utility_usage_audit" \
-  /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php \
-  /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php \
-  /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "mentions=".($j["summary"]["usage_mentions_total"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL; foreach (($j["route_mention_summary"]??[]) as $r) { echo PHP_EOL; echo "route=".($r["route"]??"?").PHP_EOL; echo "mentions=".($r["mentions"]??"?").PHP_EOL; echo "last_seen=".(($r["last_seen"]??"") ?: "none").PHP_EOL; echo "recommendation=".($r["recommended_action"]??"?").PHP_EOL; }'
 ```
 
-Expected: syntax clean, ops URL redirects unauthenticated users to `/ops/login.php`, CLI returns `ok=true` and `final_blocks=[]`.
+Expected:
+
+```text
+No syntax errors detected
+ok=true
+version=v3.0.93-legacy-public-utility-usage-audit-route-summary
+final_blocks=[]
+route=/bolt-api-smoke-test.php
+mentions=<number>
+```

@@ -1,20 +1,15 @@
-# HANDOFF — gov.cabnet.app v3.0.92 legacy public utility usage audit
+# HANDOFF — gov.cabnet.app V3 Legacy Utility Usage Audit Route Summary
 
-Current state:
+Current safe state:
 
-- Production pre-ride tool remains untouched.
-- V3 live gate remains closed.
+- Production Pre-Ride Tool remains untouched.
+- Legacy public-root utilities remain untouched.
+- Legacy wrapper remains read-only and non-executing.
+- v3.0.93 updates only the usage audit JSON route-summary fields.
+- No routes were moved or deleted.
+- No redirects were added.
+- No SQL changes were made.
+- No Bolt, EDXEIX, AADE, DB, or filesystem write actions were performed.
 - Live EDXEIX submission remains disabled.
-- Legacy public-root utilities remain in place for compatibility.
-- v3.0.92 adds a read-only usage audit for those legacy utilities.
 
-New files:
-
-- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php`
-
-Changed file:
-
-- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php` adds Developer Archive link.
-
-No SQL changes. No routes moved or deleted. No legacy utilities executed.
+Next safest step: upload the single CLI file, verify `route_mention_summary`, then classify which historical mentions are old cPanel stats/cache vs actual recent access.
