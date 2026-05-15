@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.2.1
+ * gov.cabnet.app — shared operations UI shell v3.2.2
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -12,6 +12,9 @@
  *
  * v3.2.1:
  * - Normalizes the historical v3.1.6 side-note wording.
+ *
+ * v3.2.2:
+ * - Notes sanitized candidate evidence snapshot export.
  */
 
 declare(strict_types=1);
@@ -425,7 +428,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10; shared shell side-note normalized in v3.1.11; opsui_badge restored in v3.1.13; future candidate capture readiness navigation added in v3.2.0; watch snapshot/status-line support added in v3.2.1. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10; shared shell side-note normalized in v3.1.11; opsui_badge restored in v3.1.13; future candidate capture readiness navigation added in v3.2.0; watch snapshot/status-line support added in v3.2.1; sanitized candidate evidence snapshot export added in v3.2.2. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">

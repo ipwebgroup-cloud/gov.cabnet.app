@@ -10,6 +10,9 @@
  *
  * v3.2.1:
  * - Adds compact operator watch snapshot and fixes Latest rows table column alignment.
+ *
+ * v3.2.2:
+ * - Adds sanitized candidate evidence snapshot section for closed-gate review.
  */
 
 declare(strict_types=1);
@@ -19,6 +22,14 @@ require_once '/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_
 
 $report = gov_v3_real_future_candidate_capture_readiness_run();
 $watchSnapshot = gov_v3rfccr_watch_snapshot($report);
+$evidenceSnapshot = gov_v3rfccr_candidate_evidence_snapshot($report);
+$evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
+$evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
+$evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
+$evidenceIdentity = is_array($evidenceCandidate['identity_presence'] ?? null) ? $evidenceCandidate['identity_presence'] : [];
+$evidenceMapping = is_array($evidenceCandidate['operator_and_mapping'] ?? null) ? $evidenceCandidate['operator_and_mapping'] : [];
+$evidenceRoute = is_array($evidenceCandidate['route_and_price'] ?? null) ? $evidenceCandidate['route_and_price'] : [];
+$evidenceNegative = is_array($evidenceCandidate['negative_checks'] ?? null) ? $evidenceCandidate['negative_checks'] : [];
 $watchCounts = is_array($watchSnapshot['counts'] ?? null) ? $watchSnapshot['counts'] : [];
 $watchNext = is_array($watchSnapshot['next_candidate'] ?? null) ? $watchSnapshot['next_candidate'] : null;
 $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
@@ -66,7 +77,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.1')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.2')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -103,6 +114,30 @@ opsui_shell_begin([
     <p><strong>Manual terminal watch:</strong></p>
     <pre>watch -n 30 '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line'</pre>
     <p class="v3cap-small">This is manual terminal polling only. It does not create cron jobs, notifications, logs, DB writes, queue changes, or live submissions.</p>
+</section>
+
+<section class="panel">
+    <h2>Candidate Evidence Snapshot</h2>
+    <p>This is a sanitized, read-only evidence view for operator review. It intentionally hides raw payloads, parsed JSON, hashes, full mailbox paths, and unmasked customer phone numbers.</p>
+    <?php if (empty($evidenceSnapshot['candidate_found']) || !$evidenceCandidate): ?>
+        <p>No candidate evidence is available because no real future candidate is currently visible.</p>
+    <?php else: ?>
+        <div class="v3cap-next">
+            <p><strong>Outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($evidenceSnapshot['operator_review_outcome'] ?? '')) ?></code></p>
+            <p><strong>Queue ID:</strong> <code class="v3cap-code"><?= opsui_h((string)($evidenceCandidate['queue_id'] ?? '')) ?></code> · <strong>Status:</strong> <code class="v3cap-code"><?= opsui_h((string)($evidenceCandidate['queue_status'] ?? '')) ?></code></p>
+            <p><strong>Source file:</strong> <code class="v3cap-code"><?= opsui_h((string)($evidenceCandidate['source_mailbox_file'] ?? '')) ?></code></p>
+            <p><strong>Timing:</strong> pickup <?= opsui_h((string)($evidenceTiming['pickup_datetime'] ?? '')) ?> · end <?= opsui_h((string)($evidenceTiming['estimated_end_datetime'] ?? '')) ?> · <?= opsui_h((string)($evidenceTiming['minutes_until_pickup_now'] ?? '')) ?> minutes remaining.</p>
+            <p><strong>Readiness:</strong> complete <?= !empty($evidenceReadiness['complete']) ? 'yes' : 'no' ?> · review <?= !empty($evidenceReadiness['closed_gate_operator_review']) ? 'yes' : 'no' ?> · reason <code class="v3cap-code"><?= opsui_h((string)($evidenceReadiness['reason'] ?? '')) ?></code></p>
+            <p><strong>Customer fields:</strong> name present <?= !empty($evidenceIdentity['customer_name_present']) ? 'yes' : 'no' ?> · phone <?= opsui_h((string)($evidenceIdentity['customer_phone_masked'] ?? '')) ?></p>
+            <p><strong>Driver / vehicle:</strong> <?= opsui_h((string)($evidenceMapping['driver_name'] ?? '')) ?> · <code class="v3cap-code"><?= opsui_h((string)($evidenceMapping['vehicle_plate'] ?? '')) ?></code></p>
+            <p><strong>Mapping IDs:</strong> lessor <?= opsui_h((string)($evidenceMapping['lessor_id'] ?? '')) ?> · driver <?= opsui_h((string)($evidenceMapping['driver_id'] ?? '')) ?> · vehicle <?= opsui_h((string)($evidenceMapping['vehicle_id'] ?? '')) ?> · start <?= opsui_h((string)($evidenceMapping['starting_point_id'] ?? '')) ?></p>
+            <p><strong>Route:</strong> <?= opsui_h((string)($evidenceRoute['pickup_address'] ?? '')) ?> → <?= opsui_h((string)($evidenceRoute['dropoff_address'] ?? '')) ?></p>
+            <p><strong>Price:</strong> <?= opsui_h((string)($evidenceRoute['price_text'] ?? '')) ?> · amount <?= opsui_h((string)($evidenceRoute['price_amount'] ?? '')) ?></p>
+            <p><strong>Negative checks:</strong> canary/test <?= !empty($evidenceNegative['is_canary_or_test']) ? 'yes' : 'no' ?> · submitted <?= !empty($evidenceNegative['submitted']) ? 'yes' : 'no' ?> · terminal/blocked <?= !empty($evidenceNegative['terminal_or_failed_or_blocked']) ? 'yes' : 'no' ?> · last error <?= !empty($evidenceNegative['last_error_present']) ? 'yes' : 'no' ?></p>
+            <p><strong>Safety:</strong> live risk <?= !empty($evidenceSnapshot['safety_confirmed']['live_risk_detected']) ? 'yes' : 'no' ?> · live submit recommended <?= opsui_h((string)($evidenceSnapshot['safety_confirmed']['live_submit_recommended_now'] ?? 0)) ?> · EDXEIX call <?= !empty($evidenceSnapshot['safety_confirmed']['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+            <p class="v3cap-small">CLI evidence command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json</code></p>
+        </div>
+    <?php endif; ?>
 </section>
 
 <?php foreach ($warnings as $warning): ?>

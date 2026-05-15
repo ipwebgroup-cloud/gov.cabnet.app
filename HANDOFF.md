@@ -1,6 +1,6 @@
 # gov.cabnet.app — Bolt → EDXEIX Bridge Handoff
 
-Current patch: v3.2.1 — Real Future Candidate Watch Snapshot
+Current patch: v3.2.2 — Candidate Evidence Snapshot Export
 Date: 2026-05-15
 
 ## Project identity
@@ -17,39 +17,50 @@ Date: 2026-05-15
 - V0 workflow untouched.
 - Live EDXEIX submit disabled.
 - V3 live gate closed.
-- No Bolt calls from v3.2.1.
-- No EDXEIX calls from v3.2.1.
-- No AADE calls from v3.2.1.
-- No DB writes from v3.2.1.
-- No queue mutations from v3.2.1.
+- No Bolt calls from v3.2.2.
+- No EDXEIX calls from v3.2.2.
+- No AADE calls from v3.2.2.
+- No DB writes from v3.2.2.
+- No queue mutations from v3.2.2.
 - No SQL changes.
 - No route moves/deletes/redirects.
+- No cron jobs or notifications.
 
-## Latest verified state before v3.2.1
+## Latest verified milestone before v3.2.2
 
-v3.2.0 production verification passed:
+A real-format pre-ride email was manually placed into the Bolt bridge mailbox path and ingested by the V3 queue.
 
-- CLI syntax ok.
-- Ops page syntax ok.
-- `_shell.php` syntax ok.
-- `_ops-nav.php` syntax ok.
-- CLI returned `ok=true`.
-- DB connected to `cabnet_gov`.
-- live gate exists and is closed.
-- `future_possible_real_rows=0`.
-- `operator_alerts_appropriate=0`.
-- `live_risk_detected=false`.
-- `live_submit_recommended_now=0`.
-- web route returned HTTP 302 to login.
+v3.2.1 status-line detected:
 
-## v3.2.1 changes
+```text
+action=REVIEW_COMPLETE_FUTURE_CANDIDATE | severity=urgent | future=1 | review=1 | alerts=1 | urgent=1 | live_risk=no | next_id=1457 | minutes=19 | complete=yes | priority=soon
+```
 
-- Adds compact one-shot watch snapshot output to the existing read-only candidate capture readiness CLI.
-- Adds `--watch-json` / `--snapshot-json` output.
-- Adds `--status-line` output for manual terminal polling.
-- Adds an Operator Watch Snapshot section to the Ops readiness page.
-- Fixes Latest rows table column alignment on the Ops page.
-- Normalizes the historical shell side-note wording: `in v3.1.6`.
+Full report confirmed:
+
+- queue id `1457`
+- `queue_status=live_submit_ready`
+- future possible-real row: 1
+- complete future row: 1
+- missing required fields: none
+- closed-gate operator review candidate: 1
+- operator alert appropriate: 1
+- live gate expected closed: true
+- live risk detected: false
+- live submit recommended now: 0
+- DB write made by observation: false
+- queue mutation made by observation: false
+- Bolt/EDXEIX/AADE calls made by observation: false
+
+Interpretation: the real-format pre-ride email path is proven through parsing, mapping, queue insertion, and closed-gate readiness detection. Live EDXEIX submission remains disabled.
+
+## v3.2.2 changes
+
+- Adds sanitized candidate evidence snapshot export to the existing V3 capture readiness CLI.
+- Adds `--evidence-json` / `--candidate-evidence-json` CLI output.
+- Adds Candidate Evidence Snapshot section to the Ops readiness page.
+- Hides raw payloads, parsed JSON, hashes, full source mailbox paths, raw message headers, credentials, and unmasked customer phone numbers.
+- Updates shared shell text to v3.2.2.
 
 ## Verification commands
 
@@ -59,28 +70,31 @@ php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
 
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --json
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --watch-json
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json
 
 curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
 
-grep -n "v3.2.1\|inv3.1.6\|Watch Snapshot\|status-line" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
+grep -n "v3.2.2\|evidence-json\|Candidate Evidence Snapshot\|payload_json\|unmasked_customer_phone" \
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php \
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php \
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
 ## Expected result
 
-- `ok=true`
-- version `v3.2.1-v3-real-future-candidate-watch-snapshot`
-- `live_risk_detected=false`
-- `live_submit_recommended_now=0`
-- `db_write_made=false`
-- `queue_mutation_made=false`
-- `bolt_call_made=false`
-- `edxeix_call_made=false`
-- `aade_call_made=false`
-- No `inv3.1.6` typo token present.
+- Syntax passes.
+- Evidence JSON returns `snapshot_mode=read_only_sanitized_candidate_evidence_snapshot`.
+- `live_risk_detected=false`.
+- `live_submit_recommended_now=0`.
+- `db_write_made=false`.
+- `queue_mutation_made=false`.
+- `bolt_call_made=false`.
+- `edxeix_call_made=false`.
+- `aade_call_made=false`.
+- Candidate evidence hides raw payload and unmasked customer phone.
 
 ## Next safest direction
 
-Continue observing. When a real future possible-real candidate appears, use the v3.2.1 snapshot/status-line output and Ops board to inspect completeness and missing fields while the live gate remains closed.
+After v3.2.2 is verified, the next phase is controlled closed-gate live-submit preflight design only. Do not enable live EDXEIX submission until Andreas explicitly requests that separate live-submit update.

@@ -11,13 +11,17 @@
  * v3.2.1:
  * - Adds compact one-shot watch snapshot output for operator polling.
  * - Keeps the same read-only/no-submit safety posture.
+ *
+ * v3.2.2:
+ * - Adds sanitized candidate evidence snapshot export for closed-gate operator review.
+ * - Hides raw payloads, parsed JSON, hashes, and unnecessary passenger data from the export.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.1-v3-real-future-candidate-watch-snapshot';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_real_future_candidate_capture_readiness_watch_snapshot';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch snapshot is one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.2-v3-candidate-evidence-snapshot-export';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_candidate_evidence_snapshot_export';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch and evidence snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -734,6 +738,156 @@ function gov_v3rfccr_watch_snapshot(array $report): array
     ];
 }
 
+
+function gov_v3rfccr_mask_phone(string $phone): string
+{
+    $phone = trim($phone);
+    if ($phone === '') { return ''; }
+    $digits = preg_replace('/\D+/', '', $phone) ?? '';
+    if ($digits === '') { return 'present'; }
+    $prefix = str_starts_with($phone, '+') ? '+' : '';
+    if (strlen($digits) <= 5) {
+        return $prefix . str_repeat('•', max(0, strlen($digits) - 2)) . substr($digits, -2);
+    }
+    return $prefix . substr($digits, 0, 3) . '…' . substr($digits, -2);
+}
+
+function gov_v3rfccr_source_basename(string $source): string
+{
+    $source = trim(str_replace('\\', '/', $source));
+    if ($source === '') { return ''; }
+    return basename($source);
+}
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_candidate_evidence_snapshot(array $report): array
+{
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $queue = is_array($report['queue'] ?? null) ? $report['queue'] : [];
+    $reviewRows = is_array($queue['closed_gate_operator_review_rows'] ?? null) ? $queue['closed_gate_operator_review_rows'] : [];
+    $futureRows = is_array($queue['future_possible_real_rows'] ?? null) ? $queue['future_possible_real_rows'] : [];
+    $candidate = null;
+    if (isset($reviewRows[0]) && is_array($reviewRows[0])) {
+        $candidate = $reviewRows[0];
+    } elseif (is_array($queue['next_future_possible_real_row'] ?? null)) {
+        $candidate = $queue['next_future_possible_real_row'];
+    } elseif (isset($futureRows[0]) && is_array($futureRows[0])) {
+        $candidate = $futureRows[0];
+    }
+
+    $warnings = is_array($report['warnings'] ?? null) ? $report['warnings'] : [];
+    $finalBlocks = is_array($report['final_blocks'] ?? null) ? $report['final_blocks'] : [];
+    $watch = gov_v3rfccr_watch_snapshot($report);
+
+    $base = [
+        'ok' => !empty($report['ok']),
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_sanitized_candidate_evidence_snapshot',
+        'candidate_found' => $candidate !== null,
+        'safety_notice' => 'Evidence snapshot is read-only. It hides raw payloads, parsed JSON, hashes, and unnecessary passenger data. Live EDXEIX submission remains disabled.',
+        'watch_action_code' => (string)($watch['action_code'] ?? 'UNKNOWN'),
+        'watch_severity' => (string)($watch['severity'] ?? 'unknown'),
+        'warnings' => array_values(array_map('strval', $warnings)),
+        'final_blocks' => array_values(array_map('strval', $finalBlocks)),
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($summary['live_gate_expected_closed']),
+            'live_risk_detected' => !empty($summary['live_risk_detected']),
+            'live_submit_recommended_now' => (int)($summary['live_submit_recommended_now'] ?? 0),
+            'db_write_made' => !empty($summary['db_write_made']),
+            'queue_mutation_made' => !empty($summary['queue_mutation_made']),
+            'bolt_call_made' => !empty($summary['bolt_call_made']),
+            'edxeix_call_made' => !empty($summary['edxeix_call_made']),
+            'aade_call_made' => !empty($summary['aade_call_made']),
+        ],
+        'hidden_from_snapshot' => [
+            'payload_json',
+            'parsed_fields_json',
+            'raw_email_preview',
+            'source_hash',
+            'email_hash',
+            'full_source_mailbox_path',
+            'unmasked_customer_phone',
+            'raw_message_headers',
+            'secrets_or_credentials',
+        ],
+        'operator_review_outcome' => 'no_candidate_visible',
+    ];
+
+    if (!$candidate) {
+        $base['candidate'] = null;
+        return $base;
+    }
+
+    $missing = is_array($candidate['missing_required_fields'] ?? null) ? array_values(array_map('strval', $candidate['missing_required_fields'])) : [];
+    $complete = !empty($candidate['complete']);
+    $reviewQualified = !empty($candidate['qualifies_for_closed_gate_operator_review']);
+    $lastError = trim((string)($candidate['last_error'] ?? ''));
+
+    $base['operator_review_outcome'] = $reviewQualified
+        ? 'eligible_for_closed_gate_operator_review_only'
+        : ($complete ? 'complete_but_not_review_qualified' : 'incomplete_or_not_ready');
+
+    $base['candidate'] = [
+        'queue_id' => $candidate['id'] ?? null,
+        'dedupe_key_present' => trim((string)($candidate['dedupe_key'] ?? '')) !== '',
+        'source_mailbox_file' => gov_v3rfccr_source_basename((string)($candidate['source_mailbox'] ?? '')),
+        'queue_status' => (string)($candidate['queue_status'] ?? ''),
+        'timing' => [
+            'pickup_datetime' => (string)($candidate['pickup_datetime'] ?? ''),
+            'estimated_end_datetime' => (string)($candidate['estimated_end_datetime'] ?? ''),
+            'minutes_until_pickup_now' => $candidate['minutes_until_pickup_now'] ?? null,
+            'minutes_until_at_intake' => (string)($candidate['minutes_until_at_intake'] ?? ''),
+            'is_future_now' => !empty($candidate['is_future_now']),
+            'expiry_warning_window' => !empty($candidate['expiry_warning_window']),
+            'urgent_about_to_expire' => !empty($candidate['urgent_about_to_expire']),
+            'inside_operator_alert_window' => !empty($candidate['inside_operator_alert_window']),
+        ],
+        'readiness' => [
+            'complete' => $complete,
+            'missing_required_fields' => $missing,
+            'parser_ok' => !empty($candidate['parser_ok']),
+            'mapping_ok' => !empty($candidate['mapping_ok']),
+            'future_ok_flag' => !empty($candidate['future_ok_flag']),
+            'capture_readiness' => (string)($candidate['capture_readiness'] ?? ''),
+            'reason' => (string)($candidate['reason'] ?? ''),
+            'closed_gate_operator_review' => $reviewQualified,
+            'operator_alert_appropriate' => !empty($candidate['operator_alert_appropriate']),
+            'operator_alert_priority' => (string)($candidate['operator_alert_priority'] ?? 'none'),
+            'safe_interpretation' => (string)($candidate['safe_interpretation'] ?? ''),
+        ],
+        'identity_presence' => [
+            'customer_name_present' => trim((string)($candidate['customer_name'] ?? '')) !== '',
+            'customer_phone_present' => trim((string)($candidate['customer_phone'] ?? '')) !== '',
+            'customer_phone_masked' => gov_v3rfccr_mask_phone((string)($candidate['customer_phone'] ?? '')),
+        ],
+        'operator_and_mapping' => [
+            'lessor_id' => (string)($candidate['lessor_id'] ?? ''),
+            'lessor_source' => (string)($candidate['lessor_source'] ?? ''),
+            'driver_name' => (string)($candidate['driver_name'] ?? ''),
+            'driver_id' => (string)($candidate['driver_id'] ?? ''),
+            'vehicle_plate' => (string)($candidate['vehicle_plate'] ?? ''),
+            'vehicle_id' => (string)($candidate['vehicle_id'] ?? ''),
+            'starting_point_id' => (string)($candidate['starting_point_id'] ?? ''),
+        ],
+        'route_and_price' => [
+            'pickup_address' => (string)($candidate['pickup_address'] ?? ''),
+            'dropoff_address' => (string)($candidate['dropoff_address'] ?? ''),
+            'price_text' => (string)($candidate['price_text'] ?? ''),
+            'price_amount' => (string)($candidate['price_amount'] ?? ''),
+        ],
+        'negative_checks' => [
+            'is_canary_or_test' => !empty($candidate['is_canary_or_test']),
+            'possible_real_mail' => !empty($candidate['possible_real_mail']),
+            'submitted' => !empty($candidate['submitted']),
+            'terminal_or_failed_or_blocked' => !empty($candidate['terminal_or_failed_or_blocked']),
+            'last_error_present' => $lastError !== '',
+        ],
+    ];
+
+    return $base;
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -761,12 +915,19 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
 {
     $json = in_array('--json', $argv, true);
     $watchJson = in_array('--watch-json', $argv, true) || in_array('--snapshot-json', $argv, true);
+    $evidenceJson = in_array('--evidence-json', $argv, true) || in_array('--candidate-evidence-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
+    $evidence = gov_v3rfccr_candidate_evidence_snapshot($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($report['ok']) ? 0 : 1;
+    }
+
+    if ($evidenceJson) {
+        echo json_encode($evidence, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
 
@@ -777,6 +938,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
 
     if ($json) {
         $report['watch_snapshot'] = $snapshot;
+        $report['candidate_evidence_snapshot'] = $evidence;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -794,6 +956,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Live risk: ' . (!empty($summary['live_risk_detected']) ? 'yes' : 'no') . PHP_EOL;
     echo 'Final blocks: ' . implode('; ', $report['final_blocks'] ?? []) . PHP_EOL;
     echo 'Manual watch command: watch -n 30 \'/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line\'' . PHP_EOL;
+    echo 'Evidence snapshot command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }
