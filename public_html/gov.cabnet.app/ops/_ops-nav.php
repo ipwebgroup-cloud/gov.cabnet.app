@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.0.45 integrates the verified V3 focus pages into the shared Ops navigation and V3 dashboard while keeping V0 untouched and live submit disabled. The shell follows the established Ops Home palette:
+ * v3.2.0 adds the read-only V3 Real Future Candidate Capture Readiness page to shared legacy Ops navigation while keeping V0 untouched and live submit disabled. The shell follows the established Ops Home palette:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */
@@ -69,6 +69,7 @@ if (!function_exists('gov_ops_side_nav_sections')) {
                     ['key' => 'queue_watch', 'label' => 'Queue Watch', 'href' => '/ops/pre-ride-email-v3-queue-watch.php'],
                     ['key' => 'pulse_runner', 'label' => 'Pulse Runner', 'href' => '/ops/pre-ride-email-v3-fast-pipeline-pulse.php'],
                     ['key' => 'automation_readiness', 'label' => 'Automation Readiness', 'href' => '/ops/pre-ride-email-v3-automation-readiness.php'],
+                    ['key' => 'future_candidate_capture', 'label' => 'Future Candidate Capture', 'href' => '/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php', 'hint' => 'Read-only real future candidate capture readiness'],
                 ],
             ],
             [

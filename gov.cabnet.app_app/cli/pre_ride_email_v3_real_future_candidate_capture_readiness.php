@@ -1,0 +1,658 @@
+<?php
+/**
+ * gov.cabnet.app — V3 Real Future Candidate Capture Readiness CLI.
+ *
+ * v3.2.0:
+ * - Read-only readiness board for detecting a real future possible-real pre-ride row.
+ * - Shows minutes until pickup, completeness, missing fields, closed-gate review qualification,
+ *   urgency/expiry posture, and whether an operator alert would be appropriate.
+ * - No Bolt calls, no EDXEIX calls, no AADE calls, no DB writes, no queue mutations, no filesystem writes.
+ */
+
+declare(strict_types=1);
+
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.0-v3-real-future-candidate-capture-readiness';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_real_future_candidate_capture_readiness';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only.';
+const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
+const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
+const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
+const GOV_V3RFCCR_EXPIRY_WARNING_MINUTES = 30;
+const GOV_V3RFCCR_URGENT_MINUTES = 15;
+
+function gov_v3rfccr_app_root(): string
+{
+    return dirname(__DIR__);
+}
+
+function gov_v3rfccr_home_root(): string
+{
+    return dirname(gov_v3rfccr_app_root());
+}
+
+function gov_v3rfccr_public_root(): string
+{
+    return gov_v3rfccr_home_root() . '/public_html/gov.cabnet.app';
+}
+
+function gov_v3rfccr_config_root(): string
+{
+    return gov_v3rfccr_home_root() . '/gov.cabnet.app_config';
+}
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_db(): array
+{
+    $bootstrapFile = gov_v3rfccr_app_root() . '/src/bootstrap.php';
+    $out = [
+        'ok' => false,
+        'error' => '',
+        'connection' => null,
+        'name' => '',
+        'host' => '',
+        'bootstrap_file' => $bootstrapFile,
+    ];
+
+    if (!is_file($bootstrapFile)) {
+        $out['error'] = 'Missing bootstrap file.';
+        return $out;
+    }
+
+    try {
+        $app = require $bootstrapFile;
+        if (!is_array($app)) {
+            $out['error'] = 'Bootstrap did not return an app array.';
+            return $out;
+        }
+
+        $db = $app['db'] ?? null;
+        if (!is_object($db) || !method_exists($db, 'connection')) {
+            $out['error'] = 'Database service is unavailable from bootstrap.';
+            return $out;
+        }
+
+        $mysqli = $db->connection();
+        if (!$mysqli instanceof mysqli) {
+            $out['error'] = 'Database service did not return mysqli.';
+            return $out;
+        }
+
+        $out['ok'] = true;
+        $out['connection'] = $mysqli;
+        $out['host'] = (string)($mysqli->host_info ?? '');
+        $res = $mysqli->query('SELECT DATABASE() AS db');
+        $row = $res ? $res->fetch_assoc() : null;
+        $out['name'] = (string)($row['db'] ?? '');
+        return $out;
+    } catch (Throwable $e) {
+        $out['error'] = $e->getMessage();
+        return $out;
+    }
+}
+
+function gov_v3rfccr_identifier(string $name): string
+{
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $name)) {
+        throw new InvalidArgumentException('Invalid SQL identifier.');
+    }
+    return '`' . $name . '`';
+}
+
+function gov_v3rfccr_table_exists(mysqli $mysqli, string $table): bool
+{
+    try {
+        $sql = 'SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?';
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) { return false; }
+        $stmt->bind_param('s', $table);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return (int)($row['c'] ?? 0) > 0;
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+/** @return array<string,bool> */
+function gov_v3rfccr_columns(mysqli $mysqli, string $table): array
+{
+    $cols = [];
+    try {
+        $sql = 'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION';
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) { return $cols; }
+        $stmt->bind_param('s', $table);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $name = (string)($row['COLUMN_NAME'] ?? '');
+                if ($name !== '') { $cols[$name] = true; }
+            }
+        }
+        $stmt->close();
+    } catch (Throwable) {
+        return $cols;
+    }
+    return $cols;
+}
+
+function gov_v3rfccr_has(array $columns, string $name): bool
+{
+    return !empty($columns[$name]);
+}
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_live_gate_state(): array
+{
+    $file = gov_v3rfccr_config_root() . '/pre_ride_email_v3_live_submit.php';
+    $state = [
+        'path' => $file,
+        'exists' => is_file($file),
+        'readable' => is_readable($file),
+        'loaded' => false,
+        'returned_array' => false,
+        'enabled' => false,
+        'mode' => 'missing',
+        'adapter' => 'missing',
+        'hard_enable_live_submit' => false,
+        'acknowledgement_phrase_present' => false,
+        'expected_closed_pre_live_posture' => false,
+        'live_risk_detected' => false,
+        'blocks' => [],
+        'error' => '',
+    ];
+
+    if (!is_file($file) || !is_readable($file)) {
+        $state['blocks'][] = 'live submit config missing or unreadable';
+        return $state;
+    }
+
+    try {
+        $config = require $file;
+        $state['loaded'] = true;
+        if (!is_array($config)) {
+            $state['error'] = 'Config did not return an array.';
+            $state['blocks'][] = 'live submit config did not return array';
+            return $state;
+        }
+
+        $state['returned_array'] = true;
+        $state['enabled'] = (bool)($config['enabled'] ?? false);
+        $state['mode'] = (string)($config['mode'] ?? 'disabled');
+        $state['adapter'] = (string)($config['adapter'] ?? 'disabled');
+        $state['hard_enable_live_submit'] = (bool)($config['hard_enable_live_submit'] ?? false);
+        $state['acknowledgement_phrase_present'] = trim((string)($config['acknowledgement_phrase'] ?? '')) !== '';
+
+        $state['expected_closed_pre_live_posture'] = (
+            $state['enabled'] === false
+            && $state['mode'] !== 'live'
+            && $state['adapter'] !== 'edxeix_live'
+            && $state['hard_enable_live_submit'] === false
+        );
+
+        if ($state['enabled'] !== false) { $state['blocks'][] = 'master_gate: enabled is not false'; }
+        if ($state['mode'] === 'live') { $state['blocks'][] = 'master_gate: mode is live'; }
+        if ($state['adapter'] === 'edxeix_live') { $state['blocks'][] = 'master_gate: adapter is edxeix_live'; }
+        if ($state['hard_enable_live_submit'] !== false) { $state['blocks'][] = 'master_gate: hard_enable_live_submit is not false'; }
+        $state['live_risk_detected'] = !$state['expected_closed_pre_live_posture'];
+    } catch (Throwable $e) {
+        $state['error'] = $e->getMessage();
+        $state['blocks'][] = 'live submit config load error';
+    }
+
+    return $state;
+}
+
+/** @return array<int,string> */
+function gov_v3rfccr_required_fields(): array
+{
+    return [
+        'lessor_id',
+        'driver_id',
+        'vehicle_id',
+        'starting_point_id',
+        'customer_name',
+        'customer_phone',
+        'pickup_datetime',
+        'estimated_end_datetime',
+        'pickup_address',
+        'dropoff_address',
+        'price_amount',
+        'payload_json',
+    ];
+}
+
+/** @return array<int,string> */
+function gov_v3rfccr_terminal_statuses(): array
+{
+    return [
+        'submitted',
+        'blocked',
+        'failed',
+        'expired',
+        'cancelled',
+        'canceled',
+        'invalid',
+        'duplicate',
+        'possible_real_expired_guard',
+        'expired_guard',
+        'not_future_safe',
+    ];
+}
+
+function gov_v3rfccr_bool_value(mixed $value, bool $default = false): bool
+{
+    if ($value === null) { return $default; }
+    if (is_bool($value)) { return $value; }
+    $text = strtolower(trim((string)$value));
+    if ($text === '') { return $default; }
+    return in_array($text, ['1', 'true', 'yes', 'y', 'ok'], true);
+}
+
+function gov_v3rfccr_pickup_timestamp(?string $pickup): ?int
+{
+    $pickup = trim((string)$pickup);
+    if ($pickup === '') { return null; }
+    $ts = strtotime($pickup);
+    return $ts === false ? null : $ts;
+}
+
+function gov_v3rfccr_minutes_until(?string $pickup): ?int
+{
+    $ts = gov_v3rfccr_pickup_timestamp($pickup);
+    if ($ts === null) { return null; }
+    return (int)floor(($ts - time()) / 60);
+}
+
+function gov_v3rfccr_is_canary(array $row): bool
+{
+    $haystack = implode(' ', [
+        (string)($row['customer_name'] ?? ''),
+        (string)($row['order_reference'] ?? ''),
+        (string)($row['source_mailbox'] ?? ''),
+        (string)($row['operator_note'] ?? ''),
+        (string)($row['last_error'] ?? ''),
+        (string)($row['raw_email_preview'] ?? ''),
+    ]);
+    return (bool)preg_match('/\bcanary\b|synthetic|V3 Canary/i', $haystack);
+}
+
+/** @return array<int,string> */
+function gov_v3rfccr_missing_required(array $row, array $columns): array
+{
+    $missing = [];
+    foreach (gov_v3rfccr_required_fields() as $field) {
+        if (!gov_v3rfccr_has($columns, $field)) {
+            $missing[] = $field . ' (column missing)';
+            continue;
+        }
+        if (!array_key_exists($field, $row) || trim((string)($row[$field] ?? '')) === '') {
+            $missing[] = $field;
+        }
+    }
+    return $missing;
+}
+
+/** @return array<int,array<string,mixed>> */
+function gov_v3rfccr_fetch_rows(mysqli $mysqli, string $table, array $columns, int $limit = 250): array
+{
+    $wanted = [
+        'id', 'dedupe_key', 'source_mailbox', 'source_mtime', 'source_hash', 'email_hash',
+        'order_reference', 'queue_status', 'parser_ok', 'mapping_ok', 'future_ok', 'lessor_id',
+        'lessor_source', 'driver_id', 'vehicle_id', 'starting_point_id', 'customer_name',
+        'customer_phone', 'driver_name', 'vehicle_plate', 'pickup_datetime', 'estimated_end_datetime',
+        'minutes_until_at_intake', 'pickup_address', 'dropoff_address', 'price_text', 'price_amount',
+        'block_reasons_json', 'parsed_fields_json', 'payload_json', 'raw_email_preview',
+        'operator_note', 'queued_at', 'locked_at', 'submitted_at', 'failed_at', 'last_error',
+        'created_at', 'updated_at',
+    ];
+
+    $select = [];
+    foreach ($wanted as $name) {
+        if (gov_v3rfccr_has($columns, $name)) {
+            $select[] = gov_v3rfccr_identifier($name);
+        }
+    }
+    if ($select === []) { return []; }
+
+    $limit = max(1, min(500, $limit));
+    if (gov_v3rfccr_has($columns, 'pickup_datetime')) {
+        $order = 'CASE WHEN `pickup_datetime` IS NOT NULL AND `pickup_datetime` >= NOW() THEN 0 ELSE 1 END ASC, `pickup_datetime` ASC, `id` DESC';
+    } elseif (gov_v3rfccr_has($columns, 'id')) {
+        $order = '`id` DESC';
+    } else {
+        $order = '1 DESC';
+    }
+
+    try {
+        $sql = 'SELECT ' . implode(', ', $select) . ' FROM ' . gov_v3rfccr_identifier($table) . ' ORDER BY ' . $order . ' LIMIT ' . $limit;
+        $result = $mysqli->query($sql);
+        if (!$result) { return []; }
+        return $result->fetch_all(MYSQLI_ASSOC) ?: [];
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+/** @return array<string,mixed> */
+function gov_v3rfccr_classify_row(array $row, array $columns, array $liveGate): array
+{
+    $status = trim((string)($row['queue_status'] ?? ''));
+    $statusLower = strtolower($status);
+    $minutesUntil = gov_v3rfccr_minutes_until((string)($row['pickup_datetime'] ?? ''));
+    $isFuture = $minutesUntil !== null && $minutesUntil >= GOV_V3RFCCR_MIN_FUTURE_MINUTES;
+    $isCanary = gov_v3rfccr_is_canary($row);
+    $possibleReal = !$isCanary;
+    $terminalStatus = in_array($statusLower, gov_v3rfccr_terminal_statuses(), true);
+    $submitted = trim((string)($row['submitted_at'] ?? '')) !== '' || $statusLower === 'submitted';
+    $failedOrBlocked = trim((string)($row['failed_at'] ?? '')) !== '' || $terminalStatus;
+    $lastError = trim((string)($row['last_error'] ?? ''));
+
+    $parserOk = !gov_v3rfccr_has($columns, 'parser_ok') || gov_v3rfccr_bool_value($row['parser_ok'] ?? null, false);
+    $mappingOk = !gov_v3rfccr_has($columns, 'mapping_ok') || gov_v3rfccr_bool_value($row['mapping_ok'] ?? null, false);
+    $futureOkFlag = !gov_v3rfccr_has($columns, 'future_ok') || gov_v3rfccr_bool_value($row['future_ok'] ?? null, false);
+    $missing = gov_v3rfccr_missing_required($row, $columns);
+    $complete = $missing === [] && $parserOk && $mappingOk && $futureOkFlag && $lastError === '';
+    $gateClosed = !empty($liveGate['expected_closed_pre_live_posture']) && empty($liveGate['live_risk_detected']);
+
+    $closedGateReviewQualified = $possibleReal
+        && $isFuture
+        && $complete
+        && !$submitted
+        && !$failedOrBlocked
+        && $gateClosed;
+
+    $urgent = $isFuture && $minutesUntil !== null && $minutesUntil <= GOV_V3RFCCR_URGENT_MINUTES;
+    $aboutToExpire = $isFuture && $minutesUntil !== null && $minutesUntil <= GOV_V3RFCCR_EXPIRY_WARNING_MINUTES;
+    $insideAlertWindow = $isFuture && $minutesUntil !== null && $minutesUntil <= GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES;
+    $incompleteFuture = $possibleReal && $isFuture && !$complete && !$submitted && !$failedOrBlocked;
+    $operatorAlertAppropriate = $closedGateReviewQualified || ($incompleteFuture && $insideAlertWindow);
+
+    $captureReadiness = 'not_ready';
+    $reason = 'not_candidate';
+    if ($isCanary) {
+        $captureReadiness = 'test_or_canary_row';
+        $reason = 'generated_canary_or_test_row';
+    } elseif (!$isFuture) {
+        $captureReadiness = 'not_future_or_expired';
+        $reason = 'pickup_not_future_safe_now';
+    } elseif ($submitted) {
+        $captureReadiness = 'already_submitted';
+        $reason = 'already_submitted';
+    } elseif ($failedOrBlocked) {
+        $captureReadiness = 'terminal_or_blocked';
+        $reason = 'terminal_status_or_failed_at_present';
+    } elseif (!$gateClosed) {
+        $captureReadiness = 'blocked_by_live_gate_risk';
+        $reason = 'live_gate_not_confirmed_closed';
+    } elseif ($missing !== []) {
+        $captureReadiness = 'future_possible_real_incomplete';
+        $reason = 'missing_required_fields';
+    } elseif (!$parserOk) {
+        $captureReadiness = 'future_possible_real_incomplete';
+        $reason = 'parser_not_ok';
+    } elseif (!$mappingOk) {
+        $captureReadiness = 'future_possible_real_incomplete';
+        $reason = 'mapping_not_ok';
+    } elseif (!$futureOkFlag) {
+        $captureReadiness = 'future_possible_real_incomplete';
+        $reason = 'future_ok_flag_not_set';
+    } elseif ($lastError !== '') {
+        $captureReadiness = 'future_possible_real_incomplete';
+        $reason = 'last_error_present';
+    } elseif ($closedGateReviewQualified) {
+        $captureReadiness = 'ready_for_closed_gate_operator_review';
+        $reason = 'complete_future_possible_real_closed_gate_review_only';
+    }
+
+    $alertPriority = 'none';
+    if ($operatorAlertAppropriate) {
+        if ($urgent) {
+            $alertPriority = 'urgent';
+        } elseif ($insideAlertWindow) {
+            $alertPriority = 'soon';
+        } else {
+            $alertPriority = 'normal';
+        }
+    }
+
+    return [
+        'id' => isset($row['id']) ? (int)$row['id'] : null,
+        'dedupe_key' => (string)($row['dedupe_key'] ?? ''),
+        'queue_status' => $status,
+        'order_reference' => (string)($row['order_reference'] ?? ''),
+        'source_mailbox' => (string)($row['source_mailbox'] ?? ''),
+        'pickup_datetime' => (string)($row['pickup_datetime'] ?? ''),
+        'estimated_end_datetime' => (string)($row['estimated_end_datetime'] ?? ''),
+        'minutes_until_pickup_now' => $minutesUntil,
+        'minutes_until_at_intake' => isset($row['minutes_until_at_intake']) ? (string)$row['minutes_until_at_intake'] : '',
+        'is_future_now' => $isFuture,
+        'urgent_about_to_expire' => $urgent,
+        'expiry_warning_window' => $aboutToExpire,
+        'inside_operator_alert_window' => $insideAlertWindow,
+        'is_canary_or_test' => $isCanary,
+        'possible_real_mail' => $possibleReal,
+        'parser_ok' => $parserOk,
+        'mapping_ok' => $mappingOk,
+        'future_ok_flag' => $futureOkFlag,
+        'complete' => $complete,
+        'missing_required_fields' => $missing,
+        'submitted' => $submitted,
+        'terminal_or_failed_or_blocked' => $failedOrBlocked,
+        'last_error' => $lastError,
+        'lessor_id' => (string)($row['lessor_id'] ?? ''),
+        'lessor_source' => (string)($row['lessor_source'] ?? ''),
+        'driver_id' => (string)($row['driver_id'] ?? ''),
+        'vehicle_id' => (string)($row['vehicle_id'] ?? ''),
+        'starting_point_id' => (string)($row['starting_point_id'] ?? ''),
+        'customer_name' => (string)($row['customer_name'] ?? ''),
+        'customer_phone' => (string)($row['customer_phone'] ?? ''),
+        'driver_name' => (string)($row['driver_name'] ?? ''),
+        'vehicle_plate' => (string)($row['vehicle_plate'] ?? ''),
+        'pickup_address' => (string)($row['pickup_address'] ?? ''),
+        'dropoff_address' => (string)($row['dropoff_address'] ?? ''),
+        'price_text' => (string)($row['price_text'] ?? ''),
+        'price_amount' => (string)($row['price_amount'] ?? ''),
+        'capture_readiness' => $captureReadiness,
+        'reason' => $reason,
+        'qualifies_for_closed_gate_operator_review' => $closedGateReviewQualified,
+        'operator_alert_appropriate' => $operatorAlertAppropriate,
+        'operator_alert_priority' => $alertPriority,
+        'safe_interpretation' => $closedGateReviewQualified
+            ? 'Complete future possible-real row is ready for closed-gate operator review only. Live EDXEIX submission remains disabled.'
+            : ($operatorAlertAppropriate ? 'Operator attention is useful before expiry, but live submission remains disabled.' : 'No operator action required by this read-only readiness layer.'),
+        'created_at' => $row['created_at'] ?? null,
+        'updated_at' => $row['updated_at'] ?? null,
+        'queued_at' => $row['queued_at'] ?? null,
+        'submitted_at' => $row['submitted_at'] ?? null,
+        'failed_at' => $row['failed_at'] ?? null,
+    ];
+}
+
+/** @return array<string,mixed> */
+function gov_v3_real_future_candidate_capture_readiness_run(): array
+{
+    $liveGate = gov_v3rfccr_live_gate_state();
+    $report = [
+        'ok' => false,
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'mode' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE,
+        'started_at' => date('c'),
+        'finished_at' => null,
+        'safety' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY,
+        'thresholds' => [
+            'min_future_minutes' => GOV_V3RFCCR_MIN_FUTURE_MINUTES,
+            'operator_alert_window_minutes' => GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES,
+            'expiry_warning_minutes' => GOV_V3RFCCR_EXPIRY_WARNING_MINUTES,
+            'urgent_minutes' => GOV_V3RFCCR_URGENT_MINUTES,
+        ],
+        'app_root' => gov_v3rfccr_app_root(),
+        'public_root' => gov_v3rfccr_public_root(),
+        'database' => [
+            'connected' => false,
+            'name' => '',
+            'host' => '',
+            'error' => '',
+        ],
+        'live_gate' => $liveGate,
+        'queue' => [
+            'table' => GOV_V3RFCCR_QUEUE_TABLE,
+            'exists' => false,
+            'columns_loaded' => 0,
+            'rows_scanned' => 0,
+            'required_fields' => gov_v3rfccr_required_fields(),
+            'next_future_possible_real_row' => null,
+            'closed_gate_operator_review_rows' => [],
+            'operator_alert_rows' => [],
+            'future_possible_real_rows' => [],
+            'latest_rows' => [],
+        ],
+        'summary' => [
+            'rows_scanned' => 0,
+            'possible_real_rows_scanned' => 0,
+            'canary_or_test_rows_scanned' => 0,
+            'future_possible_real_rows' => 0,
+            'complete_future_possible_real_rows' => 0,
+            'incomplete_future_possible_real_rows' => 0,
+            'closed_gate_operator_review_candidates' => 0,
+            'operator_alerts_appropriate' => 0,
+            'urgent_or_about_to_expire_rows' => 0,
+            'terminal_or_submitted_future_rows' => 0,
+            'live_gate_expected_closed' => !empty($liveGate['expected_closed_pre_live_posture']),
+            'live_risk_detected' => !empty($liveGate['live_risk_detected']),
+            'live_submit_recommended_now' => 0,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+        ],
+        'warnings' => [],
+        'recommended_next_step' => 'Continue observation. Wait for a real future possible-real row, then use closed-gate operator review only. Do not enable live submit.',
+        'final_blocks' => [],
+    ];
+
+    if (!empty($report['summary']['live_risk_detected'])) {
+        $report['final_blocks'][] = 'live_gate: unexpected open/risky posture detected';
+    }
+
+    $db = gov_v3rfccr_db();
+    $report['database']['connected'] = (bool)($db['ok'] ?? false);
+    $report['database']['error'] = (string)($db['error'] ?? '');
+    $report['database']['name'] = (string)($db['name'] ?? '');
+    $report['database']['host'] = (string)($db['host'] ?? '');
+
+    if (empty($db['ok']) || empty($db['connection']) || !($db['connection'] instanceof mysqli)) {
+        $report['final_blocks'][] = 'database: unavailable';
+        $report['finished_at'] = date('c');
+        return $report;
+    }
+
+    $mysqli = $db['connection'];
+    $report['queue']['exists'] = gov_v3rfccr_table_exists($mysqli, GOV_V3RFCCR_QUEUE_TABLE);
+    if (!$report['queue']['exists']) {
+        $report['final_blocks'][] = 'queue: pre_ride_email_v3_queue table missing';
+        $report['finished_at'] = date('c');
+        return $report;
+    }
+
+    $columns = gov_v3rfccr_columns($mysqli, GOV_V3RFCCR_QUEUE_TABLE);
+    $report['queue']['columns_loaded'] = count($columns);
+
+    $rows = gov_v3rfccr_fetch_rows($mysqli, GOV_V3RFCCR_QUEUE_TABLE, $columns, 250);
+    $classified = [];
+    $futurePossible = [];
+    $reviewRows = [];
+    $alertRows = [];
+
+    foreach ($rows as $row) {
+        $item = gov_v3rfccr_classify_row($row, $columns, $liveGate);
+        $classified[] = $item;
+        $report['summary']['rows_scanned']++;
+
+        if (!empty($item['possible_real_mail'])) {
+            $report['summary']['possible_real_rows_scanned']++;
+        } else {
+            $report['summary']['canary_or_test_rows_scanned']++;
+        }
+
+        if (!empty($item['possible_real_mail']) && !empty($item['is_future_now'])) {
+            $futurePossible[] = $item;
+            $report['summary']['future_possible_real_rows']++;
+            if (!empty($item['complete'])) {
+                $report['summary']['complete_future_possible_real_rows']++;
+            } else {
+                $report['summary']['incomplete_future_possible_real_rows']++;
+            }
+            if (!empty($item['submitted']) || !empty($item['terminal_or_failed_or_blocked'])) {
+                $report['summary']['terminal_or_submitted_future_rows']++;
+            }
+            if (!empty($item['urgent_about_to_expire']) || !empty($item['expiry_warning_window'])) {
+                $report['summary']['urgent_or_about_to_expire_rows']++;
+            }
+        }
+
+        if (!empty($item['qualifies_for_closed_gate_operator_review'])) {
+            $reviewRows[] = $item;
+            $report['summary']['closed_gate_operator_review_candidates']++;
+        }
+
+        if (!empty($item['operator_alert_appropriate'])) {
+            $alertRows[] = $item;
+            $report['summary']['operator_alerts_appropriate']++;
+        }
+    }
+
+    $report['queue']['rows_scanned'] = count($classified);
+    $report['queue']['latest_rows'] = array_slice($classified, 0, 25);
+    $report['queue']['future_possible_real_rows'] = array_slice($futurePossible, 0, 25);
+    $report['queue']['closed_gate_operator_review_rows'] = array_slice($reviewRows, 0, 25);
+    $report['queue']['operator_alert_rows'] = array_slice($alertRows, 0, 25);
+    $report['queue']['next_future_possible_real_row'] = $futurePossible[0] ?? null;
+
+    if ((int)$report['summary']['closed_gate_operator_review_candidates'] > 0) {
+        $report['warnings'][] = 'A complete future possible-real row exists for closed-gate operator review only. Live submit remains disabled.';
+        $report['recommended_next_step'] = 'Inspect the candidate immediately with closed-gate tools, confirm missing_fields is empty, and keep live EDXEIX submission disabled.';
+    } elseif ((int)$report['summary']['incomplete_future_possible_real_rows'] > 0) {
+        $report['warnings'][] = 'Future possible-real row exists but is incomplete. Review missing fields before expiry; do not submit.';
+        $report['recommended_next_step'] = 'Review missing fields and mapping/driver/vehicle data while the V3 live gate remains closed.';
+    } elseif ((int)$report['summary']['future_possible_real_rows'] === 0) {
+        $report['recommended_next_step'] = 'No real future candidate is currently visible. Continue observing until a real future pre-ride email arrives before pickup expiry.';
+    }
+
+    $report['ok'] = ($report['final_blocks'] === []);
+    $report['finished_at'] = date('c');
+    return $report;
+}
+
+/** @param array<int,string> $argv */
+function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
+{
+    $json = in_array('--json', $argv, true);
+    $report = gov_v3_real_future_candidate_capture_readiness_run();
+
+    if ($json) {
+        echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($report['ok']) ? 0 : 1;
+    }
+
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    echo 'V3 real future candidate capture readiness ' . GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION . PHP_EOL;
+    echo 'OK: ' . (!empty($report['ok']) ? 'yes' : 'no') . PHP_EOL;
+    echo 'Future possible-real rows: ' . (string)($summary['future_possible_real_rows'] ?? 0) . PHP_EOL;
+    echo 'Complete future rows: ' . (string)($summary['complete_future_possible_real_rows'] ?? 0) . PHP_EOL;
+    echo 'Closed-gate review candidates: ' . (string)($summary['closed_gate_operator_review_candidates'] ?? 0) . PHP_EOL;
+    echo 'Operator alerts appropriate: ' . (string)($summary['operator_alerts_appropriate'] ?? 0) . PHP_EOL;
+    echo 'Urgent/about-to-expire rows: ' . (string)($summary['urgent_or_about_to_expire_rows'] ?? 0) . PHP_EOL;
+    echo 'Live risk: ' . (!empty($summary['live_risk_detected']) ? 'yes' : 'no') . PHP_EOL;
+    echo 'Final blocks: ' . implode('; ', $report['final_blocks'] ?? []) . PHP_EOL;
+
+    return !empty($report['ok']) ? 0 : 1;
+}
+
+if (PHP_SAPI === 'cli' && realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    exit(gov_v3_real_future_candidate_capture_readiness_main($argv ?? []));
+}

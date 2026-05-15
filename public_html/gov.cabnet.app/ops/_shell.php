@@ -1,13 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.1.13
+ * gov.cabnet.app — shared operations UI shell v3.2.0
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v3.1.13:
- * - Restores opsui_badge() helper for Handoff Center compatibility.
- * - Keeps V3 observation overview navigation and shared side-note normalization.
+ * v3.2.0:
+ * - Adds navigation for the V3 Real Future Candidate Capture Readiness board.
+ * - Keeps opsui_badge() helper for Handoff Center compatibility.
  * - Navigation/text/helper only; no route moves, deletes, redirects, DB writes, queue mutations, or live-submit changes.
  */
 
@@ -229,6 +229,7 @@ function opsui_shell_begin(array $options = []): void
         ['/ops/pre-ride-email-v3-real-mail-queue-health.php', 'V3 Real-Mail Queue Health'],
         ['/ops/pre-ride-email-v3-real-mail-expiry-reason-audit.php', 'V3 Expiry Reason Audit'],
         ['/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php', 'V3 Next Candidate Watch'],
+        ['/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php', 'V3 Future Candidate Capture Readiness'],
         ['/ops/pre-ride-email-v3-live-operator-console.php', 'V3 Live Operator Console'],
         ['/ops/pre-ride-email-v3-pre-live-switchboard.php', 'V3 Pre-Live Switchboard'],
         ['/ops/pre-ride-email-v3-live-adapter-contract-test.php', 'V3 Contract Test'],
@@ -357,6 +358,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/pre-ride-email-v3-real-mail-queue-health.php', 'Real-Mail Queue Health', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-real-mail-expiry-reason-audit.php', 'Expiry Reason Audit', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php', 'Next Candidate Watch', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php', 'Future Candidate Capture', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-live-operator-console.php', 'Live Operator Console', $current) ?>
             <?= opsui_side_link('/ops/preflight-review.php', 'Preflight Review', $current) ?>
 
@@ -420,7 +422,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10; shared shell side-note normalized in v3.1.11; opsui_badge restored in v3.1.13. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10; shared shell side-note normalized in v3.1.11; opsui_badge restored in v3.1.13; future candidate capture readiness navigation added in v3.2.0. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">
