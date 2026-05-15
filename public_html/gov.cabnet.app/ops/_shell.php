@@ -1,13 +1,14 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.1.6
+ * gov.cabnet.app — shared operations UI shell v3.1.7
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v3.1.6:
- * - Adds navigation links for the read-only V3 Next Real-Mail Candidate Watch.
- * - Navigation only; no route moves, deletes, redirects, DB writes, queue mutations, or live-submit changes.
+ * v3.1.7:
+ * - Cleans cosmetic spacing typos in the shared shell side note only.
+ * - Keeps v3.1.6 navigation links unchanged.
+ * - Navigation/text only; no route moves, deletes, redirects, DB writes, queue mutations, or live-submit changes.
  */
 
 declare(strict_types=1);
