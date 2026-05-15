@@ -1,13 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.1.8
+ * gov.cabnet.app — shared operations UI shell v3.1.10
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v3.1.8:
- * - Re-applies cosmetic spacing cleanup in the shared shell side note only.
- * - Keeps v3.1.6 navigation links unchanged.
+ * v3.1.10:
+ * - Adds navigation links for the read-only V3 Real-Mail Observation Overview.
+ * - Keeps candidate watch and v3.1 audit links available.
  * - Navigation/text only; no route moves, deletes, redirects, DB writes, queue mutations, or live-submit changes.
  */
 
@@ -207,6 +207,7 @@ function opsui_shell_begin(array $options = []): void
     $preRideItems = [
         ['/ops/pre-ride-email-v3-dashboard.php', 'V3 Control Center'],
         ['/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool'],
+        ['/ops/pre-ride-email-v3-observation-overview.php', 'V3 Observation Overview'],
         ['/ops/pre-ride-email-v3-real-mail-queue-health.php', 'V3 Real-Mail Queue Health'],
         ['/ops/pre-ride-email-v3-real-mail-expiry-reason-audit.php', 'V3 Expiry Reason Audit'],
         ['/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php', 'V3 Next Candidate Watch'],
@@ -334,6 +335,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_side_link('/ops/quick-launch.php', 'Quick Launch', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-dashboard.php', 'V3 Control Center', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-tool.php', 'Production Pre-Ride Tool', $current) ?>
+            <?= opsui_side_link('/ops/pre-ride-email-v3-observation-overview.php', 'V3 Observation Overview', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-real-mail-queue-health.php', 'Real-Mail Queue Health', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-real-mail-expiry-reason-audit.php', 'Expiry Reason Audit', $current) ?>
             <?= opsui_side_link('/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php', 'Next Candidate Watch', $current) ?>
@@ -399,7 +401,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">

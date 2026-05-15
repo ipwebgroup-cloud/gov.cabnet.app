@@ -1,22 +1,36 @@
-# gov.cabnet.app HANDOFF — v3.1.9 V3 Real-Mail Observation Overview
+# HANDOFF — gov.cabnet.app V3 Observation Overview Navigation
 
-Current milestone: v3.1.9 adds a read-only consolidated V3 observation overview.
+Current milestone: v3.1.10 V3 Observation Overview navigation.
 
-The overview composes existing read-only V3 tools:
+## Installed/verified before this patch
 
-- Real-Mail Queue Health
-- Expiry Reason Audit
-- Next Real-Mail Candidate Watch
+v3.1.9 V3 Real-Mail Observation Overview was verified on production:
 
-Safety posture remains unchanged:
+```text
+ok=true
+version=v3.1.9-v3-real-mail-observation-overview
+queue_ok=true
+expiry_ok=true
+watch_ok=true
+future_active=0
+operator_candidates=0
+live_risk=false
+final_blocks=[]
+```
 
-- Production `/ops/pre-ride-email-tool.php` untouched.
-- V0 workflow untouched.
-- No SQL changes.
-- No DB writes.
-- No queue mutations.
-- No Bolt, EDXEIX, or AADE calls.
-- Live EDXEIX submit disabled.
-- V3 live gate closed.
+## This patch
 
-Next safe step after verification: add navigation link for `/ops/pre-ride-email-v3-observation-overview.php` only.
+Adds navigation links for:
+
+```text
+/ops/pre-ride-email-v3-observation-overview.php
+```
+
+in:
+
+- Pre-Ride top dropdown
+- Daily Operations sidebar
+
+## Safety
+
+Navigation/text only. No Bolt/EDXEIX/AADE calls. No DB writes. No queue mutations. No route moves/deletes/redirects. Live submit remains disabled.
