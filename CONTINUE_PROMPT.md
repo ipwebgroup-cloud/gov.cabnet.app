@@ -1,4 +1,16 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge project from the v3.0.91 public utility cleanup preview noise-filter state.
+Continue gov.cabnet.app Bolt → EDXEIX bridge from v3.0.92.
 
-Next safe step:
-Run the v3.0.91 Phase 2 preview scanner and decide whether remaining safe Phase 2 candidates are real docs/ops cleanup targets. Do not move/delete routes. Do not enable live EDXEIX submission.
+Latest safe milestone: read-only Legacy Public Utility Usage Audit added.
+
+Safety posture:
+- Production Pre-Ride Tool untouched.
+- V3 live gate closed.
+- EDXEIX live submit disabled.
+- No routes moved/deleted.
+- No SQL changes.
+- No Bolt/EDXEIX/AADE calls from the audit.
+
+Next safest step after upload/verification:
+- Review usage audit results.
+- If evidence shows historical/manual usage, plan quiet-period tracking or compatibility wrappers.
+- Do not move/delete legacy public-root utilities without explicit approval.

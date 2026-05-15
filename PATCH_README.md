@@ -1,26 +1,24 @@
-# Patch README — v3.0.91 Public Utility Phase 2 Preview Noise Filter
+# gov.cabnet.app patch — v3.0.92 legacy public utility usage audit
 
 ## What changed
 
-Updates the read-only public utility Phase 2 preview scanner so intentional wrapper, registry, navigation, and milestone documentation references are ignored in actionable cleanup counts.
+Adds a read-only usage audit for legacy guarded public-root utilities and links it from the Developer Archive.
 
 ## Files included
 
-- `gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php`
-- `docs/LIVE_PUBLIC_UTILITY_REFERENCE_CLEANUP_PREVIEW_NOISE_FILTER_20260515.md`
-- `PATCH_README.md`
+- `gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php`
+- `public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php`
+- `public_html/gov.cabnet.app/ops/_shell.php`
+- `docs/LIVE_LEGACY_PUBLIC_UTILITY_USAGE_AUDIT_20260515.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
 
-## Upload path
+## Upload paths
 
-Upload:
-
-```text
-/home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php
-```
-
-Docs/continuity files are for the repo.
+- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
 
 ## SQL
 
@@ -29,32 +27,19 @@ None.
 ## Verification
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "actionable=".($j["summary"]["actionable_references"]??"?").PHP_EOL; echo "safe_phase2=".($j["summary"]["safe_phase2_candidates"]??"?").PHP_EOL; echo "ignored=".($j["summary"]["inventory_or_planner_references_ignored"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility-usage-audit.php
+
+su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php --json" \
+| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "files_scanned=".($j["summary"]["files_scanned"]??"?").PHP_EOL; echo "mentions=".($j["summary"]["usage_mentions_total"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+
+grep -n "v3.0.92\|Legacy Utility Usage Audit\|legacy_public_utility_usage_audit" \
+  /home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_usage_audit.php \
+  /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-usage-audit.php \
+  /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
-## Expected result
-
-- Syntax passes.
-- `ok=true`.
-- Version is `v3.0.91-public-utility-reference-cleanup-preview-ignore-wrapper-noise`.
-- `final_blocks=[]`.
-- Wrapper/registry/navigation references no longer inflate actionable cleanup counts.
-
-## Commit title
-
-```text
-Filter legacy wrapper references from cleanup preview
-```
-
-## Commit description
-
-```text
-Updates the read-only Phase 2 public utility reference cleanup preview so intentional wrapper, registry, navigation, and milestone documentation references are ignored in actionable cleanup counts.
-
-This prevents the v3.0.89 legacy wrapper and v3.0.90 navigation links from being treated as cleanup debt.
-
-No routes are moved or deleted. No redirects are added. No SQL changes are made. No Bolt, EDXEIX, AADE, database, or filesystem write actions are performed. Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
-```
+Expected: syntax clean, ops URL redirects unauthenticated users to `/ops/login.php`, CLI returns `ok=true` and `final_blocks=[]`.
