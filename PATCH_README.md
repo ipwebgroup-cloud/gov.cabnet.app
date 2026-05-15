@@ -1,51 +1,36 @@
-# gov.cabnet.app patch — v3.1.8 shell note typo cleanup
+# Patch README — V3 Candidate Watch Milestone Docs
 
-## What changed
+## Package
 
-This patch replaces `public_html/gov.cabnet.app/ops/_shell.php` with a corrected v3.1.8 shared ops shell.
+gov_v3_1_5_1_8_candidate_watch_milestone_docs_20260515.zip
 
-It fixes only text in the sidebar note:
+## Type
 
-- `legacystats source audit navigation` -> `legacy stats source audit navigation`
-- `added inv3.1.6` -> `added in v3.1.6`
+Documentation-only milestone package.
 
-The v3.1.6 Next Candidate Watch navigation links remain unchanged.
+## Files
 
-## Upload path
-
-Upload:
-
-`public_html/gov.cabnet.app/ops/_shell.php`
-
-to:
-
-`/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
+```text
+HANDOFF.md
+CONTINUE_PROMPT.md
+PATCH_README.md
+docs/V3_CANDIDATE_WATCH_AND_SHELL_CLEANUP_MILESTONE_20260515.md
+```
 
 ## SQL
 
 None.
 
-## Verification
+## Upload
 
-```bash
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+Extract into the repo root for documentation continuity.
 
-curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php
+Optional live docs mirror:
 
-echo "GOOD MARKERS:"
-grep -n "v3.1.8\|legacy stats source audit navigation\|added in v3.1.6" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-
-echo "BAD MARKERS:"
-grep -n "legacystats\|inv3.1.6" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php || echo "OLD TYPO NOT FOUND"
+```text
+/home/cabnet/docs/V3_CANDIDATE_WATCH_AND_SHELL_CLEANUP_MILESTONE_20260515.md
 ```
-
-Expected:
-
-- No syntax errors
-- HTTP 302 to `/ops/login.php` when unauthenticated
-- Good markers present
-- Bad markers returns `OLD TYPO NOT FOUND`
 
 ## Safety
 
-No route behavior changes. No routes moved or deleted. No redirects. No SQL. No DB writes. No queue mutations. No Bolt, EDXEIX, or AADE calls. Live EDXEIX submission remains disabled.
+No executable production files are included. No DB or secret files are included.
