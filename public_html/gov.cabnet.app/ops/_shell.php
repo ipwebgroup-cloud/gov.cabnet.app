@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.2.10
+ * gov.cabnet.app — shared operations UI shell v3.2.11
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -452,7 +452,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">V3 observation toolchain through v3.2.10 is installed: real-mail candidate capture, watch snapshot, evidence snapshot, EDXEIX dry-run preview, expired candidate safety regression audit, controlled live-submit readiness checklist, single-row live-submit design draft, authorization packet, real-format demo mail fixture preview, Maildir writer design, and Maildir writer preflight audit are available. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">V3.2.11 observation toolchain installed. Maildir writer authorization packet is available. Routes were not deleted. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">

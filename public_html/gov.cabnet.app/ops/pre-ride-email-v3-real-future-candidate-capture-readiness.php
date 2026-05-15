@@ -37,6 +37,9 @@
  *
  * v3.2.10:
  * - Adds Maildir fixture writer preflight audit section.
+ *
+ * v3.2.11:
+ * - Adds Maildir fixture writer authorization packet section.
  */
 
 declare(strict_types=1);
@@ -55,6 +58,7 @@ $authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($
 $demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
 $maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
 $maildirWriterPreflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
+$maildirWriterAuthorization = gov_v3rfccr_maildir_fixture_writer_authorization_packet($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -81,6 +85,9 @@ $maildirPreflightPaths = is_array($maildirWriterPreflight['target_maildir_paths'
 $maildirPreflightFixture = is_array($maildirWriterPreflight['fixture_preflight'] ?? null) ? $maildirWriterPreflight['fixture_preflight'] : [];
 $maildirPreflightComponents = is_array($maildirWriterPreflight['component_results'] ?? null) ? $maildirWriterPreflight['component_results'] : [];
 $maildirPreflightBlocks = is_array($maildirWriterPreflight['preflight_blocks'] ?? null) ? $maildirWriterPreflight['preflight_blocks'] : [];
+$maildirAuthorizationGates = is_array($maildirWriterAuthorization['authorization_gates'] ?? null) ? $maildirWriterAuthorization['authorization_gates'] : [];
+$maildirAuthorizationRunbook = is_array($maildirWriterAuthorization['runbook_steps_for_future_explicit_writer_patch'] ?? null) ? $maildirWriterAuthorization['runbook_steps_for_future_explicit_writer_patch'] : [];
+$maildirAuthorizationComponents = is_array($maildirWriterAuthorization['component_results'] ?? null) ? $maildirWriterAuthorization['component_results'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -694,6 +701,48 @@ opsui_shell_begin([
         <li>Live EDXEIX submission remains blocked until Andreas explicitly requests a live-submit update and all live gates pass.</li>
     </ol>
     <p><strong>Recommended next step:</strong> <?= opsui_h((string)($report['recommended_next_step'] ?? 'Continue observing.')) ?></p>
+</section>
+
+
+<section class="panel">
+    <h2>Maildir Fixture Writer Authorization Packet</h2>
+    <p>This packet consolidates the real-format fixture preview, Maildir writer design, path preflight, and explicit-request gates for a future one-shot writer patch. It does not add a writer, does not create mail, and does not trigger intake.</p>
+    <div class="v3cap-next">
+        <p><strong>Packet status:</strong> <code class="v3cap-code"><?= opsui_h((string)($maildirWriterAuthorization['packet_status'] ?? '')) ?></code></p>
+        <p><strong>Decision:</strong> <?= opsui_h((string)($maildirWriterAuthorization['packet_label'] ?? '')) ?></p>
+        <p><strong>Packet only:</strong> <?= !empty($maildirWriterAuthorization['authorization_packet_only']) ? 'yes' : 'no' ?> · <strong>Executable writer added:</strong> <?= !empty($maildirWriterAuthorization['executable_mail_writer_added']) ? 'yes' : 'no' ?> · <strong>Maildir write allowed now:</strong> <?= !empty($maildirWriterAuthorization['maildir_write_allowed_now']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> Maildir write <?= !empty($maildirWriterAuthorization['maildir_write_made']) ? 'yes' : 'no' ?> · write probe <?= !empty($maildirWriterAuthorization['write_probe_performed']) ? 'yes' : 'no' ?> · DB write <?= !empty($maildirWriterAuthorization['db_write_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($maildirWriterAuthorization['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI authorization command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json</code></p>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Authorization gate</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirAuthorizationGates as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirAuthorizationGates): ?><tr><td colspan="2">No Maildir authorization gates are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Future explicit writer patch runbook</h3>
+    <ol>
+    <?php foreach ($maildirAuthorizationRunbook as $step): ?>
+        <li><code class="v3cap-code"><?= opsui_h((string)$step) ?></code></li>
+    <?php endforeach; ?>
+    </ol>
+    <h3>Authorization component posture</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Component</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirAuthorizationComponents as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirAuthorizationComponents): ?><tr><td colspan="2">No Maildir authorization component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
 </section>
 
 <?php opsui_shell_end(); ?>

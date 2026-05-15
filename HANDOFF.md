@@ -1,6 +1,6 @@
 # gov.cabnet.app — Bolt → EDXEIX Bridge Handoff
 
-Current patch: v3.2.3 — EDXEIX Payload Preview / Dry-Run Preflight
+Current patch: v3.2.11 — Maildir Fixture Writer Authorization Packet
 Date: 2026-05-15
 
 ## Project identity
@@ -8,148 +8,45 @@ Date: 2026-05-15
 - Domain: https://gov.cabnet.app
 - Repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
-- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
+- Production Pre-Ride Tool remains untouched: `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`.
 
 ## Production safety posture
 
-- Production Pre-Ride Tool remains untouched:
-  `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-tool.php`
-- V0 workflow untouched.
-- Live EDXEIX submit disabled.
-- V3 live gate closed.
-- No Bolt calls from v3.2.3.
-- No EDXEIX calls from v3.2.3.
-- No AADE calls from v3.2.3.
-- No DB writes from v3.2.3.
-- No queue mutations from v3.2.3.
-- No SQL changes.
-- No route moves/deletes/redirects.
-- No cron jobs or notifications.
+- Live EDXEIX submit remains disabled.
+- V3 live gate remains closed.
+- No executable Maildir writer has been added.
+- No Maildir file is created by v3.2.11.
+- No DB writes, queue mutations, SQL changes, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, route moves, route deletes, or redirects.
 
-## Verified milestone before v3.2.3
+## Current V3 observation toolchain
 
-A real-format pre-ride email was manually placed into the Bolt bridge mailbox path and ingested by the V3 queue.
+The V3 toolchain now includes:
 
-v3.2.1/v3.2.2 confirmed:
+- real future candidate capture readiness
+- watch/status-line snapshot
+- sanitized evidence snapshot
+- EDXEIX payload preview / dry-run preflight
+- expired candidate safety regression audit
+- controlled live-submit readiness checklist
+- single-row live-submit design draft
+- controlled live-submit authorization packet
+- real-format demo mail fixture preview
+- controlled Maildir fixture writer design
+- Maildir fixture writer preflight audit
+- Maildir fixture writer authorization packet
 
-- queue id `1457`
-- `queue_status=live_submit_ready`
-- future possible-real row: 1
-- complete future row: 1
-- missing required fields: none
-- parser_ok: true
-- mapping_ok: true
-- future_ok_flag: true
-- closed-gate operator review candidate: 1
-- operator alert appropriate: 1
-- live gate expected closed: true
-- live risk detected: false
-- live submit recommended now: 0
-- DB write made by observation/evidence tools: false
-- queue mutation made by observation/evidence tools: false
-- Bolt/EDXEIX/AADE calls made by observation/evidence tools: false
+## v3.2.11 changes
 
-Interpretation: the real-format pre-ride email path is proven through parsing, mapping, queue insertion, closed-gate readiness detection, and sanitized evidence snapshot.
+- Adds `--maildir-writer-authorization-json`.
+- Adds aliases `--fixture-writer-authorization-json` and `--one-shot-maildir-authorization-json`.
+- Adds an Ops page section named “Maildir Fixture Writer Authorization Packet”.
+- Consolidates fixture preview, Maildir writer design, Maildir preflight, authorization gates, future runbook, non-goals, and safety posture.
+- Confirms a future writer still requires an explicit Andreas request and a separate patch.
 
-## v3.2.3 changes
-
-- Adds read-only EDXEIX payload preview / dry-run preflight to the existing V3 capture readiness CLI.
-- Adds `--edxeix-preview-json`, `--payload-preview-json`, and `--dry-run-preflight-json` CLI modes.
-- Adds EDXEIX Payload Preview / Dry-Run Preflight section to the Ops readiness page.
-- Shows normalized EDXEIX candidate fields in sanitized form.
-- Keeps passenger phone masked in preview.
-- Keeps live submit disabled and blocked by design.
-- Updates shared shell/nav text to v3.2.3.
-
-## Verification commands
+## Verification command
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --watch-json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --status-line
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --evidence-json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --edxeix-preview-json
-
-curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-
-grep -n "v3.2.3\|edxeix-preview-json\|EDXEIX Payload Preview\|dry_run_preview\|live_submit_allowed_now" \
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php \
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php \
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json
 ```
 
-## Expected result
-
-- Syntax passes.
-- Watch JSON still works.
-- Status line still works.
-- Evidence JSON still works.
-- EDXEIX preview JSON returns `snapshot_mode=read_only_edxeix_payload_preview_dry_run_preflight`.
-- If a complete future candidate exists, expected `preflight_outcome=dry_run_preview_passed_live_submit_still_blocked`.
-- `dry_run_only=true`.
-- `live_submit_allowed_now=false`.
-- `edxeix_call_made=false`.
-- `db_write_made=false`.
-- `queue_mutation_made=false`.
-
-## Next safest direction
-
-After v3.2.3 is verified and committed, the next phase can design a controlled, explicit, single-candidate live-submit gate. Do not enable live EDXEIX submission until Andreas explicitly requests that separate live-submit update and all preflight gates pass.
-
-## v3.2.4 — Expired Candidate Safety Regression Audit
-- Adds read-only expired-candidate safety regression audit to the V3 real future candidate capture readiness CLI/Ops page.
-- New CLI modes: `--expired-safety-json`, `--stale-ready-audit-json`, `--regression-audit-json`.
-- Detects stale `live_submit_ready` rows whose pickup time is no longer future-safe.
-- Proves stale ready rows are not eligible for closed-gate review, operator alert, or live submission.
-- Keeps live EDXEIX submission disabled.
-- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or Pre-Ride Tool changes.
-
-
-## v3.2.5 — Controlled Live-Submit Readiness Checklist
-- Adds read-only go/no-go snapshot via `--live-readiness-json`, `--controlled-live-readiness-json`, and `--go-no-go-json`.
-- Aggregates watch snapshot, evidence snapshot, EDXEIX dry-run preview, expired candidate safety audit, live gate posture, DB/queue availability, and manual gates.
-- Does not enable live submit and performs no DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, or notifications.
-- Live EDXEIX submission remains blocked by design and requires an explicit future Andreas request before any live-submit patch is created.
-
-
-## v3.2.6 — Single-Row Controlled Live-Submit Design Draft
-
-- Added read-only single-row live-submit design draft output.
-- New CLI modes: `--single-row-live-design-json`, `--first-live-test-design-json`, `--controlled-live-submit-design-json`.
-- No live submitter was added; live EDXEIX submission remains blocked.
-- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
-
-
-## v3.2.7 — Controlled Live-Submit Runbook / Authorization Packet
-
-- Added read-only authorization packet output for a future first controlled single-row live test.
-- New CLI modes: `--authorization-packet-json`, `--controlled-live-runbook-json`, `--first-live-authorization-json`.
-- No executable live submitter was added; live EDXEIX submission remains blocked.
-- No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
-
-
-## Latest verified target — v3.2.8
-- Adds Real-Format Demo Mail Fixture Preview.
-- Preview is redacted and read-only.
-- No Maildir writes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
-- Production Pre-Ride Tool remains untouched.
-
-
-## v3.2.9 verified target
-
-V3.2.9 adds a read-only controlled Maildir fixture writer design draft. It does not add an executable writer, does not write to Maildir, does not mutate the queue, does not write to DB, and does not call Bolt/EDXEIX/AADE. Live EDXEIX submission remains blocked.
-
-## v3.2.10 — Maildir Fixture Writer Preflight Audit
-
-Installed/readiness target:
-- Read-only Maildir fixture writer preflight audit.
-- CLI: `--maildir-writer-preflight-json`.
-- Checks target Maildir path posture without writing a file or probe.
-- Confirms no executable Maildir writer is added.
-- Live EDXEIX submission remains blocked.
-- No DB writes, queue mutations, Maildir writes, Bolt calls, EDXEIX calls, or AADE calls.
-
+Expected safety posture: `authorization_packet_only=true`, `executable_mail_writer_added=false`, `maildir_write_allowed_now=false`, `maildir_write_made=false`, `future_patch_required_for_maildir_write=true`, and live submit blocked.

@@ -47,13 +47,17 @@
  * v3.2.10:
  * - Adds read-only Maildir fixture writer preflight audit.
  * - Checks target Maildir path posture without creating a message or probe file.
+ *
+ * v3.2.11:
+ * - Adds read-only Maildir fixture writer authorization packet.
+ * - Consolidates fixture preview, writer design, path preflight, and explicit request gates.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.10-v3-maildir-fixture-writer-preflight-audit';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.11-v3-maildir-fixture-writer-authorization-packet';
 const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_maildir_fixture_writer_preflight_audit';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, authorization packet, real-format mail fixture previews, and Maildir writer design and Maildir writer preflight snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, authorization packet, real-format mail fixture previews, and Maildir writer design, Maildir writer preflight, and Maildir writer authorization snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -2082,6 +2086,124 @@ function gov_v3rfccr_controlled_maildir_fixture_writer_preflight(array $report):
     ];
 }
 
+/** @return array<string,mixed> */
+function gov_v3rfccr_maildir_fixture_writer_authorization_packet(array $report): array
+{
+    $fixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
+    $design = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
+    $preflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $liveGate = is_array($report['live_gate'] ?? null) ? $report['live_gate'] : [];
+
+    $liveRisk = !empty($summary['live_risk_detected']) || !empty($liveGate['live_risk_detected']);
+    $newPath = is_array($preflight['target_maildir_paths']['new'] ?? null) ? $preflight['target_maildir_paths']['new'] : [];
+    $tmpPath = is_array($preflight['target_maildir_paths']['tmp'] ?? null) ? $preflight['target_maildir_paths']['tmp'] : [];
+    $preflightBlocks = is_array($preflight['preflight_blocks'] ?? null) ? $preflight['preflight_blocks'] : [];
+
+    $fixtureOk = !empty($fixture['ok']);
+    $designOk = !empty($design['ok']);
+    $preflightOk = !empty($preflight['ok']) && $preflightBlocks === [];
+    $pathsReady = !empty($preflight['maildir_paths_ready_for_future_explicit_writer']);
+    $dangerTokensClear = empty($fixture['body_contains_demo_test_canary_tokens']);
+    $liveGateClosed = !empty($liveGate['expected_closed_pre_live_posture']) && empty($liveGate['enabled']);
+
+    $packetReady = $fixtureOk && $designOk && $preflightOk && $pathsReady && $dangerTokensClear && $liveGateClosed && !$liveRisk;
+    $packetStatus = $packetReady ? 'packet_ready_awaiting_explicit_andreas_request' : 'packet_not_ready_review_blocks';
+    $packetLabel = $packetReady
+        ? 'All read-only Maildir fixture-writer gates are ready. A separate explicit writer patch is still required before any mail file can be created.'
+        : 'One or more Maildir fixture-writer authorization gates require review. No writer is added and no mail file is created.';
+
+    return [
+        'ok' => !empty($report['ok']) && !$liveRisk,
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_maildir_fixture_writer_authorization_packet',
+        'packet_status' => $packetStatus,
+        'packet_label' => $packetLabel,
+        'authorization_packet_only' => true,
+        'design_only' => true,
+        'fixture_preview_available' => $fixtureOk,
+        'preflight_available' => $preflightOk,
+        'maildir_paths_ready_for_future_explicit_writer' => $pathsReady,
+        'executable_mail_writer_added' => false,
+        'maildir_write_allowed_now' => false,
+        'maildir_write_made' => false,
+        'maildir_write_recommended_now' => 0,
+        'future_patch_required_for_maildir_write' => true,
+        'requires_explicit_andreas_maildir_write_request' => true,
+        'write_probe_performed' => false,
+        'live_submit_allowed_now' => false,
+        'live_submit_blocked_by_design' => true,
+        'edxeix_call_made' => false,
+        'db_write_made' => false,
+        'queue_mutation_made' => false,
+        'bolt_call_made' => false,
+        'aade_call_made' => false,
+        'cron_job_added' => false,
+        'notification_sent' => false,
+        'authorization_gates' => [
+            'fixture_preview_ok' => $fixtureOk,
+            'fixture_body_has_no_demo_test_canary_tokens' => $dangerTokensClear,
+            'maildir_writer_design_ok' => $designOk,
+            'maildir_preflight_ok' => $preflightOk,
+            'maildir_new_path_ready' => !empty($newPath['exists']) && !empty($newPath['is_dir']) && !empty($newPath['is_writable_by_current_process']),
+            'maildir_tmp_path_ready' => !empty($tmpPath['exists']) && !empty($tmpPath['is_dir']) && !empty($tmpPath['is_writable_by_current_process']),
+            'write_probe_not_performed' => empty($preflight['write_probe_performed']),
+            'live_gate_currently_disabled' => $liveGateClosed,
+            'explicit_andreas_maildir_write_request_still_required' => true,
+            'separate_writer_patch_still_required' => true,
+        ],
+        'runbook_steps_for_future_explicit_writer_patch' => [
+            '1_generate_demo_mail_fixture_preview_and_record_redacted_body_hash',
+            '2_run_maildir_writer_preflight_and_confirm_new_tmp_paths_ready',
+            '3_generate_this_authorization_packet_and_confirm_packet_status_ready',
+            '4_andreas_explicitly_requests_one_maildir_fixture_write_patch',
+            '5_apply_separate_writer_patch_defaulting_to_preview_only',
+            '6_run_writer_once_with_explicit_write_flag_only',
+            '7_confirm_exactly_one_mail_file_created_in_maildir_new',
+            '8_wait_for_intake_then_verify_watch_snapshot_detects_one_future_candidate',
+            '9_run_evidence_and_edxeix_preview_snapshots_for_the_created_candidate',
+            '10_remove_or_disable_writer_after_test_if_no_longer_needed',
+        ],
+        'non_goals_confirmed' => [
+            'does_not_create_mail_file' => true,
+            'does_not_add_executable_writer' => true,
+            'does_not_write_maildir' => true,
+            'does_not_trigger_intake' => true,
+            'does_not_submit_to_edxeix' => true,
+            'does_not_enable_live_gate' => true,
+            'does_not_mutate_queue' => true,
+            'does_not_write_database' => true,
+        ],
+        'component_results' => [
+            'fixture_preview_ok' => $fixtureOk,
+            'fixture_body_has_danger_tokens' => !empty($fixture['body_contains_demo_test_canary_tokens']),
+            'fixture_redacted_body_sha256' => (string)($fixture['redacted_body_sha256'] ?? ''),
+            'maildir_writer_design_outcome' => (string)($design['design_outcome'] ?? ''),
+            'maildir_preflight_outcome' => (string)($preflight['preflight_outcome'] ?? ''),
+            'maildir_new_entry_count_if_readable' => (int)($newPath['entry_count_if_readable'] ?? 0),
+            'maildir_tmp_entry_count_if_readable' => (int)($tmpPath['entry_count_if_readable'] ?? 0),
+            'live_gate_expected_closed' => !empty($liveGate['expected_closed_pre_live_posture']),
+            'live_gate_enabled' => !empty($liveGate['enabled']),
+            'live_gate_mode' => (string)($liveGate['mode'] ?? ''),
+            'live_gate_adapter' => (string)($liveGate['adapter'] ?? ''),
+        ],
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($liveGate['expected_closed_pre_live_posture']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => 0,
+            'maildir_write_made' => false,
+            'write_probe_performed' => false,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+        ],
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json',
+    ];
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -2118,6 +2240,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $demoMailFixtureJson = in_array('--demo-mail-fixture-json', $argv, true) || in_array('--real-format-demo-mail-json', $argv, true) || in_array('--pre-ride-fixture-json', $argv, true);
     $maildirWriterDesignJson = in_array('--maildir-writer-design-json', $argv, true) || in_array('--controlled-demo-mail-writer-design-json', $argv, true) || in_array('--fixture-writer-design-json', $argv, true);
     $maildirWriterPreflightJson = in_array('--maildir-writer-preflight-json', $argv, true) || in_array('--fixture-writer-preflight-json', $argv, true) || in_array('--maildir-path-audit-json', $argv, true);
+    $maildirWriterAuthorizationJson = in_array('--maildir-writer-authorization-json', $argv, true) || in_array('--fixture-writer-authorization-json', $argv, true) || in_array('--one-shot-maildir-authorization-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
@@ -2130,6 +2253,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
     $maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
     $maildirWriterPreflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
+    $maildirWriterAuthorization = gov_v3rfccr_maildir_fixture_writer_authorization_packet($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -2181,6 +2305,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($maildirWriterPreflight['ok']) ? 0 : 1;
     }
 
+    if ($maildirWriterAuthorizationJson) {
+        echo json_encode($maildirWriterAuthorization, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($maildirWriterAuthorization['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -2197,6 +2326,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         $report['real_format_demo_mail_fixture_preview'] = $demoMailFixture;
         $report['controlled_maildir_fixture_writer_design'] = $maildirWriterDesign;
         $report['controlled_maildir_fixture_writer_preflight'] = $maildirWriterPreflight;
+        $report['maildir_fixture_writer_authorization_packet'] = $maildirWriterAuthorization;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -2223,6 +2353,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Real-format demo mail fixture preview command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --demo-mail-fixture-json' . PHP_EOL;
     echo 'Controlled Maildir fixture writer design command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-design-json' . PHP_EOL;
     echo 'Maildir fixture writer preflight command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-preflight-json' . PHP_EOL;
+    echo 'Maildir fixture writer authorization command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }
