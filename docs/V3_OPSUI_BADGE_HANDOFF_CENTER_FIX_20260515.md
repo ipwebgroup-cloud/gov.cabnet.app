@@ -1,42 +1,31 @@
-# Patch README — v3.1.13 Restore `opsui_badge()` for Handoff Center
+# V3.1.13 — Restore `opsui_badge()` for Handoff Center
 
-## What changed
+## Purpose
 
-Restores `opsui_badge()` in the shared operations shell so `/ops/handoff-center.php` fully renders its status badges, package buttons, copy/paste prompt, and safe file check sections.
+This patch restores the shared `opsui_badge()` helper in `/ops/_shell.php` so `/ops/handoff-center.php` can render its badge/status controls and package builder sections again.
 
-## Files included
+## Verified live issue
+
+The Handoff Center rendered only the intro area and stopped before the package buttons. The page calls `opsui_badge()`, but the shared shell no longer defined the helper.
+
+## Safety posture
+
+- No Bolt calls.
+- No EDXEIX calls.
+- No AADE calls.
+- No database writes.
+- No queue mutations.
+- No route moves, deletes, or redirects.
+- Live EDXEIX submission remains disabled.
+- Production Pre-Ride Tool remains untouched.
+
+## Changed file
 
 - `public_html/gov.cabnet.app/ops/_shell.php`
-- `docs/V3_OPSUI_BADGE_HANDOFF_CENTER_FIX_20260515.md`
-- `PATCH_README.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
-
-## Upload path
-
-Upload:
-
-```text
-public_html/gov.cabnet.app/ops/_shell.php
-```
-
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-```
-
-Optional docs mirror:
-
-```text
-/home/cabnet/docs/V3_OPSUI_BADGE_HANDOFF_CENTER_FIX_20260515.md
-```
-
-## SQL
-
-None.
 
 ## Verification
+
+Expected live checks:
 
 ```bash
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
@@ -58,7 +47,7 @@ curl -I --max-time 10 https://gov.cabnet.app/ops/handoff-center.php
 grep -n "v3.1.13\|function opsui_badge\|Restores opsui_badge" /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
-Expected:
+Expected output:
 
 ```text
 No syntax errors
@@ -69,7 +58,3 @@ HTTP 302 to /ops/login.php when unauthenticated
 v3.1.13 marker present
 function opsui_badge present
 ```
-
-## Safety
-
-No route behavior changes. No DB writes. No queue mutations. No Bolt, EDXEIX, or AADE calls. Live EDXEIX submission remains disabled. Production Pre-Ride Tool remains untouched.

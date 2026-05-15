@@ -1,30 +1,24 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge
 
-Current milestone: v3.1.12 V3 Observation Toolchain Integrity Audit.
+## Current patch
 
-## Current production posture
+v3.1.13 restores `opsui_badge()` in the shared ops shell so `/ops/handoff-center.php` fully renders again.
 
-- Production pre-ride email tool remains untouched.
-- V0 workflow remains untouched.
-- V3 live gate remains closed.
-- Live EDXEIX submission remains disabled.
-- No Bolt, EDXEIX, or AADE calls are introduced by this patch.
-- No DB writes, queue mutations, SQL changes, route moves, route deletes, or redirects are introduced.
+## Verified issue
 
-## v3.1.12 added
+The Handoff Center rendered only its intro section because `handoff-center.php` calls `opsui_badge()`, while the current `_shell.php` no longer defined that helper.
 
-- CLI: `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_observation_toolchain_integrity_audit.php`
-- Ops page: `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-observation-toolchain-integrity-audit.php`
+## Current safe posture
 
-The audit verifies required V3 observation files, shared shell navigation/note normalization, public backup hygiene, and the consolidated observation overview state.
+- Production Pre-Ride Tool untouched.
+- V0 workflow untouched.
+- Live EDXEIX submit disabled.
+- V3 live gate closed.
+- No SQL changes.
+- No DB writes.
+- No queue mutations.
+- No Bolt, EDXEIX, or AADE calls.
 
-## Expected clean result
+## Next step
 
-- `ok=true`
-- `component_files_ok=true`
-- `shell_nav_ok=true`
-- `shell_note_ok=true`
-- `public_backup_files_found=0`
-- `overview_ok=true`
-- `live_risk=false`
-- `final_blocks=[]`
+Upload `_shell.php`, verify the Handoff Center renders package buttons again, then commit.

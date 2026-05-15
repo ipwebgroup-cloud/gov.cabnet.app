@@ -1,15 +1,14 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.1.11
+ * gov.cabnet.app — shared operations UI shell v3.1.13
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
  *
- * v3.1.11:
- * - Re-applies observation overview navigation and normalized side-note text.
- * - Keeps V3 observation overview links in top Pre-Ride menu and Daily Operations sidebar.
- * - Keeps candidate watch and v3.1 audit links available.
- * - Navigation/text only; no route moves, deletes, redirects, DB writes, queue mutations, or live-submit changes.
+ * v3.1.13:
+ * - Restores opsui_badge() helper for Handoff Center compatibility.
+ * - Keeps V3 observation overview navigation and shared side-note normalization.
+ * - Navigation/text/helper only; no route moves, deletes, redirects, DB writes, queue mutations, or live-submit changes.
  */
 
 declare(strict_types=1);
@@ -76,6 +75,24 @@ function opsui_initials(string $name): string
     $last = count($parts) > 1 ? opsui_substr($parts[count($parts) - 1], 0, 1) : '';
     $out = opsui_upper($first . $last);
     return $out !== '' ? $out : 'OP';
+}
+
+function opsui_badge(string $label, string $tone = 'neutral'): string
+{
+    $tone = strtolower(trim($tone));
+    $allowed = [
+        'good' => true,
+        'warn' => true,
+        'bad' => true,
+        'neutral' => true,
+        'info' => true,
+    ];
+
+    if (!isset($allowed[$tone])) {
+        $tone = 'neutral';
+    }
+
+    return '<span class="badge ' . opsui_h($tone) . '">' . opsui_h($label) . '</span>';
 }
 
 function opsui_current_path(): string
@@ -386,6 +403,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_side_link('/ops/legacy-public-utility-quiet-period-audit.php', 'Legacy Quiet-Period Audit', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility-stats-source-audit.php', 'Legacy Stats Source Audit', $current) ?>
                 <?= opsui_side_link('/ops/legacy-public-utility-readiness-board.php', 'Legacy Utility Readiness Board', $current) ?>
+                <?= opsui_side_link('/ops/pre-ride-email-v3-observation-toolchain-integrity-audit.php', 'V3 Toolchain Integrity Audit', $current) ?>
                 <?= opsui_side_link('/ops/deployment-center.php', 'Deployment Center', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-tools.php', 'Package Tools', $current) ?>
                 <?= opsui_side_link('/ops/handoff-package-archive.php', 'Package Archive', $current) ?>
@@ -402,7 +420,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10; shared shell side-note normalized in v3.1.11. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">Navigation de-bloated in v3.0.80; public route exposure audit added in v3.0.81; public utility relocation planning added in v3.0.83; legacy wrapper navigation added in v3.0.90; legacy usage audit added in v3.0.92; legacy stats source audit navigation added in v3.0.97; legacy readiness board navigation added in v3.0.99; real-mail queue health navigation added in v3.1.1; real-mail expiry reason audit navigation added in v3.1.3; next real-mail candidate watch navigation added in v3.1.6; real-mail observation overview navigation added in v3.1.10; shared shell side-note normalized in v3.1.11; opsui_badge restored in v3.1.13. Routes were not deleted; developer routes are grouped under Developer Archive. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">
