@@ -1,51 +1,82 @@
-# gov.cabnet.app Patch — v3.0.88 Public Utility Reference Cleanup Phase 2 Preview
+# gov.cabnet.app patch — v3.0.89 Legacy Public Utility Ops Wrapper
 
 ## What changed
 
-Adds a read-only Phase 2 preview scanner that identifies remaining actionable references to guarded public-root utility endpoints while ignoring route inventory, audit, and planner references.
+Adds a safe `/ops` wrapper/registry for legacy guarded public-root utility endpoints.
+
+This patch does **not** move, delete, redirect, include, or execute the legacy utilities. It only creates a stable `/ops` destination that later cleanup patches can point to.
 
 ## Files included
 
-- `gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php`
-- `public_html/gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php`
-- `docs/LIVE_PUBLIC_UTILITY_REFERENCE_CLEANUP_PHASE2_PREVIEW_20260515.md`
-- `PATCH_README.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
+```text
+public_html/gov.cabnet.app/ops/legacy-public-utility.php
+gov.cabnet.app_app/src/Support/LegacyPublicUtilityRegistry.php
+docs/LIVE_LEGACY_PUBLIC_UTILITY_OPS_WRAPPER_20260515.md
+PATCH_README.md
+HANDOFF.md
+CONTINUE_PROMPT.md
+```
 
 ## Upload paths
 
 ```text
-/home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php
-/home/cabnet/public_html/gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php
+/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility.php
+/home/cabnet/gov.cabnet.app_app/src/Support/LegacyPublicUtilityRegistry.php
 ```
+
+Docs may be copied to repo `/docs/` and/or `/home/cabnet/docs/` as preferred.
 
 ## SQL
 
 None.
 
-## Verification
+## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Support/LegacyPublicUtilityRegistry.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility.php
 
-curl -I --max-time 10 https://gov.cabnet.app/ops/public-utility-reference-cleanup-phase2-preview.php
+curl -I --max-time 10 https://gov.cabnet.app/ops/legacy-public-utility.php
 
-su -s /bin/bash cabnet -c "/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/public_utility_reference_cleanup_phase2_preview.php --json" \
-| php -r '$j=json_decode(stream_get_contents(STDIN), true); echo "ok=".(($j["ok"]??false)?"true":"false").PHP_EOL; echo "version=".($j["version"]??"").PHP_EOL; echo "actionable=".($j["summary"]["actionable_references"]??"?").PHP_EOL; echo "safe_phase2=".($j["summary"]["safe_phase2_candidates"]??"?").PHP_EOL; echo "final_blocks=".json_encode($j["final_blocks"]??[], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).PHP_EOL;'
+grep -n "v3.0.89\|Legacy Public Utility Wrapper\|direct_execution_from_wrapper" \
+  /home/cabnet/gov.cabnet.app_app/src/Support/LegacyPublicUtilityRegistry.php \
+  /home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility.php
 ```
 
-Expected: syntax clean, 302 auth redirect when unauthenticated, ok=true, final_blocks=[].
+Expected:
+
+```text
+No syntax errors
+HTTP 302 to /ops/login.php when unauthenticated
+v3.0.89 markers present
+```
+
+## Browser URL
+
+```text
+https://gov.cabnet.app/ops/legacy-public-utility.php
+```
+
+## Safety posture
+
+- Production pre-ride tool untouched
+- Public-root utilities untouched
+- V3 live gate remains closed
+- EDXEIX adapter remains skeleton/non-live
+- No Bolt call
+- No EDXEIX call
+- No AADE call
+- No DB connection
+- No writes
 
 ## Commit title
 
-Add public utility Phase 2 reference preview
+Add legacy public utility ops wrapper
 
 ## Commit description
 
-Adds a read-only Phase 2 preview scanner for remaining references to guarded public-root Bolt/EDXEIX utility endpoints.
+Adds a read-only `/ops` wrapper and registry for legacy guarded public-root Bolt/EDXEIX utility endpoints.
 
-The scanner separates actionable docs/ops/private/public-root references from intentional inventory, audit, and planner references so future cleanup does not chase route inventory noise.
+The wrapper provides a stable future target for reference cleanup after the Phase 2 preview showed actionable references remain and no safe cleanup candidates are currently available.
 
-No routes are moved or deleted. No SQL changes are made. No Bolt, EDXEIX, AADE, DB, or filesystem write actions are performed. Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
+No routes are moved or deleted. Legacy public-root utility files are not redirected, included, or executed. No SQL changes are made. No Bolt, EDXEIX, AADE, database, or filesystem write actions are performed. Live EDXEIX submission remains disabled and the production pre-ride tool is untouched.
