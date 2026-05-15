@@ -8,8 +8,8 @@
 
 declare(strict_types=1);
 
-const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_VERSION = 'v3.0.84-public-utility-relocation-plan-permission-safe-scan';
-const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only source scan.';
+const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_VERSION = 'v3.0.85-public-utility-relocation-plan-dependency-evidence';
+const GOV_PUBLIC_UTILITY_RELOCATION_PLAN_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No database connection. No filesystem writes. No route moves. No route deletion. Read-only dependency evidence scan.';
 
 /** @return array<int,string> */
 function gov_purp_args(array $argv): array
@@ -36,6 +36,11 @@ function gov_purp_home_root(): string
 function gov_purp_public_root(): string
 {
     return gov_purp_home_root() . '/public_html/gov.cabnet.app';
+}
+
+function gov_purp_docs_root(): string
+{
+    return gov_purp_home_root() . '/docs';
 }
 
 /** @return array<string,array<string,string>> */
@@ -254,6 +259,77 @@ function gov_purp_scan_project_references(array $targetNames, array $roots): arr
     return $refs;
 }
 
+
+function gov_purp_ref_kind(string $path): string
+{
+    $path = str_replace('\\', '/', $path);
+    if (str_contains($path, '/public_html/gov.cabnet.app/ops/')) {
+        return 'ops_route_or_page';
+    }
+    if (str_contains($path, '/public_html/gov.cabnet.app/')) {
+        return 'public_root_code';
+    }
+    if (str_contains($path, '/gov.cabnet.app_app/')) {
+        return 'private_app_code';
+    }
+    if (str_contains($path, '/docs/')) {
+        return 'server_docs';
+    }
+    return 'other_project_file';
+}
+
+function gov_purp_is_inventory_or_planner_ref(string $path): bool
+{
+    $path = str_replace('\\', '/', $path);
+    $ignoreNeedles = [
+        '/ops/route-index.php',
+        '/ops/public-utility-relocation-plan.php',
+        '/ops/public-route-exposure-audit.php',
+        '/gov.cabnet.app_app/cli/public_utility_relocation_plan.php',
+        '/gov.cabnet.app_app/cli/public_route_exposure_audit.php',
+        '/docs/LIVE_PUBLIC_UTILITY_RELOCATION_PLAN_',
+        '/docs/LIVE_PUBLIC_ROUTE_EXPOSURE_AUDIT_',
+    ];
+    foreach ($ignoreNeedles as $needle) {
+        if (str_contains($path, $needle)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** @param array<int,array<string,mixed>> $refs @return array<string,mixed> */
+function gov_purp_dependency_evidence(array $refs, string $selfPath): array
+{
+    $selfPath = str_replace('\\', '/', $selfPath);
+    $external = [];
+    $blocking = [];
+    $byKind = [];
+
+    foreach ($refs as $ref) {
+        $path = str_replace('\\', '/', (string)($ref['path'] ?? ''));
+        if ($path === '' || $path === $selfPath) {
+            continue;
+        }
+        $kind = gov_purp_ref_kind($path);
+        $ref['kind'] = $kind;
+        $external[] = $ref;
+        $byKind[$kind] = ($byKind[$kind] ?? 0) + 1;
+
+        if (!gov_purp_is_inventory_or_planner_ref($path)) {
+            $blocking[] = $ref;
+        }
+    }
+
+    return [
+        'external_count' => count($external),
+        'blocking_count' => count($blocking),
+        'by_kind' => $byKind,
+        'external_sample' => array_slice($external, 0, 8),
+        'blocking_sample' => array_slice($blocking, 0, 8),
+    ];
+}
+
 /** @return array<string,mixed> */
 function gov_public_utility_relocation_plan_run(): array
 {
@@ -261,7 +337,8 @@ function gov_public_utility_relocation_plan_run(): array
     $appRoot = gov_purp_app_root();
     $targets = gov_purp_targets();
     $targetNames = array_keys($targets);
-    $references = gov_purp_scan_project_references($targetNames, [$publicRoot, $appRoot]);
+    $docsRoot = gov_purp_docs_root();
+    $references = gov_purp_scan_project_references($targetNames, [$publicRoot, $appRoot, $docsRoot]);
 
     $byTarget = [];
     foreach ($references as $ref) {
@@ -273,27 +350,22 @@ function gov_public_utility_relocation_plan_run(): array
     }
 
     $routes = [];
-    $moveReadyNow = 0;
-    $requiresCronCheck = 0;
+    $requiresDependencyCheck = 0;
+    $totalBlockingReferences = 0;
     foreach ($targets as $file => $info) {
         $path = $publicRoot . '/' . $file;
         $meta = gov_purp_file_meta($path);
         $raw = ($meta['readable'] ?? false) ? (string)@file_get_contents($path) : '';
         $tokens = gov_purp_token_scan($raw);
         $refs = $byTarget[$file] ?? [];
-        $selfRefs = array_values(array_filter($refs, static function (array $ref) use ($path): bool {
-            return str_replace('\\', '/', (string)($ref['path'] ?? '')) === str_replace('\\', '/', $path);
-        }));
-        $externalRefs = array_values(array_filter($refs, static function (array $ref) use ($path): bool {
-            return str_replace('\\', '/', (string)($ref['path'] ?? '')) !== str_replace('\\', '/', $path);
-        }));
-
+        $dependencyEvidence = gov_purp_dependency_evidence($refs, $path);
+        $blockingRefCount = (int)($dependencyEvidence['blocking_count'] ?? 0);
         $needsCronCheck = in_array($file, ['bolt-fleet-orders-watch.php', 'bolt_sync_orders.php', 'bolt_sync_reference.php', 'bolt_stage_edxeix_jobs.php', 'bolt_submission_worker.php'], true);
-        if ($needsCronCheck) {
-            $requiresCronCheck++;
-        } else {
-            $moveReadyNow++;
+        $needsDependencyCheck = $needsCronCheck || $blockingRefCount > 0;
+        if ($needsDependencyCheck) {
+            $requiresDependencyCheck++;
         }
+        $totalBlockingReferences += $blockingRefCount;
 
         $routes[] = [
             'file' => $file,
@@ -307,14 +379,17 @@ function gov_public_utility_relocation_plan_run(): array
             'file_meta' => $meta,
             'tokens' => $tokens,
             'project_reference_count' => count($refs),
-            'external_project_reference_count' => count($externalRefs),
-            'external_project_references_sample' => array_slice($externalRefs, 0, 8),
-            'requires_cron_or_bookmark_check_before_move' => $needsCronCheck,
+            'external_project_reference_count' => (int)($dependencyEvidence['external_count'] ?? 0),
+            'blocking_dependency_reference_count' => $blockingRefCount,
+            'reference_kinds' => $dependencyEvidence['by_kind'] ?? [],
+            'external_project_references_sample' => $dependencyEvidence['external_sample'] ?? [],
+            'blocking_dependency_references_sample' => $dependencyEvidence['blocking_sample'] ?? [],
+            'requires_cron_or_bookmark_check_before_move' => $needsDependencyCheck,
             'delete_now' => false,
             'move_now' => false,
-            'safe_next_action' => $needsCronCheck
-                ? 'Check cron/monitor/bookmark usage before any relocation. No code move now.'
-                : 'Can be moved later through a compatibility-stub patch after Andreas approval. No code move now.',
+            'safe_next_action' => $needsDependencyCheck
+                ? 'Dependency evidence found or cron risk exists. Keep route in place; do not relocate until references are reviewed and replacement wrappers are prepared.'
+                : 'Lower dependency evidence, but still no code move now. Use a compatibility-stub patch only after Andreas approval.',
         ];
     }
 
@@ -330,15 +405,16 @@ function gov_public_utility_relocation_plan_run(): array
             'target_public_utilities' => count($targets),
             'delete_recommended_now' => 0,
             'move_recommended_now' => 0,
-            'requires_cron_or_bookmark_check' => $requiresCronCheck,
+            'requires_cron_or_bookmark_check' => $requiresDependencyCheck,
+            'blocking_dependency_reference_count' => $totalBlockingReferences,
             'planned_as_cli_or_ops' => count($targets),
         ],
         'routes' => $routes,
         'operator_dependency_check_commands' => [
             'server_cron_search_root' => 'grep -RIn "bolt-api-smoke-test.php\\|bolt-fleet-orders-watch.php\\|bolt_stage_edxeix_jobs.php\\|bolt_submission_worker.php\\|bolt_sync_orders.php\\|bolt_sync_reference.php" /var/spool/cron /etc/cron* /home/cabnet 2>/dev/null | head -200',
-            'project_reference_search' => 'grep -RIn "bolt-api-smoke-test.php\\|bolt-fleet-orders-watch.php\\|bolt_stage_edxeix_jobs.php\\|bolt_submission_worker.php\\|bolt_sync_orders.php\\|bolt_sync_reference.php" /home/cabnet/public_html/gov.cabnet.app /home/cabnet/gov.cabnet.app_app 2>/dev/null | head -200',
+            'project_reference_search' => 'grep -RIn "bolt-api-smoke-test.php\\|bolt-fleet-orders-watch.php\\|bolt_stage_edxeix_jobs.php\\|bolt_submission_worker.php\\|bolt_sync_orders.php\\|bolt_sync_reference.php" /home/cabnet/public_html/gov.cabnet.app /home/cabnet/gov.cabnet.app_app /home/cabnet/docs 2>/dev/null | head -200',
         ],
-        'recommended_next_step' => 'No-break dependency check only. Do not move or delete public-root utilities until cron/monitor/bookmark references are known.',
+        'recommended_next_step' => 'No-break dependency evidence review only. Do not move or delete public-root utilities; active ops/docs/code references must be retired or wrapped first.',
         'final_blocks' => [],
         'finished_at' => gmdate('c'),
     ];

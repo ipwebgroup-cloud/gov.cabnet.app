@@ -39,12 +39,12 @@ opsui_shell_begin([
     'active_section' => 'Developer Archive',
     'breadcrumbs' => 'Αρχική / Διαχειριστικό / Public Utility Relocation Plan',
     'force_safe_notice' => true,
-    'safe_notice' => 'READ-ONLY PLAN. No route moves, no deletions, no DB, no Bolt, no EDXEIX, no AADE, and no filesystem writes. Identifies no-break relocation targets for guarded public-root utilities.',
+    'safe_notice' => 'READ-ONLY PLAN. No route moves, no deletions, no DB, no Bolt, no EDXEIX, no AADE, and no filesystem writes. Classifies dependency evidence before any relocation of guarded public-root utilities.',
 ]);
 ?>
 <section class="card hero neutral">
     <h1>Public Utility Relocation Plan</h1>
-    <p>Plans the later no-break relocation of guarded public-root utility endpoints into private CLI or supervised /ops routes. This page does not move or disable anything.</p>
+    <p>Plans the later no-break relocation of guarded public-root utility endpoints into private CLI or supervised /ops routes, while showing current dependency evidence. This page does not move or disable anything.</p>
     <div>
         <?= opsui_badge('READ ONLY', 'good') ?>
         <?= opsui_badge('NO DELETE', 'good') ?>
@@ -64,6 +64,7 @@ opsui_shell_begin([
     <?= opsui_metric((string)($summary['delete_recommended_now'] ?? 0), 'delete recommended now') ?>
     <?= opsui_metric((string)($summary['move_recommended_now'] ?? 0), 'move recommended now') ?>
     <?= opsui_metric((string)($summary['requires_cron_or_bookmark_check'] ?? 0), 'require dependency check') ?>
+    <?= opsui_metric((string)($summary['blocking_dependency_reference_count'] ?? 0), 'blocking refs found') ?>
 </section>
 
 <section class="card">
@@ -85,7 +86,7 @@ opsui_shell_begin([
                     <th>Role</th>
                     <th>Recommended target</th>
                     <th>Tokens</th>
-                    <th>Dependency status</th>
+                    <th>Dependency evidence</th>
                     <th>Safe action</th>
                 </tr>
             </thead>
@@ -126,8 +127,13 @@ opsui_shell_begin([
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?= !empty($route['requires_cron_or_bookmark_check_before_move']) ? opsui_badge('cron/bookmark check first', 'warn') : opsui_badge('lower dependency risk', 'good') ?><br>
-                        <span class="small">External project refs: <?= purp_h($route['external_project_reference_count'] ?? 0) ?></span>
+                        <?= !empty($route['requires_cron_or_bookmark_check_before_move']) ? opsui_badge('dependency review first', 'warn') : opsui_badge('lower dependency risk', 'good') ?><br>
+                        <span class="small">External refs: <?= purp_h($route['external_project_reference_count'] ?? 0) ?></span><br>
+                        <span class="small">Blocking refs: <?= purp_h($route['blocking_dependency_reference_count'] ?? 0) ?></span>
+                        <?php $kinds = is_array($route['reference_kinds'] ?? null) ? $route['reference_kinds'] : []; ?>
+                        <?php if ($kinds): ?>
+                            <br><span class="small">Kinds: <?= purp_h(json_encode($kinds, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?></span>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <strong>Move now:</strong> <?= purp_h(purp_yesno(!empty($route['move_now']))) ?><br>
@@ -139,6 +145,26 @@ opsui_shell_begin([
             </tbody>
         </table>
     </div>
+</section>
+
+<section class="card">
+    <h2>Dependency evidence samples</h2>
+    <p class="small">These samples explain why no move is recommended now. Inventory/planner self-references are filtered out of the blocking count where possible.</p>
+    <?php foreach ($routes as $route): ?>
+        <?php if (!is_array($route)) { continue; } ?>
+        <?php $samples = is_array($route['blocking_dependency_references_sample'] ?? null) ? $route['blocking_dependency_references_sample'] : []; ?>
+        <?php if (!$samples) { continue; } ?>
+        <h3><?= purp_h($route['current_route'] ?? '') ?></h3>
+        <ul class="list">
+            <?php foreach ($samples as $sample): ?>
+                <?php if (!is_array($sample)) { continue; } ?>
+                <li>
+                    <code><?= purp_h($sample['path'] ?? '') ?>:<?= purp_h($sample['line'] ?? '') ?></code><br>
+                    <span class="small"><?= purp_h($sample['preview'] ?? '') ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endforeach; ?>
 </section>
 
 <section class="card">
