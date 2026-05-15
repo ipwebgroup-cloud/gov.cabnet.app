@@ -142,3 +142,14 @@ After v3.2.3 is verified and committed, the next phase can design a controlled, 
 ## v3.2.9 verified target
 
 V3.2.9 adds a read-only controlled Maildir fixture writer design draft. It does not add an executable writer, does not write to Maildir, does not mutate the queue, does not write to DB, and does not call Bolt/EDXEIX/AADE. Live EDXEIX submission remains blocked.
+
+## v3.2.10 — Maildir Fixture Writer Preflight Audit
+
+Installed/readiness target:
+- Read-only Maildir fixture writer preflight audit.
+- CLI: `--maildir-writer-preflight-json`.
+- Checks target Maildir path posture without writing a file or probe.
+- Confirms no executable Maildir writer is added.
+- Live EDXEIX submission remains blocked.
+- No DB writes, queue mutations, Maildir writes, Bolt calls, EDXEIX calls, or AADE calls.
+

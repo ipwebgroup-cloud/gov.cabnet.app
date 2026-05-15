@@ -34,6 +34,9 @@
  *
  * v3.2.9:
  * - Adds controlled Maildir fixture writer design section.
+ *
+ * v3.2.10:
+ * - Adds Maildir fixture writer preflight audit section.
  */
 
 declare(strict_types=1);
@@ -51,6 +54,7 @@ $singleRowDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
 $authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($report);
 $demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
 $maildirWriterDesign = gov_v3rfccr_controlled_maildir_fixture_writer_design($report);
+$maildirWriterPreflight = gov_v3rfccr_controlled_maildir_fixture_writer_preflight($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -73,6 +77,10 @@ $demoFixtureRoute = is_array($demoMailFixture['fixture_route_and_price_preview']
 $maildirWriterPolicy = is_array($maildirWriterDesign['single_write_policy'] ?? null) ? $maildirWriterDesign['single_write_policy'] : [];
 $maildirWriterSequence = is_array($maildirWriterDesign['pre_write_gate_sequence'] ?? null) ? $maildirWriterDesign['pre_write_gate_sequence'] : [];
 $maildirWriterComponents = is_array($maildirWriterDesign['component_results'] ?? null) ? $maildirWriterDesign['component_results'] : [];
+$maildirPreflightPaths = is_array($maildirWriterPreflight['target_maildir_paths'] ?? null) ? $maildirWriterPreflight['target_maildir_paths'] : [];
+$maildirPreflightFixture = is_array($maildirWriterPreflight['fixture_preflight'] ?? null) ? $maildirWriterPreflight['fixture_preflight'] : [];
+$maildirPreflightComponents = is_array($maildirWriterPreflight['component_results'] ?? null) ? $maildirWriterPreflight['component_results'] : [];
+$maildirPreflightBlocks = is_array($maildirWriterPreflight['preflight_blocks'] ?? null) ? $maildirWriterPreflight['preflight_blocks'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -127,7 +135,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.9')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.10')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -458,6 +466,53 @@ opsui_shell_begin([
             <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : opsui_h((string)$value) ?></td></tr>
         <?php endforeach; ?>
         <?php if (!$maildirWriterComponents): ?><tr><td colspan="2">No Maildir writer component results are available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+
+<section class="panel">
+    <h2>Maildir Fixture Writer Preflight Audit</h2>
+    <p>This audit checks the Maildir path posture for a future explicit one-shot writer without creating a file, probe, queue row, or DB write.</p>
+    <div class="v3cap-next">
+        <p><strong>Preflight outcome:</strong> <code class="v3cap-code"><?= opsui_h((string)($maildirWriterPreflight['preflight_outcome'] ?? '')) ?></code></p>
+        <p><strong>Preflight only:</strong> <?= !empty($maildirWriterPreflight['preflight_only']) ? 'yes' : 'no' ?> · <strong>Executable writer added:</strong> <?= !empty($maildirWriterPreflight['executable_mail_writer_added']) ? 'yes' : 'no' ?> · <strong>Maildir write allowed now:</strong> <?= !empty($maildirWriterPreflight['maildir_write_allowed_now']) ? 'yes' : 'no' ?></p>
+        <p><strong>Safety:</strong> Maildir write <?= !empty($maildirWriterPreflight['maildir_write_made']) ? 'yes' : 'no' ?> · write probe <?= !empty($maildirWriterPreflight['write_probe_performed']) ? 'yes' : 'no' ?> · DB write <?= !empty($maildirWriterPreflight['db_write_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($maildirWriterPreflight['edxeix_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI preflight command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-preflight-json</code></p>
+    </div>
+    <?php if ($maildirPreflightBlocks): ?>
+        <div class="v3cap-block"><strong>Preflight blocks:</strong> <?= opsui_h(implode('; ', array_map('strval', $maildirPreflightBlocks))) ?></div>
+    <?php endif; ?>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Maildir path</th><th>Exists</th><th>Directory</th><th>Readable</th><th>Writable by current process</th><th>Perms</th><th>Entries</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirPreflightPaths as $label => $meta): ?>
+            <?php if (!is_array($meta)) { continue; } ?>
+            <tr>
+                <td><code class="v3cap-code"><?= opsui_h((string)$label) ?></code><br><small><?= opsui_h((string)($meta['path'] ?? '')) ?></small></td>
+                <td><?= !empty($meta['exists']) ? 'yes' : 'no' ?></td>
+                <td><?= !empty($meta['is_dir']) ? 'yes' : 'no' ?></td>
+                <td><?= !empty($meta['is_readable']) ? 'yes' : 'no' ?></td>
+                <td><?= !empty($meta['is_writable_by_current_process']) ? 'yes' : 'no' ?></td>
+                <td><code class="v3cap-code"><?= opsui_h((string)($meta['permissions_octal'] ?? '')) ?></code></td>
+                <td><?= opsui_h((string)($meta['entry_count_if_readable'] ?? '')) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirPreflightPaths): ?><tr><td colspan="7">No Maildir path metadata is available.</td></tr><?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h3>Fixture preflight</h3>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Check</th><th>Result</th></tr></thead>
+        <tbody>
+        <?php foreach ($maildirPreflightFixture as $key => $value): ?>
+            <tr><td><code class="v3cap-code"><?= opsui_h((string)$key) ?></code></td><td><?= is_bool($value) ? ($value ? 'yes' : 'no') : (is_array($value) ? opsui_h(implode(', ', array_map('strval', $value))) : opsui_h((string)$value)) ?></td></tr>
+        <?php endforeach; ?>
+        <?php if (!$maildirPreflightFixture): ?><tr><td colspan="2">No fixture preflight data is available.</td></tr><?php endif; ?>
         </tbody>
     </table>
     </div>

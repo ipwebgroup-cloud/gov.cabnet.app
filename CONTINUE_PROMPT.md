@@ -46,3 +46,14 @@ Current latest patch target: v3.2.8 Real-Format Demo Mail Fixture Preview. Keep 
 
 
 Latest planned patch: v3.2.9 — Controlled Maildir Fixture Writer Design Draft. Continue by verifying the new `--maildir-writer-design-json` output. Do not enable Maildir writes or live submit unless Andreas explicitly requests a separate writer/live-submit patch.
+
+## v3.2.10 — Maildir Fixture Writer Preflight Audit
+
+Installed/readiness target:
+- Read-only Maildir fixture writer preflight audit.
+- CLI: `--maildir-writer-preflight-json`.
+- Checks target Maildir path posture without writing a file or probe.
+- Confirms no executable Maildir writer is added.
+- Live EDXEIX submission remains blocked.
+- No DB writes, queue mutations, Maildir writes, Bolt calls, EDXEIX calls, or AADE calls.
+
