@@ -35,13 +35,17 @@
  * v3.2.7:
  * - Adds controlled live-submit runbook / authorization packet output.
  * - Packet is read-only and non-executable; no live-submit capability is added.
+ *
+ * v3.2.8:
+ * - Adds real-format pre-ride demo mail fixture preview.
+ * - Preview is redacted, read-only, and does not write to Maildir or queue.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.7-v3-controlled-live-submit-runbook-authorization-packet';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_controlled_live_submit_runbook_authorization_packet';
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, and authorization packet snapshots are one-shot output only.';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.8-v3-real-format-demo-mail-fixture-preview';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_real_format_demo_mail_fixture_preview';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, authorization packet, and real-format mail fixture previews are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
 const GOV_V3RFCCR_MIN_FUTURE_MINUTES = 1;
 const GOV_V3RFCCR_OPERATOR_ALERT_WINDOW_MINUTES = 60;
@@ -1687,6 +1691,123 @@ function gov_v3rfccr_controlled_live_submit_authorization_packet(array $report):
     ];
 }
 
+/** @return array<string,mixed> */
+function gov_v3rfccr_real_format_demo_mail_fixture_preview(array $report): array
+{
+    $tz = new DateTimeZone('Europe/Athens');
+    $now = new DateTimeImmutable('now', $tz);
+    $start = $now->modify('+10 minutes');
+    $pickup = $now->modify('+20 minutes');
+    $end = $now->modify('+51 minutes');
+
+    $operator = 'Fleet Mykonos LUXLIMO Ι Κ Ε||MYKONOS CAB';
+    $customerName = 'Camille Alfaro';
+    $customerPhone = '+12108381051';
+    $driver = 'Filippos Giannakopoulos';
+    $vehicle = 'EHA2545';
+    $pickupAddress = 'Mykonos Airport , Mykonos Airport (JMK)';
+    $dropoffAddress = 'Ozar Villas Mykonos, ΑΓΙΟΣ ΛΑΖΑΡΟΣ, Mykonos, Greece';
+    $price = '40.00 - 44.00 eur';
+
+    $bodyExact = implode("\n", [
+        'Operator: ' . $operator,
+        '',
+        'Customer: ' . $customerName,
+        'Customer mobile: ' . $customerPhone,
+        '',
+        'Driver: ' . $driver,
+        'Vehicle: ' . $vehicle,
+        '',
+        'Pickup: ' . $pickupAddress,
+        'Drop-off: ' . $dropoffAddress,
+        'Start time: ' . $start->format('Y-m-d H:i:s T'),
+        'Estimated pick-up time: ' . $pickup->format('Y-m-d H:i:s T'),
+        'Estimated end time: ' . $end->format('Y-m-d H:i:s T'),
+        'Estimated price: ' . $price,
+    ]) . "\n";
+
+    $bodyRedacted = str_replace($customerPhone, gov_v3rfccr_mask_phone($customerPhone), $bodyExact);
+    $dangerTokens = ['demo', 'test', 'canary'];
+    $bodyLower = strtolower($bodyExact);
+    $tokensFound = [];
+    foreach ($dangerTokens as $token) {
+        if (str_contains($bodyLower, $token)) {
+            $tokensFound[] = $token;
+        }
+    }
+
+    $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+    $liveGate = is_array($report['live_gate'] ?? null) ? $report['live_gate'] : [];
+    $liveRisk = !empty($summary['live_risk_detected']) || !empty($liveGate['live_risk_detected']);
+
+    return [
+        'ok' => !empty($report['ok']) && !$liveRisk && $tokensFound === [],
+        'version' => GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION,
+        'generated_at' => date('c'),
+        'snapshot_mode' => 'read_only_real_format_demo_mail_fixture_preview',
+        'fixture_preview_only' => true,
+        'maildir_write_made' => false,
+        'queue_mutation_made' => false,
+        'db_write_made' => false,
+        'bolt_call_made' => false,
+        'edxeix_call_made' => false,
+        'aade_call_made' => false,
+        'cron_job_added' => false,
+        'notification_sent' => false,
+        'live_submit_allowed_now' => false,
+        'live_submit_blocked_by_design' => true,
+        'executable_mail_writer_added' => false,
+        'future_patch_required_for_maildir_write' => true,
+        'purpose' => 'Generate a redacted preview of a real-format pre-ride email fixture with future timestamps, without writing a Maildir file.',
+        'fixture_headers_preview' => [
+            'return_path' => '<greece@bolt.eu>',
+            'delivered_to' => 'bolt-bridge@gov.cabnet.app',
+            'from' => 'Bolt <greece@bolt.eu>',
+            'to' => 'Fleet <bolt-bridge@gov.cabnet.app>',
+            'subject' => 'Ride details',
+            'content_type' => 'text/plain; charset=UTF-8',
+        ],
+        'fixture_times' => [
+            'timezone' => 'Europe/Athens',
+            'start_time' => $start->format('Y-m-d H:i:s T'),
+            'estimated_pickup_time' => $pickup->format('Y-m-d H:i:s T'),
+            'estimated_end_time' => $end->format('Y-m-d H:i:s T'),
+            'pickup_minutes_from_generation' => 20,
+            'end_minutes_from_generation' => 51,
+        ],
+        'fixture_identity_preview' => [
+            'operator' => $operator,
+            'customer_name_preview' => gov_v3rfccr_mask_name($customerName),
+            'customer_mobile_preview' => gov_v3rfccr_mask_phone($customerPhone),
+            'driver' => $driver,
+            'vehicle' => $vehicle,
+        ],
+        'fixture_route_and_price_preview' => [
+            'pickup' => $pickupAddress,
+            'dropoff' => $dropoffAddress,
+            'estimated_price' => $price,
+        ],
+        'redacted_body_preview' => $bodyRedacted,
+        'redacted_body_sha256' => hash('sha256', $bodyRedacted),
+        'unredacted_values_hidden' => true,
+        'body_contains_demo_test_canary_tokens' => $tokensFound !== [],
+        'body_danger_tokens_found' => $tokensFound,
+        'copy_paste_note' => 'This preview intentionally hides the unmasked phone and does not create a Maildir file. Ask for an explicit controlled maildir-writer patch if a server-side writer is needed.',
+        'safety_confirmed' => [
+            'live_gate_expected_closed' => !empty($summary['live_gate_expected_closed']) || !empty($liveGate['expected_closed_pre_live_posture']),
+            'live_risk_detected' => $liveRisk,
+            'live_submit_recommended_now' => 0,
+            'db_write_made' => false,
+            'queue_mutation_made' => false,
+            'maildir_write_made' => false,
+            'bolt_call_made' => false,
+            'edxeix_call_made' => false,
+            'aade_call_made' => false,
+        ],
+        'safe_operator_command' => '/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --demo-mail-fixture-json',
+    ];
+}
+
 function gov_v3rfccr_status_line(array $snapshot): string
 {
     $counts = is_array($snapshot['counts'] ?? null) ? $snapshot['counts'] : [];
@@ -1720,6 +1841,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $liveReadinessJson = in_array('--live-readiness-json', $argv, true) || in_array('--controlled-live-readiness-json', $argv, true) || in_array('--go-no-go-json', $argv, true);
     $singleRowLiveDesignJson = in_array('--single-row-live-design-json', $argv, true) || in_array('--first-live-test-design-json', $argv, true) || in_array('--controlled-live-submit-design-json', $argv, true);
     $authorizationPacketJson = in_array('--authorization-packet-json', $argv, true) || in_array('--controlled-live-runbook-json', $argv, true) || in_array('--first-live-authorization-json', $argv, true);
+    $demoMailFixtureJson = in_array('--demo-mail-fixture-json', $argv, true) || in_array('--real-format-demo-mail-json', $argv, true) || in_array('--pre-ride-fixture-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);
@@ -1729,6 +1851,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
     $singleRowLiveDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
     $authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($report);
+    $demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
 
     if ($watchJson) {
         echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -1765,6 +1888,11 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         return !empty($authorizationPacket['ok']) ? 0 : 1;
     }
 
+    if ($demoMailFixtureJson) {
+        echo json_encode($demoMailFixture, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        return !empty($demoMailFixture['ok']) ? 0 : 1;
+    }
+
     if ($statusLine) {
         echo gov_v3rfccr_status_line($snapshot) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
@@ -1778,6 +1906,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
         $report['controlled_live_submit_readiness'] = $liveReadiness;
         $report['single_row_controlled_live_submit_design'] = $singleRowLiveDesign;
         $report['controlled_live_submit_authorization_packet'] = $authorizationPacket;
+        $report['real_format_demo_mail_fixture_preview'] = $demoMailFixture;
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
         return !empty($report['ok']) ? 0 : 1;
     }
@@ -1801,6 +1930,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     echo 'Controlled live-submit readiness command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --live-readiness-json' . PHP_EOL;
     echo 'Single-row live-submit design command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --single-row-live-design-json' . PHP_EOL;
     echo 'Authorization packet command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --authorization-packet-json' . PHP_EOL;
+    echo 'Real-format demo mail fixture preview command: /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --demo-mail-fixture-json' . PHP_EOL;
 
     return !empty($report['ok']) ? 0 : 1;
 }

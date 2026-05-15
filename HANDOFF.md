@@ -130,3 +130,10 @@ After v3.2.3 is verified and committed, the next phase can design a controlled, 
 - New CLI modes: `--authorization-packet-json`, `--controlled-live-runbook-json`, `--first-live-authorization-json`.
 - No executable live submitter was added; live EDXEIX submission remains blocked.
 - No SQL changes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
+
+
+## Latest verified target — v3.2.8
+- Adds Real-Format Demo Mail Fixture Preview.
+- Preview is redacted and read-only.
+- No Maildir writes, DB writes, queue mutations, Bolt calls, EDXEIX calls, AADE calls, cron jobs, notifications, or live-submit enablement.
+- Production Pre-Ride Tool remains untouched.

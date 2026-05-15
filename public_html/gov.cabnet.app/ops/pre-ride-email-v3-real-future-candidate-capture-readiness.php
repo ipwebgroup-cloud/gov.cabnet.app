@@ -28,6 +28,9 @@
  *
  * v3.2.7:
  * - Adds controlled live-submit runbook / authorization packet section.
+ *
+ * v3.2.8:
+ * - Adds real-format demo mail fixture preview section.
  */
 
 declare(strict_types=1);
@@ -43,6 +46,7 @@ $expiredSafetyAudit = gov_v3rfccr_expired_candidate_safety_audit($report);
 $liveReadiness = gov_v3rfccr_controlled_live_submit_readiness($report);
 $singleRowDesign = gov_v3rfccr_single_row_live_submit_design_draft($report);
 $authorizationPacket = gov_v3rfccr_controlled_live_submit_authorization_packet($report);
+$demoMailFixture = gov_v3rfccr_real_format_demo_mail_fixture_preview($report);
 $edxeixCandidate = is_array($edxeixPreview['candidate'] ?? null) ? $edxeixPreview['candidate'] : null;
 $edxeixPayload = is_array($edxeixPreview['normalized_payload_preview'] ?? null) ? $edxeixPreview['normalized_payload_preview'] : null;
 $edxeixChecks = is_array($edxeixPreview['dry_run_preflight_checks'] ?? null) ? $edxeixPreview['dry_run_preflight_checks'] : [];
@@ -58,6 +62,10 @@ $singleRowComponents = is_array($singleRowDesign['component_results'] ?? null) ?
 $authorizationGates = is_array($authorizationPacket['authorization_gates'] ?? null) ? $authorizationPacket['authorization_gates'] : [];
 $authorizationRunbook = is_array($authorizationPacket['runbook_steps_for_future_explicit_patch'] ?? null) ? $authorizationPacket['runbook_steps_for_future_explicit_patch'] : [];
 $authorizationComponents = is_array($authorizationPacket['component_results'] ?? null) ? $authorizationPacket['component_results'] : [];
+$demoFixtureHeaders = is_array($demoMailFixture['fixture_headers_preview'] ?? null) ? $demoMailFixture['fixture_headers_preview'] : [];
+$demoFixtureTimes = is_array($demoMailFixture['fixture_times'] ?? null) ? $demoMailFixture['fixture_times'] : [];
+$demoFixtureIdentity = is_array($demoMailFixture['fixture_identity_preview'] ?? null) ? $demoMailFixture['fixture_identity_preview'] : [];
+$demoFixtureRoute = is_array($demoMailFixture['fixture_route_and_price_preview'] ?? null) ? $demoMailFixture['fixture_route_and_price_preview'] : [];
 $evidenceCandidate = is_array($evidenceSnapshot['candidate'] ?? null) ? $evidenceSnapshot['candidate'] : null;
 $evidenceTiming = is_array($evidenceCandidate['timing'] ?? null) ? $evidenceCandidate['timing'] : [];
 $evidenceReadiness = is_array($evidenceCandidate['readiness'] ?? null) ? $evidenceCandidate['readiness'] : [];
@@ -112,7 +120,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.7')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.8')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
@@ -374,6 +382,38 @@ opsui_shell_begin([
         </tbody>
     </table>
     </div>
+</section>
+
+<section class="panel">
+    <h2>Real-Format Demo Mail Fixture Preview</h2>
+    <p>This preview shows a redacted, future-timestamped, real-format pre-ride email fixture. It does not write to Maildir, does not create a queue row, and does not submit anything.</p>
+    <div class="v3cap-next">
+        <p><strong>Fixture preview only:</strong> <?= !empty($demoMailFixture['fixture_preview_only']) ? 'yes' : 'no' ?> · <strong>Maildir write:</strong> <?= !empty($demoMailFixture['maildir_write_made']) ? 'yes' : 'no' ?> · <strong>Executable writer added:</strong> <?= !empty($demoMailFixture['executable_mail_writer_added']) ? 'yes' : 'no' ?></p>
+        <p><strong>Subject:</strong> <code class="v3cap-code"><?= opsui_h((string)($demoFixtureHeaders['subject'] ?? '')) ?></code> · <strong>Pickup time:</strong> <code class="v3cap-code"><?= opsui_h((string)($demoFixtureTimes['estimated_pickup_time'] ?? '')) ?></code></p>
+        <p><strong>Safety:</strong> DB write <?= !empty($demoMailFixture['db_write_made']) ? 'yes' : 'no' ?> · queue mutation <?= !empty($demoMailFixture['queue_mutation_made']) ? 'yes' : 'no' ?> · EDXEIX call <?= !empty($demoMailFixture['edxeix_call_made']) ? 'yes' : 'no' ?> · AADE call <?= !empty($demoMailFixture['aade_call_made']) ? 'yes' : 'no' ?></p>
+        <p class="v3cap-small">CLI fixture preview command: <code class="v3cap-code">/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --demo-mail-fixture-json</code></p>
+    </div>
+    <div class="v3cap-grid">
+        <div class="v3cap-card"><h3><?= opsui_h((string)($demoFixtureIdentity['driver'] ?? '')) ?></h3><p class="v3cap-muted">driver</p></div>
+        <div class="v3cap-card"><h3><?= opsui_h((string)($demoFixtureIdentity['vehicle'] ?? '')) ?></h3><p class="v3cap-muted">vehicle</p></div>
+        <div class="v3cap-card"><h3><?= opsui_h((string)($demoFixtureIdentity['customer_mobile_preview'] ?? '')) ?></h3><p class="v3cap-muted">masked customer mobile</p></div>
+    </div>
+    <div class="v3cap-scroll">
+    <table class="v3cap-table">
+        <thead><tr><th>Fixture field</th><th>Preview value</th></tr></thead>
+        <tbody>
+            <tr><td>Operator</td><td><?= opsui_h((string)($demoFixtureIdentity['operator'] ?? '')) ?></td></tr>
+            <tr><td>Customer preview</td><td><?= opsui_h((string)($demoFixtureIdentity['customer_name_preview'] ?? '')) ?></td></tr>
+            <tr><td>Pickup</td><td><?= opsui_h((string)($demoFixtureRoute['pickup'] ?? '')) ?></td></tr>
+            <tr><td>Drop-off</td><td><?= opsui_h((string)($demoFixtureRoute['dropoff'] ?? '')) ?></td></tr>
+            <tr><td>Estimated price</td><td><?= opsui_h((string)($demoFixtureRoute['estimated_price'] ?? '')) ?></td></tr>
+            <tr><td>Danger tokens in body</td><td><?= !empty($demoMailFixture['body_contains_demo_test_canary_tokens']) ? 'yes' : 'no' ?></td></tr>
+            <tr><td>Redacted body hash</td><td><code class="v3cap-code"><?= opsui_h((string)($demoMailFixture['redacted_body_sha256'] ?? '')) ?></code></td></tr>
+        </tbody>
+    </table>
+    </div>
+    <h3>Redacted body preview</h3>
+    <pre><?= opsui_h((string)($demoMailFixture['redacted_body_preview'] ?? '')) ?></pre>
 </section>
 
 
