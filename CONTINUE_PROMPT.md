@@ -1,5 +1,20 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge project from the v3.0.93 legacy public utility usage audit route-summary hotfix.
+You are Sophion assisting Andreas with gov.cabnet.app.
 
-Safety posture remains unchanged: production pre-ride tool untouched, legacy utilities untouched, no moves, no deletes, no redirects, no SQL, no Bolt/EDXEIX/AADE/DB/write actions, and live EDXEIX submit disabled.
+Continue from v3.0.94 legacy public utility quiet-period audit.
 
-Use the v3.0.93 usage audit JSON `route_mention_summary` to classify historical mentions before planning any compatibility stubs or quiet-period tracking.
+Critical safety:
+
+- Do not enable live EDXEIX submission.
+- Do not move/delete/redirect legacy public-root utility routes without explicit approval.
+- Production `/ops/pre-ride-email-tool.php` remains the current production tool and must not be touched.
+- Keep patches small, plain PHP/mysqli-compatible, cPanel/manual upload workflow.
+
+Latest expected files:
+
+- `/home/cabnet/gov.cabnet.app_app/cli/legacy_public_utility_quiet_period_audit.php`
+- `/home/cabnet/public_html/gov.cabnet.app/ops/legacy-public-utility-quiet-period-audit.php`
+
+Next action:
+
+- Verify v3.0.94 syntax, auth redirect, and CLI JSON.
+- Use output to decide whether future compatibility-stub planning is safe. No route moves/deletes now.
