@@ -8,7 +8,7 @@
  * - No external calls.
  * - Safe to include from /public_html/gov.cabnet.app/ops/*.php.
  *
- * v3.2.12 keeps the read-only V3 Real Future Candidate Capture Readiness page in shared legacy Ops navigation, adds sanitized evidence snapshot, EDXEIX payload preview/dry-run preflight, and expired candidate safety regression audit support, controlled live-submit readiness checklist support, single-row live-submit design draft support, authorization packet support, real-format demo mail fixture preview support, controlled Maildir writer design support, Maildir writer preflight audit support, Maildir writer authorization packet support, Maildir writer go/no-go snapshot support, and adds no new live-submit or Maildir-write pathway; V0 remains untouched and live submit remains disabled. The shell follows the established Ops Home palette:
+ * v3.2.13 keeps the read-only V3 Real Future Candidate Capture Readiness page in shared legacy Ops navigation, adds sanitized evidence snapshot, EDXEIX payload preview/dry-run preflight, and expired candidate safety regression audit support, controlled live-submit readiness checklist support, single-row live-submit design draft support, authorization packet support, real-format demo mail fixture preview support, controlled Maildir writer design support, Maildir writer preflight audit support, Maildir writer authorization packet support, Maildir writer go/no-go snapshot support, fixes go/no-go CLI JSON dispatch, and adds no new live-submit or Maildir-write pathway; V0 remains untouched and live submit remains disabled. The shell follows the established Ops Home palette:
  * white top navigation, deep-blue left sidebar, light content canvas,
  * tabs, cards, and consistent safety badges.
  */

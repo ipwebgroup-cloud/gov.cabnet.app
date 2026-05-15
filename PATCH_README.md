@@ -1,22 +1,15 @@
-# Patch v3.2.12 — Maildir Fixture Writer Go/No-Go Snapshot
+# Patch v3.2.13 — Maildir Fixture Writer Go/No-Go CLI Dispatch Fix
 
-## Changed files
+## Files
 
-- `gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php`
-- `public_html/gov.cabnet.app/ops/_shell.php`
-- `public_html/gov.cabnet.app/ops/_ops-nav.php`
-- `docs/V3_MAILDIR_FIXTURE_WRITER_GO_NO_GO_SNAPSHOT_20260515.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
-
-## Upload paths
-
-- `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php`
-- `/home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php`
-- `/home/cabnet/docs/V3_MAILDIR_FIXTURE_WRITER_GO_NO_GO_SNAPSHOT_20260515.md`
+- gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
+- public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
+- public_html/gov.cabnet.app/ops/_shell.php
+- public_html/gov.cabnet.app/ops/_ops-nav.php
+- docs/V3_MAILDIR_FIXTURE_WRITER_GO_NO_GO_CLI_DISPATCH_FIX_20260515.md
+- HANDOFF.md
+- CONTINUE_PROMPT.md
+- PATCH_README.md
 
 ## Verification
 
@@ -26,18 +19,9 @@ php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
 
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --demo-mail-fixture-json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json
 /usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-go-no-go-json
-
-curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-
-grep -n "v3.2.12\|maildir-writer-go-no-go-json\|Maildir Fixture Writer Go/No-Go\|go_ready_for_future_explicit_writer_patch_only\|executable_mail_writer_added" \
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php \
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php \
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
 ```
 
 ## Safety
 
-No live submit, no Maildir write, no write probe, no executable writer, no DB write, no queue mutation, and no external calls.
+No Maildir writes, no writer, no DB writes, no queue mutation, no EDXEIX/AADE/Bolt calls, no live-submit enablement.

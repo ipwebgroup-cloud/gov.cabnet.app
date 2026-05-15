@@ -1,19 +1,9 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge from v3.2.13.
 
-Current latest patch: v3.2.12 — Maildir Fixture Writer Go/No-Go Snapshot.
-
-Safety posture:
-- Production Pre-Ride Tool remains untouched.
+Current state:
+- V3.2.13 fixes CLI JSON dispatch for `--maildir-writer-go-no-go-json`.
 - Live EDXEIX submit remains disabled.
-- No executable Maildir writer has been added.
-- v3.2.12 is read-only and performs no Maildir write, no write probe, no DB write, no queue mutation, no Bolt call, no EDXEIX call, no AADE call, no cron install, and no notification.
+- No executable Maildir writer exists.
+- Production Pre-Ride Tool remains untouched.
 
-Use these commands for verification:
-
-```bash
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --demo-mail-fixture-json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-authorization-json
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-writer-go-no-go-json
-```
-
-Next safest work: continue read-only/runbook work unless Andreas explicitly asks for a separate one-shot Maildir writer patch or a separate live-submit patch. Do not enable Maildir writes or live EDXEIX submission from a generic “continue” request.
+Next safe step should remain read-only unless Andreas explicitly requests a one-shot Maildir writer patch or a separate single-row live-submit patch.

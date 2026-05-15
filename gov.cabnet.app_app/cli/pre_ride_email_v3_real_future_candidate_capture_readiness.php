@@ -55,11 +55,14 @@
  * v3.2.12:
  * - Adds read-only Maildir fixture writer go/no-go snapshot.
  * - Aggregates fixture preview, design, preflight, and authorization packet into a final non-executable readiness decision.
+ *
+ * v3.2.13:
+ * - Fixes CLI dispatch for --maildir-writer-go-no-go-json / aliases so the go/no-go snapshot emits JSON instead of default human summary.
  */
 
 declare(strict_types=1);
 
-const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.12-v3-maildir-fixture-writer-go-no-go-snapshot';
+const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_VERSION = 'v3.2.13-v3-maildir-go-no-go-cli-dispatch-fix';
 const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_MODE = 'read_only_v3_maildir_fixture_writer_go_no_go_snapshot';
 const GOV_V3_REAL_FUTURE_CANDIDATE_CAPTURE_READINESS_SAFETY = 'No Bolt call. No EDXEIX call. No AADE call. No DB writes. No queue status changes. No filesystem writes. Read-only queue/config inspection only. Watch, evidence, EDXEIX preview, expired-candidate safety audit, controlled live-submit readiness, single-row live-submit design, authorization packet, real-format mail fixture previews, and Maildir writer design, Maildir writer preflight, Maildir writer authorization, and Maildir writer go/no-go snapshots are one-shot output only.';
 const GOV_V3RFCCR_QUEUE_TABLE = 'pre_ride_email_v3_queue';
@@ -2361,6 +2364,7 @@ function gov_v3_real_future_candidate_capture_readiness_main(array $argv): int
     $maildirWriterDesignJson = in_array('--maildir-writer-design-json', $argv, true) || in_array('--controlled-demo-mail-writer-design-json', $argv, true) || in_array('--fixture-writer-design-json', $argv, true);
     $maildirWriterPreflightJson = in_array('--maildir-writer-preflight-json', $argv, true) || in_array('--fixture-writer-preflight-json', $argv, true) || in_array('--maildir-path-audit-json', $argv, true);
     $maildirWriterAuthorizationJson = in_array('--maildir-writer-authorization-json', $argv, true) || in_array('--fixture-writer-authorization-json', $argv, true) || in_array('--one-shot-maildir-authorization-json', $argv, true);
+    $maildirWriterGoNoGoJson = in_array('--maildir-writer-go-no-go-json', $argv, true) || in_array('--fixture-writer-go-no-go-json', $argv, true) || in_array('--maildir-write-readiness-json', $argv, true);
     $statusLine = in_array('--status-line', $argv, true);
     $report = gov_v3_real_future_candidate_capture_readiness_run();
     $snapshot = gov_v3rfccr_watch_snapshot($report);

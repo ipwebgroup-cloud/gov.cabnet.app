@@ -43,6 +43,9 @@
  *
  * v3.2.12:
  * - Adds Maildir fixture writer go/no-go snapshot section.
+ *
+ * v3.2.13:
+ * - Displays the go/no-go snapshot after CLI dispatch fix and cleans Maildir label spacing.
  */
 
 declare(strict_types=1);
@@ -149,7 +152,7 @@ opsui_shell_begin([
         <span class="v3cap-badge">NO BOLT CALL</span>
         <span class="v3cap-badge">NO EDXEIX CALL</span>
         <span class="v3cap-badge">NO AADE CALL</span>
-        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.12')) ?></span>
+        <span class="v3cap-badge warn"><?= opsui_h((string)($report['version'] ?? 'v3.2.13')) ?></span>
     </div>
     <div class="v3cap-actions">
         <a class="btn primary" href="/ops/pre-ride-email-v3-next-real-mail-candidate-watch.php">Next Candidate Watch</a>
