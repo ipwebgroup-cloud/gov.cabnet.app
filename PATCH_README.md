@@ -1,31 +1,76 @@
-# Patch v3.2.14 — Controlled One-Shot Maildir Fixture Writer
+# PATCH README — Ioannis Kounter EDXEIX Mapping
 
-## Changed files
+## What changed
 
-- `gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php`
-- `public_html/gov.cabnet.app/ops/_shell.php`
-- `public_html/gov.cabnet.app/ops/_ops-nav.php`
-- `docs/V3_CONTROLLED_ONE_SHOT_MAILDIR_FIXTURE_WRITER_20260515.md`
-- `HANDOFF.md`
-- `CONTINUE_PROMPT.md`
+This package adds one SQL migration to map the verified Ioannis Kounter EDXEIX IDs:
 
-## Verification
-
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_ops-nav.php
-
-/usr/local/bin/php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php --maildir-fixture-writer-json
-
-curl -I --max-time 10 https://gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php
-
-grep -n "v3.2.14\|maildir-fixture-writer-json\|Controlled One-Shot Maildir\|write-one-maildir-fixture\|maildir_write_made" \
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_email_v3_real_future_candidate_capture_readiness.php \
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-email-v3-real-future-candidate-capture-readiness.php \
-/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+```text
+Lessor/company: 2183 ΚΟΥΝΤΕΡ ΙΩΑΝΝΗΣ
+Driver:         7329 ΚΟΥΝΤΕΡ ΙΩΑΝΝΗΣ
+Vehicle:        3160 XZA3232 / ΧΖΑ3232
+Alt vehicle:    13191 XRM5435 / ΧΡΜ5435
 ```
 
-Expected default result: preview-only, no Maildir write, no DB write, no queue mutation, no Bolt/EDXEIX/AADE calls, live submit blocked.
+## Files included
+
+```text
+gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql
+docs/KOUNTER_EDXEIX_MAPPING_PATCH_2026_05_16.md
+PATCH_README.md
+```
+
+## Exact upload paths
+
+Upload/run this SQL file on the server:
+
+```text
+/home/cabnet/gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql
+```
+
+For GitHub Desktop/local repo, extract the package at the repo root so the files land here:
+
+```text
+gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql
+docs/KOUNTER_EDXEIX_MAPPING_PATCH_2026_05_16.md
+PATCH_README.md
+```
+
+## SQL to run
+
+Run:
+
+```sql
+SOURCE /home/cabnet/gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql;
+```
+
+If using phpMyAdmin, open/import the same SQL file.
+
+## Verification URLs
+
+```text
+https://gov.cabnet.app/ops/mappings.php?view=unmapped
+https://gov.cabnet.app/ops/mappings.php?view=unmapped&limit=200&format=json
+```
+
+## Expected result
+
+```text
+Ioannis Kounter is mapped as driver 7329 under lessor 2183.
+XZA3232 is mapped as vehicle 3160 under lessor 2183.
+XRM5435 is mapped as vehicle 13191 under lessor 2183.
+No EDXEIX submission is enabled by this patch.
+```
+
+## Git commit title
+
+```text
+Add Ioannis Kounter EDXEIX mapping
+```
+
+## Git commit description
+
+```text
+Added verified SQL mapping for Ioannis Kounter, including EDXEIX lessor/company, driver, and vehicle IDs.
+
+This is an idempotent database mapping patch only. It does not change live-submit gates, call EDXEIX, call Bolt, call AADE, or create submission jobs.
+```
