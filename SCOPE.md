@@ -1,22 +1,22 @@
-# Scope — v3.2.28
+# gov.cabnet.app Scope — ASAP Automation Track
 
-## In scope
+## Included through v3.2.29
 
-- Detect latest pre-ride Maildir candidate readiness.
-- Optionally capture sanitized metadata when explicitly requested.
-- Show latest captured one-shot readiness packet.
-- Provide an ops page with optional auto-refresh.
+- Pre-ride Maildir readiness watch.
+- Future-only pre-ride candidate parsing.
+- Diagnostics-only HTML fallback parser.
+- Sanitized metadata capture.
+- One-shot readiness packet.
+- Read-only transport rehearsal packet.
 
-## Out of scope
+## Still excluded
 
-- EDXEIX transport.
-- Live submit enablement.
-- AADE/myDATA changes.
-- Queue jobs.
-- Normalized booking writes.
-- Cron installation.
-- Frameworks or build tools.
+- Unattended EDXEIX live submit.
+- Cron-based submit worker.
+- Automatic retries.
+- Live transport without explicit one-candidate approval.
+- Any submission of historical/cancelled/terminal/past/receipt-only rows.
 
-## ASAP track
+## Current ASAP next gate
 
-The readiness watch is intended to prevent missing the 30-minute future guard window. It prepares the project for the next explicitly approved supervised one-shot transport patch.
+The project can proceed to a supervised one-shot transport trace only after explicit approval for one real eligible future pre-ride candidate.

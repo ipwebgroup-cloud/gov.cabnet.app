@@ -1,20 +1,39 @@
-# gov.cabnet.app — Handoff v3.2.28
+# gov.cabnet.app HANDOFF — v3.2.29 Pre-Ride Transport Rehearsal
 
-Current state: pre-ride future candidate parsing and one-shot readiness are validated. Candidate ID 2 was captured as ready, then later became blocked in the web UI because the pickup time passed the 30-minute future guard window. This is correct and safe.
+## Current state
 
-v3.2.28 adds a read-only readiness watch layer:
+The pre-ride automation path now has:
 
-- `gov.cabnet.app_app/cli/pre_ride_readiness_watch.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-readiness-watch.php`
-- `gov.cabnet.app_app/lib/edxeix_pre_ride_readiness_watch_lib.php`
+1. Maildir pre-ride detection.
+2. Diagnostics-only fallback parser for HTML label rows.
+3. Sanitized candidate capture into `edxeix_pre_ride_candidates`.
+4. One-shot readiness packet.
+5. Readiness watch page/CLI.
+6. v3.2.29 read-only transport rehearsal packet.
 
-Safety remains:
+## Safety posture
 
-- No EDXEIX transport.
-- No AADE/myDATA call.
-- No queue job.
-- No normalized booking write.
-- Optional write only captures sanitized pre-ride metadata.
-- Live-submit remains disabled.
+Live EDXEIX transport remains disabled.
 
-Next safe step: use the watch page/CLI during the next real future pre-ride email. If it returns `WATCH_CAPTURED_READY_PACKET` with the trip still at least 30 minutes in the future, Andreas may explicitly approve a separate supervised one-shot transport patch.
+No automatic or unattended submission is enabled.
+
+Historical, cancelled, terminal, expired, invalid, or past Bolt rows remain blocked.
+
+Receipt-only Bolt mail rows remain blocked from EDXEIX.
+
+## Latest safe commands
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_readiness_watch.php --json --capture-ready
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_transport_rehearsal.php --latest-ready=1 --json
+```
+
+## Next sensitive step
+
+The next patch would be a supervised one-shot EDXEIX transport trace for one real eligible future pre-ride candidate only.
+
+Do not build or enable that unless Andreas explicitly approves with:
+
+```text
+Sophion, prepare the supervised pre-ride one-shot EDXEIX transport trace patch. I understand this is for one real eligible future ride only.
+```
