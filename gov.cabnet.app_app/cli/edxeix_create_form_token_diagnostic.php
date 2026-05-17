@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * gov.cabnet.app — CLI EDXEIX create-form token diagnostic v3.2.35.
+ * gov.cabnet.app — CLI EDXEIX create-form token diagnostic v3.2.36.
  * Read-only GET diagnostic. No EDXEIX POST, no AADE, no queue, no config write.
  */
 
@@ -14,7 +14,7 @@ $json = in_array('--json', array_slice($argv, 1), true);
 try {
     $result = [
         'ok' => true,
-        'version' => 'v3.2.35-edxeix-create-form-token-diagnostic',
+        'version' => 'v3.2.36-edxeix-create-form-token-diagnostic',
         'started_at' => date('Y-m-d H:i:s'),
         'safety' => [
             'edxeix_post' => false,
@@ -56,7 +56,7 @@ try {
 } catch (Throwable $e) {
     $error = [
         'ok' => false,
-        'version' => 'v3.2.35-edxeix-create-form-token-diagnostic',
+        'version' => 'v3.2.36-edxeix-create-form-token-diagnostic',
         'classification' => [
             'code' => 'EDXEIX_CREATE_FORM_TOKEN_DIAGNOSTIC_ERROR',
             'message' => $e->getMessage(),

@@ -1,27 +1,35 @@
 # HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-Current patch: v3.2.35 — EDXEIX create-form token diagnostic classification fix.
+Current patch: v3.2.36 — Fresh EDXEIX create-form token transport integration.
 
 ## Current state
 
 - Production V0 laptop/manual EDXEIX workflow remains operational and untouched.
 - Candidate 4 was manually submitted through V0/laptop and archived as `manual_submitted_v0`.
 - Server-side retry for candidate 4 is blocked by closure/retry-prevention.
-- v3.2.33 proved the saved server session can now reach `/dashboard/lease-agreement/create` and sees a matching hidden token, but classified it as not ready due to false-positive text signals and wrong form selection.
-- v3.2.35 fixes diagnostic form selection and expected field aliases.
+- v3.2.35 proved the saved server session can reach `/dashboard/lease-agreement/create`, select the real lease-agreement form, and detect a matching hidden `_token`.
+- v3.2.36 fetches that fresh create-form `_token` immediately before a supervised one-shot POST and uses it internally only; it is never printed or stored.
+
+## Safety
+
+No unattended automation, no cron, no AADE/myDATA call, no queue job, no normalized_bookings write, no live_submit.php write, and no V0 production changes.
 
 ## Next safest step
 
-Validate:
+1. Save current EDXEIX browser session from the browser extension.
+2. Verify token readiness:
 
 ```bash
 php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json
 ```
 
-Expected with valid saved session:
+3. Capture a new future pre-ride candidate.
+4. Dry-run explicit candidate ID:
 
-```text
-EDXEIX_CREATE_FORM_TOKEN_READY
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php --candidate-id=N --json
 ```
 
-Do not perform another server-side EDXEIX POST until a later patch maps the exact form field names and only for a new future candidate.
+5. Only if `PRE_RIDE_TRANSPORT_TRACE_ARMABLE`, run one supervised POST with exact hash and exact confirmation phrase.
+
+Do not use candidate 4 again.

@@ -1,8 +1,8 @@
 #!/usr/bin/env php
 <?php
 /**
- * gov.cabnet.app — CLI supervised pre-ride one-shot EDXEIX transport trace v3.2.35.
- * Default is dry-run/armable packet. v3.2.35 is create-form token diagnostic/hold mode after the 419 test. Any later HTTP POST requires a new approved patch plus --transport=1,
+ * gov.cabnet.app — CLI supervised pre-ride one-shot EDXEIX transport trace v3.2.36.
+ * Default is dry-run/armable packet. v3.2.36 integrates a freshly fetched create-form token immediately before one supervised POST. HTTP POST still requires --transport=1,
  * --candidate-id=N, --expected-payload-hash=HASH, and exact --confirm phrase.
  */
 
@@ -30,7 +30,7 @@ foreach (array_slice($argv, 1) as $arg) {
         echo "Usage:\n";
         echo "  php pre_ride_one_shot_transport_trace.php --candidate-id=N --json\n";
         echo "  php pre_ride_one_shot_transport_trace.php --candidate-id=N --transport=1 --expected-payload-hash=HASH --confirm='" . gov_prtx_confirmation_phrase() . "' --json\n";
-        echo "\nDefault is dry-run/armable packet. v3.2.35 will report hold blockers/form-token diagnostics and will not perform another POST.\n";
+        echo "\nDefault is dry-run/armable packet. v3.2.36 can perform one supervised POST only for a new, unclosed, future-safe candidate with a fresh create-form token.\n";
         exit(0);
     }
 }

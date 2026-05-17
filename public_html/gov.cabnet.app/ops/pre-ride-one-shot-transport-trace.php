@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Ops supervised pre-ride one-shot EDXEIX transport trace v3.2.35.
+ * gov.cabnet.app — Ops supervised pre-ride one-shot EDXEIX transport trace v3.2.36.
  * Default GET is dry-run. Actual HTTP POST requires typed confirmation and hash lock.
  */
 
@@ -81,7 +81,7 @@ $performed = !empty($result['transport_performed']);
 <div class="wrap">
   <section class="card hero <?= $performed ? 'warn' : ($armable ? 'ok' : '') ?>">
     <h1>Pre-Ride One-Shot EDXEIX Transport Trace</h1>
-    <p class="muted">v3.2.35 — create-form token diagnostic and retry prevention. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. No repeat POST while held.</p>
+    <p class="muted">v3.2.36 — fresh create-form token integration and retry prevention. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. Fresh token is fetched before a supervised one-shot POST.</p>
     <p><strong>Classification:</strong> <span class="pill <?= $performed ? 'warn' : ($armable ? 'ok' : 'bad') ?>"><?= prtx_h($classCode) ?></span></p>
     <p><?= prtx_h($classMsg) ?></p>
   </section>
@@ -142,7 +142,7 @@ $performed = !empty($result['transport_performed']);
   <section class="card <?= $armable && !$performed ? 'hero warn' : '' ?>">
     <h2>Supervised one-shot POST</h2>
     <div class="notice">
-      v3.2.35 is a safety hold after the 419 session/CSRF test. Use this page for diagnostics only. Mark V0 manual submissions through the closure page, then wait for the next fresh-token transport patch before any new POST.
+      v3.2.36 fetches a fresh EDXEIX create-form token immediately before a supervised one-shot POST. Use only for a new future candidate that is not manually closed and has no previous server attempt. Candidate 4 remains closed and blocked.
     </div>
     <form method="post" style="margin-top:12px">
       <input type="hidden" name="candidate_id" value="<?= prtx_h($packet['candidate_id'] ?? $candidateId) ?>">
@@ -151,7 +151,7 @@ $performed = !empty($result['transport_performed']);
         <textarea name="confirmation_phrase" rows="2" placeholder="<?= prtx_h(gov_prtx_confirmation_phrase()) ?>"></textarea>
       </label>
       <p class="muted">Required phrase: <code><?= prtx_h(gov_prtx_confirmation_phrase()) ?></code></p>
-      <button class="btn danger" type="submit" name="submit_transport" value="1" <?= $armable && !$performed ? '' : 'disabled' ?>>POST disabled in v3.2.35 token-diagnostic hold</button>
+      <button class="btn danger" type="submit" name="submit_transport" value="1" <?= $armable && !$performed ? '' : 'disabled' ?>>Perform one supervised POST with fresh form token</button>
     </form>
   </section>
 

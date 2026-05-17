@@ -1,7 +1,7 @@
 <?php
 /**
  * gov.cabnet.app — Supervised pre-ride one-shot EDXEIX transport trace.
- * v3.2.35
+ * v3.2.36
  *
  * Purpose:
  * - Perform exactly one explicitly approved HTTP POST trace for one captured,
@@ -92,6 +92,7 @@ if (!function_exists('gov_prtx_previous_attempt_state')) {
             'last_final_http_status' => 0,
             'retry_blocked' => false,
             'warnings' => [],
+            'fresh_token_available_for_transport' => false,
         ];
         try {
             $db = gov_bridge_db();
@@ -114,7 +115,7 @@ if (!function_exists('gov_prtx_previous_attempt_state')) {
                 $out['last_first_http_status'] = (int)($last['first_http_status'] ?? 0);
                 $out['last_final_http_status'] = (int)($last['final_http_status'] ?? 0);
             }
-            // v3.2.35: after any performed server POST trace, require manual review / closure before another POST.
+            // v3.2.36: after any performed server POST trace, require manual review / closure before another POST.
             $out['retry_blocked'] = $out['performed_count'] > 0;
             return $out;
         } catch (Throwable $e) {
@@ -452,7 +453,7 @@ if (!function_exists('gov_prtx_form_get_step')) {
         $headers = [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Cookie: ' . $cookie,
-            'User-Agent: gov.cabnet.app EDXEIX create-form token diagnostic v3.2.35',
+            'User-Agent: gov.cabnet.app EDXEIX create-form token diagnostic v3.2.36',
         ];
         if ($referer !== '') {
             $headers[] = 'Referer: ' . $referer;
@@ -501,7 +502,7 @@ if (!function_exists('gov_prtx_form_get_step')) {
 
 if (!function_exists('gov_prtx_form_token_diagnostic')) {
     /** @return array<string,mixed> */
-    function gov_prtx_form_token_diagnostic(): array
+    function gov_prtx_form_token_diagnostic(bool $includeInternalToken = false): array
     {
         $out = [
             'ok' => false,
@@ -523,6 +524,7 @@ if (!function_exists('gov_prtx_form_token_diagnostic')) {
             'raw_cookie_printed' => false,
             'raw_body_printed' => false,
             'warnings' => [],
+            'fresh_token_available_for_transport' => false,
         ];
         try {
             $liveConfig = gov_live_load_config();
@@ -568,7 +570,13 @@ if (!function_exists('gov_prtx_form_token_diagnostic')) {
 
             $token = gov_prtx_extract_form_token($body);
             $out['token_present'] = $token !== '';
-            if ($token !== '') { $out['token_hash_16'] = substr(hash('sha256', $token), 0, 16); }
+            if ($token !== '') {
+                $out['token_hash_16'] = substr(hash('sha256', $token), 0, 16);
+                $out['fresh_token_available_for_transport'] = true;
+                if ($includeInternalToken) {
+                    $out['__internal_form_token'] = $token;
+                }
+            }
             $out['token_matches_session_csrf'] = $token !== '' && $sessionCsrf !== '' && hash_equals($token, $sessionCsrf);
             $out['form_summary'] = gov_prtx_extract_form_summary($body, $finalUrl);
             $signals = is_array($out['body_fingerprint']['signals'] ?? null) ? $out['body_fingerprint']['signals'] : [];
@@ -598,6 +606,41 @@ if (!function_exists('gov_prtx_form_token_diagnostic')) {
     }
 }
 
+if (!function_exists('gov_prtx_sanitize_form_token_diagnostic')) {
+    /** @param array<string,mixed> $diag @return array<string,mixed> */
+    function gov_prtx_sanitize_form_token_diagnostic(array $diag): array
+    {
+        unset($diag['__internal_form_token']);
+        $diag['raw_token_printed'] = false;
+        $diag['raw_cookie_printed'] = false;
+        $diag['raw_body_printed'] = false;
+        return $diag;
+    }
+}
+
+if (!function_exists('gov_prtx_trace_transport_with_fresh_form_token')) {
+    /**
+     * Perform the existing sanitized transport trace, but replace the session CSRF
+     * with the freshly fetched create-form _token immediately before POST.
+     * The raw token is never returned, printed, or stored.
+     *
+     * @param array<string,mixed> $liveConfig
+     * @param array<string,mixed> $sessionRaw
+     * @param array<string,mixed> $payload
+     * @param array<string,mixed> $formDiagInternal
+     * @return array<string,mixed>
+     */
+    function gov_prtx_trace_transport_with_fresh_form_token(array $liveConfig, array $sessionRaw, array $payload, array $formDiagInternal, bool $followRedirects, int $maxRedirects): array
+    {
+        $freshToken = trim((string)($formDiagInternal['__internal_form_token'] ?? ''));
+        if ($freshToken === '') {
+            throw new RuntimeException('Fresh EDXEIX create-form token is unavailable for transport.');
+        }
+        $sessionRaw['csrf_token'] = $freshToken;
+        return gov_edxdiag_trace_transport($liveConfig, $sessionRaw, $payload, $followRedirects, $maxRedirects);
+    }
+}
+
 if (!function_exists('gov_prtx_pre_transport_hold_blockers')) {
     /** @param array<string,mixed> $rehearsal @param array<string,mixed> $formDiag @return array<int,string> */
     function gov_prtx_pre_transport_hold_blockers(array $rehearsal, array $formDiag): array
@@ -617,8 +660,9 @@ if (!function_exists('gov_prtx_pre_transport_hold_blockers')) {
         if (empty($formDiag['ok'])) {
             $blockers[] = 'edxeix_form_token_diagnostic_not_ready';
         }
-        // v3.2.35 is intentionally a safe hold/retry-prevention patch. A later patch may integrate a freshly fetched form token.
-        $blockers[] = 'transport_disabled_pending_fresh_form_token_integration_patch';
+        if (empty($formDiag['fresh_token_available_for_transport'])) {
+            $blockers[] = 'fresh_create_form_token_unavailable_for_transport';
+        }
         return array_values(array_unique($blockers));
     }
 }
@@ -741,7 +785,8 @@ if (!function_exists('gov_prtx_run')) {
         $transportRequested = gov_prtx_bool($options['transport'] ?? false);
         $followRedirects = array_key_exists('follow_redirects', $options) ? gov_prtx_bool($options['follow_redirects']) : true;
         $rehearsal = gov_prt_run($candidateId > 0 ? ['candidate_id' => $candidateId] : ['latest_ready' => true]);
-        $formTokenDiagnostic = gov_prtx_form_token_diagnostic();
+        $formTokenDiagnosticInternal = gov_prtx_form_token_diagnostic(true);
+        $formTokenDiagnostic = gov_prtx_sanitize_form_token_diagnostic($formTokenDiagnosticInternal);
         $preTransportHoldBlockers = gov_prtx_pre_transport_hold_blockers($rehearsal, $formTokenDiagnostic);
         $blockers = gov_prtx_transport_blockers($options, $rehearsal);
         if ($transportRequested) { $blockers = array_values(array_unique(array_merge($blockers, $preTransportHoldBlockers))); }
@@ -751,7 +796,7 @@ if (!function_exists('gov_prtx_run')) {
         $classification = [
             'code' => !empty($rehearsal['ready_for_later_supervised_transport_patch']) ? 'PRE_RIDE_TRANSPORT_TRACE_HELD_FOR_SESSION_REFRESH' : 'PRE_RIDE_TRANSPORT_TRACE_BLOCKED',
             'message' => !empty($rehearsal['ready_for_later_supervised_transport_patch'])
-                ? 'Candidate is structurally ready, but v3.2.35 is holding server-side transport until manual closures/retry prevention and fresh EDXEIX form-token diagnostics are resolved. No submit was performed.'
+                ? 'Candidate is structurally ready, but server-side transport is held by closure/retry prevention or create-form token diagnostics. No submit was performed.'
                 : 'Candidate is blocked before transport trace. No submit was performed.',
         ];
         if (!empty($rehearsal['ready_for_later_supervised_transport_patch']) && !$preTransportHoldBlockers) {
@@ -771,7 +816,7 @@ if (!function_exists('gov_prtx_run')) {
                 try {
                     $liveConfig = gov_live_load_config();
                     $sessionRaw = gov_edxdiag_load_session_raw($liveConfig);
-                    $trace = gov_edxdiag_trace_transport($liveConfig, $sessionRaw, $payload, $followRedirects, 6);
+                    $trace = gov_prtx_trace_transport_with_fresh_form_token($liveConfig, $sessionRaw, $payload, $formTokenDiagnosticInternal, $followRedirects, 6);
                     $traceClass = gov_edxdiag_classify_trace($trace);
                     $classification = [
                         'code' => 'PRE_RIDE_TRANSPORT_TRACE_PERFORMED_' . (string)($traceClass['code'] ?? 'UNCLASSIFIED'),
@@ -794,7 +839,7 @@ if (!function_exists('gov_prtx_run')) {
 
         $result = [
             'ok' => !$transportRequested || ($trace !== null && empty($blockers)),
-            'version' => 'v3.2.35-create-form-token-diagnostic',
+            'version' => 'v3.2.36-fresh-create-form-token-transport-integration',
             'started_at' => gov_prtx_now(),
             'classification' => $classification,
             'transport_requested' => $transportRequested,
@@ -811,6 +856,9 @@ if (!function_exists('gov_prtx_run')) {
                 'raw_cookie_printed' => false,
                 'raw_csrf_printed' => false,
                 'raw_response_body_printed' => false,
+                'fresh_create_form_token_printed' => false,
+                'fresh_create_form_token_stored' => false,
+                'fresh_create_form_token_used_only_when_transport_performed' => $trace !== null,
             ],
             'transport_blockers' => array_values(array_unique($blockers)),
             'pre_transport_hold_blockers' => $preTransportHoldBlockers,
@@ -853,7 +901,7 @@ if (!function_exists('gov_prtx_run')) {
             ],
             'next_action' => $trace !== null
                 ? 'Immediately verify in the EDXEIX portal/list. If saved, capture proof and do not retry this candidate. If not confirmed, treat as diagnostic only.'
-                : 'Review the hold blockers/form-token diagnostic. Do not POST again until a new patch integrates a fresh EDXEIX form token and the candidate is not manually closed.',
+                : 'Review blockers/form-token diagnostic. Only perform a supervised one-shot POST for a new future candidate that is not manually closed, has no previous server attempt, and is explicitly hash/phrase confirmed.',
         ];
 
         if ($transportRequested) {

@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Ops EDXEIX create-form token diagnostic v3.2.35.
+ * gov.cabnet.app — Ops EDXEIX create-form token diagnostic v3.2.36.
  * Read-only GET diagnostic. No EDXEIX POST.
  */
 
@@ -34,7 +34,7 @@ try {
     $ok = !empty($diag['ok']);
     $result = [
         'ok' => true,
-        'version' => 'v3.2.35-edxeix-create-form-token-diagnostic',
+        'version' => 'v3.2.36-edxeix-create-form-token-diagnostic',
         'classification' => [
             'code' => $ok ? 'EDXEIX_CREATE_FORM_TOKEN_READY' : 'EDXEIX_CREATE_FORM_TOKEN_NOT_READY',
             'message' => $ok
@@ -56,7 +56,7 @@ try {
 } catch (Throwable $e) {
     $result = [
         'ok' => false,
-        'version' => 'v3.2.35-edxeix-create-form-token-diagnostic',
+        'version' => 'v3.2.36-edxeix-create-form-token-diagnostic',
         'classification' => [
             'code' => 'EDXEIX_CREATE_FORM_TOKEN_DIAGNOSTIC_ERROR',
             'message' => $e->getMessage(),
@@ -82,7 +82,7 @@ $steps = is_array($diag['steps'] ?? null) ? $diag['steps'] : [];
 <div class="wrap">
   <section class="card hero <?= $ok ? 'ok' : '' ?>">
     <h1>EDXEIX Create Form Token Diagnostic</h1>
-    <p class="muted">v3.2.35 — read-only GET of the EDXEIX create form. No EDXEIX POST, no AADE call, no queue job, no normalized booking write, no live config write.</p>
+    <p class="muted">v3.2.36 — read-only GET of the EDXEIX create form. No EDXEIX POST, no AADE call, no queue job, no normalized booking write, no live config write.</p>
     <p><strong>Classification:</strong> <span class="pill <?= $ok ? 'ok' : 'bad' ?>"><?= edxf_h($result['classification']['code'] ?? 'UNKNOWN') ?></span></p>
     <p><?= edxf_h($result['classification']['message'] ?? '') ?></p>
     <p><a class="btn" href="/ops/edxeix-create-form-token-diagnostic.php">Refresh diagnostic</a> <a class="btn secondary" href="/ops/pre-ride-one-shot-transport-trace.php">Transport trace page</a></p>
