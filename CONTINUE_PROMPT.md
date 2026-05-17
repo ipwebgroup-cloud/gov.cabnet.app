@@ -1,28 +1,25 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from 2026-05-17 v3.2.26.
+Project stack: plain PHP, mysqli/MariaDB, cPanel/manual upload. Do not introduce frameworks, Composer, Node, or heavy dependencies.
 
-Project identity:
-- Domain: https://gov.cabnet.app
-- GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
-- Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
-- Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
+Current state after v3.2.27:
 
-Current state:
-- Production V0 must remain unaffected.
-- EDXEIX live submit remains disabled.
-- AADE/myDATA receipt issuing remains untouched.
-- Server config future guard is now 30 minutes.
-- v3.2.22 added a separate pre-ride diagnostic candidate path.
-- v3.2.24 safe source debug proved the latest Maildir message has HTML labels for operator/customer/driver/vehicle/pickup/drop-off/times/price.
-- v3.2.25 detected HTML label rows but still returned zero fields.
-- v3.2.26 fixes the diagnostics-only fallback parser to accept any positive `preg_match_all()` label count.
+- v3.2.26 successfully parsed a real future Bolt pre-ride Maildir email and classified it `PRE_RIDE_READY_CANDIDATE`.
+- Sanitized metadata was captured into `edxeix_pre_ride_candidates` as `candidate_id=2`.
+- v3.2.27 adds a read-only one-shot readiness packet at:
+  - CLI: `/home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php`
+  - Ops: `https://gov.cabnet.app/ops/pre-ride-one-shot-readiness.php?candidate_id=2`
 
-Safety rules:
-- Do not enable live EDXEIX submission unless Andreas explicitly requests a supervised live-submit update.
-- Historical, cancelled, terminal, expired, invalid, mail receipt-only, or past orders must never be submitted.
-- Keep pre-ride candidate processing diagnostic/dry-run unless a real future mapped candidate is confirmed and Andreas explicitly authorizes the next one-shot step.
-- Never request or expose secrets.
+Safety posture:
 
-Next safest step:
-- Validate v3.2.26 with `php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1`.
+- No EDXEIX transport has occurred.
+- No AADE/myDATA behavior changed.
+- No queue jobs or normalized bookings were created.
+- Live submit gates must remain disabled unless Andreas explicitly approves a supervised one-shot transport patch.
+- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted.
+
+Next step:
+
+1. Verify v3.2.27 against `candidate_id=2`.
+2. If it returns `PRE_RIDE_ONE_SHOT_READY_PACKET`, prepare v3.2.28 as a supervised one-shot transport trace only after explicit approval.
+3. If it is blocked because pickup is no longer 30+ minutes future, wait for the next real future pre-ride email and rerun the pre-ride candidate capture.

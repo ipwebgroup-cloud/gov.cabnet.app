@@ -1,24 +1,22 @@
-# gov.cabnet.app Patch — EDXEIX Pre-Ride Candidate v3.2.26
+# gov.cabnet.app Patch — Pre-Ride One-Shot Readiness Packet v3.2.27
 
 Generated for Andreas on 2026-05-17.
 
 ## What changed
 
-This patch fixes the diagnostics-only pre-ride fallback parser after v3.2.25 validation showed HTML cleanup was detected but fallback label hits still returned zero.
+This patch adds a read-only readiness packet for the pre-ride EDXEIX automation path after v3.2.26 successfully parsed and captured a future pre-ride candidate as `candidate_id=2`.
 
-Root cause:
+The new packet verifies:
 
-```text
-preg_match_all() returns the number of matches, not only 1.
-The v3.2.25 guard accepted exactly 1 match and rejected normal emails with many labels.
-```
+- captured pre-ride candidate status;
+- future guard still passes;
+- required EDXEIX payload fields are present;
+- mapping remains trusted/resolved;
+- duplicate success is not already recorded for the payload hash;
+- live-submit gates are not unexpectedly already enabled;
+- EDXEIX session readiness is visible.
 
-Fix:
-
-- Accept any positive match count from `preg_match_all()`.
-- Preserve redacted source diagnostics.
-- Preserve dry-run/no-submit behavior.
-- Leave the production V0 parser file untouched.
+No transport is performed.
 
 ## Files included
 
@@ -28,15 +26,14 @@ Fix:
 - `PROJECT_FILE_MANIFEST.md`
 - `README.md`
 - `SCOPE.md`
-- `docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.26.md`
-- `gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php`
-- `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
-- `gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php`
-- `gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php`
-- `public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php`
+- `docs/EDXEIX_PRE_RIDE_ONE_SHOT_READINESS_v3.2.27.md`
+- `gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_readiness_lib.php`
+- `gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-one-shot-readiness.php`
 
 ## Exact upload paths
+
+Upload/replace:
 
 ```text
 /home/cabnet/CONTINUE_PROMPT.md
@@ -45,52 +42,57 @@ Fix:
 /home/cabnet/PROJECT_FILE_MANIFEST.md
 /home/cabnet/README.md
 /home/cabnet/SCOPE.md
-/home/cabnet/docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.26.md
-/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php
-/home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
-/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
+/home/cabnet/docs/EDXEIX_PRE_RIDE_ONE_SHOT_READINESS_v3.2.27.md
+/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_readiness_lib.php
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-one-shot-readiness.php
 ```
+
+For local GitHub Desktop repo, extract this ZIP at the repository root. The ZIP root mirrors the repo/live layout directly and has no wrapper folder.
 
 ## SQL to run
 
 None.
 
+The additive v3.2.22 table is already installed and candidate metadata was captured as `candidate_id=2`.
+
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_readiness_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-one-shot-readiness.php
 
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75 --pre-ride-latest=1 --pre-ride-debug-source=1
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php --candidate-id=2 --json
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php --latest-ready=1 --json
+```
+
+## Verification URL
+
+```text
+https://gov.cabnet.app/ops/pre-ride-one-shot-readiness.php?candidate_id=2
 ```
 
 ## Expected result
 
-The pre-ride report should now show:
+If candidate 2 is still at least 30 minutes in the future:
 
 ```text
-parser_fallback.used: true
-fallback_html_cleanup_applied: true
-fallback_label_hits: greater than 1
-parsed_fields populated
+classification.code: PRE_RIDE_ONE_SHOT_READY_PACKET
+ready_for_supervised_one_shot: true
+transport_performed: false
 ```
 
-The candidate should still remain blocked unless the email is a real future ride, mapped, non-excluded, and passes the +30 minute guard. No EDXEIX transport is enabled.
+If the trip is too close or past, expected safe blocker:
+
+```text
+candidate_pickup_not_30_min_future
+```
 
 ## Git commit title
 
-Fix pre-ride fallback multi-label parsing
+Add pre-ride one-shot readiness packet
 
 ## Git commit description
 
-Fixes the diagnostics-only pre-ride candidate fallback parser so `preg_match_all()` accepts any positive label match count instead of only exactly one match. This follows v3.2.25 validation showing expected HTML labels were present but the fallback parser still returned zero fields. Production V0 parser behavior remains untouched.
-
-No SQL changes. No live EDXEIX submit, AADE call, queue job, normalized booking write, or production V0 route change.
+Adds a read-only readiness packet for captured pre-ride EDXEIX candidates. The packet verifies future guard, payload completeness, trusted mapping, duplicate success state, session readiness, and disabled live gates before allowing the project to proceed to a later supervised one-shot transport patch. No EDXEIX transport, AADE call, queue job, normalized booking write, cron, or live-submit config write is performed.

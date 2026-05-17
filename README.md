@@ -1,24 +1,10 @@
-# gov.cabnet.app — Bolt → EDXEIX Integration
+# gov.cabnet.app — Bolt → EDXEIX Bridge
 
-Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX diagnostic/preflight workflow.
+Plain PHP/mysqli bridge for Bolt Fleet/pre-ride intake, normalized operational readiness, and EDXEIX preflight tooling.
 
-## Current safety posture
+Current ASAP automation track:
 
-No unattended live EDXEIX submission is enabled. Current work is focused on diagnostic readiness for future pre-ride emails.
+- v3.2.26: real pre-ride Maildir email parsed and captured as ready candidate metadata.
+- v3.2.27: read-only one-shot readiness packet for a captured pre-ride candidate.
 
-## Current ASAP track
-
-- Server-side future guard: 30 minutes.
-- Existing Bolt API rows remain blocked when historical, terminal, cancelled, lab/test, or not future.
-- `bolt_mail` receipt-only rows remain blocked from EDXEIX.
-- `bolt_pre_ride_email` is a separate diagnostic path.
-- v3.2.26 fixes diagnostics-only fallback parsing for HTML label rows.
-
-## cPanel layout
-
-```text
-/home/cabnet/public_html/gov.cabnet.app
-/home/cabnet/gov.cabnet.app_app
-/home/cabnet/gov.cabnet.app_config
-/home/cabnet/gov.cabnet.app_sql
-```
+No live EDXEIX submission is enabled by this package.
