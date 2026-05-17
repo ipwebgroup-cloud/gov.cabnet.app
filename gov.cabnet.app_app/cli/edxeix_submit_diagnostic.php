@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.23
+ * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.24
  *
  * Default: dry-run analysis only. No EDXEIX HTTP transport.
  * Transport requires --transport=1 and the exact server-only confirmation phrase.
@@ -21,6 +21,8 @@ $candidateLimit = (int)gov_edxdiag_cli_value($argv, 'limit', '75');
 $listCandidates = gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'list-candidates', '0'));
 $preRideLatest = gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'pre-ride-latest', '0'));
 $preRideEmailFile = trim((string)gov_edxdiag_cli_value($argv, 'pre-ride-email-file', ''));
+$preRideDebugSource = gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'pre-ride-debug-source', '0'));
+$preRideDebugLines = (int)gov_edxdiag_cli_value($argv, 'pre-ride-debug-lines', '24');
 
 try {
     $result = gov_edxdiag_run([
@@ -33,6 +35,8 @@ try {
         'list_candidates' => $listCandidates,
         'pre_ride_latest' => $preRideLatest,
         'pre_ride_email_file' => $preRideEmailFile,
+        'pre_ride_debug_source' => $preRideDebugSource,
+        'pre_ride_debug_lines' => $preRideDebugLines,
     ]);
 } catch (Throwable $e) {
     $result = [
@@ -55,7 +59,7 @@ if ($json) {
 $analysis = is_array($result['analysis'] ?? null) ? $result['analysis'] : [];
 $class = is_array($result['classification'] ?? null) ? $result['classification'] : [];
 
-echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.23\n";
+echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.24\n";
 echo "Started: " . (string)($result['started_at'] ?? '') . "\n";
 echo "Booking ID: " . (string)($analysis['booking_id'] ?? '') . "\n";
 echo "Order reference: " . (string)($analysis['order_reference'] ?? '') . "\n";

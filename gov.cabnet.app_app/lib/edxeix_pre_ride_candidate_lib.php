@@ -1,12 +1,13 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX pre-ride future candidate diagnostic library v3.2.23
+ * gov.cabnet.app — EDXEIX pre-ride future candidate diagnostic library v3.2.24
  *
  * Purpose:
  * - Convert a pasted/latest Bolt pre-ride email into a sanitized future EDXEIX candidate preview.
  * - Keep receipt-only Bolt mail rows blocked while allowing a separate pre-ride candidate path.
  * - Optionally capture candidate metadata into the additive edxeix_pre_ride_candidates table.
  * - v3.2.23 adds a diagnostics-only fallback label parser for Maildir bodies whose labels are not line-start normalized.
+ * - v3.2.24 adds opt-in safe source diagnostics so empty Maildir parses can be inspected without exposing raw email bodies.
  *
  * Safety contract:
  * - Default mode is dry-run / analysis only.
@@ -289,6 +290,8 @@ if (!function_exists('gov_prc_source_from_options')) {
             'source_hash' => $text !== '' ? hash('sha256', $text) : '',
             'warnings' => $warnings,
             'checked_dirs' => $checkedDirs,
+            'debug_source' => !empty($options['debug_source']),
+            'debug_lines' => (int)($options['debug_lines'] ?? 24),
         ];
     }
 }
@@ -340,6 +343,94 @@ if (!function_exists('gov_prc_payload_summary')) {
     }
 }
 
+
+
+if (!function_exists('gov_prc_debug_redact_line')) {
+    function gov_prc_debug_redact_line(string $line): string
+    {
+        $line = trim($line);
+        $line = preg_replace('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '[EMAIL]', $line) ?? $line;
+        $line = preg_replace('/\+?\d[\d\s().\-]{5,}\d/', '[PHONE_OR_ID]', $line) ?? $line;
+        $line = preg_replace('/\b[A-Z0-9]{18,}\b/i', '[LONG_TOKEN]', $line) ?? $line;
+        $line = preg_replace('/\s+/', ' ', $line) ?? $line;
+        if (function_exists('mb_substr')) {
+            return mb_strlen($line, 'UTF-8') > 180 ? mb_substr($line, 0, 180, 'UTF-8') . '…' : $line;
+        }
+        return strlen($line) > 180 ? substr($line, 0, 180) . '…' : $line;
+    }
+}
+
+if (!function_exists('gov_prc_debug_structure_line')) {
+    function gov_prc_debug_structure_line(string $line): string
+    {
+        $clean = gov_prc_debug_redact_line($line);
+        if (preg_match('/^([^:]{1,80})\s*:\s*(.*)$/u', $clean, $m) === 1) {
+            $label = trim((string)$m[1]);
+            $value = trim((string)$m[2]);
+            return $label . ': ' . ($value !== '' ? '[VALUE_REDACTED]' : '');
+        }
+        return $clean;
+    }
+}
+
+if (!function_exists('gov_prc_source_debug_report')) {
+    /** @return array<string,mixed> */
+    function gov_prc_source_debug_report(string $text, int $maxLines = 24): array
+    {
+        $raw = str_replace(["\r\n", "\r"], "\n", $text);
+        $lower = function_exists('mb_strtolower') ? mb_strtolower($raw, 'UTF-8') : strtolower($raw);
+        $lines = preg_split('/\n/', $raw) ?: [];
+        $nonEmpty = [];
+        foreach ($lines as $idx => $line) {
+            $trim = trim((string)$line);
+            if ($trim === '') { continue; }
+            $nonEmpty[] = [
+                'line' => $idx + 1,
+                'text' => gov_prc_debug_structure_line($trim),
+            ];
+            if (count($nonEmpty) >= $maxLines) { break; }
+        }
+
+        $aliases = function_exists('gov_prc_fallback_label_aliases') ? gov_prc_fallback_label_aliases() : [];
+        $phraseHits = [];
+        $colonHits = [];
+        foreach ($aliases as $field => $fieldAliases) {
+            foreach ($fieldAliases as $alias) {
+                $aliasLower = function_exists('mb_strtolower') ? mb_strtolower((string)$alias, 'UTF-8') : strtolower((string)$alias);
+                if ($aliasLower !== '' && strpos($lower, $aliasLower) !== false) {
+                    $phraseHits[$field][] = $alias;
+                }
+                if ($aliasLower !== '' && preg_match('/(?<![\p{L}0-9])' . preg_quote($aliasLower, '/') . '\s*:/iu', $lower) === 1) {
+                    $colonHits[$field][] = $alias;
+                }
+            }
+        }
+
+        $printable = 0;
+        $len = strlen($raw);
+        if ($len > 0) {
+            for ($i = 0; $i < $len; $i++) {
+                $o = ord($raw[$i]);
+                if ($o === 9 || $o === 10 || $o === 13 || ($o >= 32 && $o <= 126) || $o >= 128) { $printable++; }
+            }
+        }
+
+        return [
+            'enabled' => true,
+            'safety' => 'Raw email body is not printed or stored; line values are redacted/truncated for structure diagnostics only.',
+            'source_hash_16' => substr(hash('sha256', $text), 0, 16),
+            'bytes' => strlen($text),
+            'line_count' => count($lines),
+            'non_empty_preview_count' => count($nonEmpty),
+            'printable_ratio' => $len > 0 ? round($printable / $len, 4) : 0,
+            'label_phrase_hit_fields' => array_keys($phraseHits),
+            'label_colon_hit_fields' => array_keys($colonHits),
+            'label_phrase_hits' => $phraseHits,
+            'label_colon_hits' => $colonHits,
+            'redacted_structure_lines' => $nonEmpty,
+        ];
+    }
+}
 
 if (!function_exists('gov_prc_fallback_normalize_key')) {
     function gov_prc_fallback_normalize_key(string $key): string
@@ -902,6 +993,11 @@ if (!function_exists('gov_prc_run')) {
         }
 
         $result = gov_prc_analyze_text($db, $source);
+        if (!empty($source['debug_source'])) {
+            $lines = (int)($source['debug_lines'] ?? 24);
+            $lines = max(5, min(60, $lines));
+            $result['source_debug'] = gov_prc_source_debug_report((string)($source['email_text'] ?? ''), $lines);
+        }
         if ($writeRequested && is_array($result['candidate'] ?? null)) {
             $result['write'] = gov_prc_write_candidate($db, $result['candidate']);
         } else {

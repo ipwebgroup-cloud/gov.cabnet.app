@@ -1,46 +1,33 @@
 You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
 
-Continue from the 2026-05-17 v3.2.23 ASAP automation track.
+Continue from the 2026-05-17 v3.2.24 ASAP automation track.
 
 Project identity:
 - Domain: https://gov.cabnet.app
 - GitHub repo: https://github.com/ipwebgroup-cloud/gov.cabnet.app
 - Stack: plain PHP, mysqli/MariaDB, cPanel/manual upload workflow.
 - Do not introduce frameworks, Composer, Node build tools, or heavy dependencies unless Andreas explicitly approves.
-- Expected server layout:
-  /home/cabnet/public_html/gov.cabnet.app
-  /home/cabnet/gov.cabnet.app_app
-  /home/cabnet/gov.cabnet.app_config
-  /home/cabnet/gov.cabnet.app_sql
-  /home/cabnet/tools/firefox-edxeix-autofill-helper
-- Workflow: code with Sophion, download zip patch, extract into local GitHub Desktop repo, upload manually to server, test on server, then commit via GitHub Desktop after production confirmation.
 
-Current verified state:
+Current state:
 - Production V0 must remain unaffected.
-- EDXEIX live submission remains disabled.
-- Queue 2398 automatic live-submit test is closed and must not be retried without a new diagnostic patch.
-- `future_start_guard_minutes` is now 30 in both server config files.
-- v3.2.21 diagnostic candidate discovery works and reports no safe future Bolt candidate.
-- v3.2.22 pre-ride future candidate path was installed and syntax checks passed.
-- Additive table `edxeix_pre_ride_candidates` was installed; candidate metadata capture with `--write=1` worked and returned candidate_id 1.
-- The first latest-Maildir test loaded a message but produced empty parsed fields, causing `PRE_RIDE_CANDIDATE_BLOCKED` with required field blockers. This was safe.
+- EDXEIX live submission remains blocked.
+- Future guard is 30 minutes in `/home/cabnet/gov.cabnet.app_config/bolt.php` and `/home/cabnet/gov.cabnet.app_config/config.php`.
+- v3.2.21 candidate diagnostics worked and found no eligible future Bolt candidate.
+- v3.2.22 added separate pre-ride future candidate diagnostics plus optional sanitized metadata capture table.
+- v3.2.23 fallback parser ran but latest Maildir message still produced zero parsed fields and zero fallback labels.
+- v3.2.24 adds opt-in redacted source diagnostics to inspect the selected Maildir email structure safely.
 
-Current patch direction:
-- v3.2.23 adds a diagnostics-only fallback label parser inside the pre-ride candidate diagnostic library.
-- It does not modify `BoltPreRideEmailParser.php`; this avoids changing production V0/manual pre-ride behavior.
-- It adds `candidate.parser_fallback` diagnostics.
-- It still performs no EDXEIX HTTP transport, AADE calls, queue jobs, or normalized booking writes.
+Critical rules:
+- No live EDXEIX submit without explicit approval.
+- No historical, terminal, cancelled, expired, receipt-only, lab/test, invalid, or past orders may be submitted.
+- Raw email bodies, credentials, cookies, tokens, and sessions must not be exposed or committed.
+- Keep all work dry-run/read-only/diagnostic-first unless Andreas explicitly authorizes a supervised one-shot live diagnostic.
 
-Critical safety rules:
-- Default to read-only, dry-run, preview, audit, queue visibility, and preflight behavior.
-- Do not enable live EDXEIX submission unless Andreas explicitly asks for a live-submit update.
-- Historical, cancelled, terminal, expired, invalid, or past Bolt orders must never be submitted to EDXEIX.
-- Pre-ride email candidates may become readiness candidates only if future guard, mapping, exclusion, and parser checks pass.
-- Receipt-only `bolt_mail` rows remain blocked.
-- Never request or expose secrets.
-
-Next command after uploading v3.2.23:
+Next action:
+Run and inspect:
 
 ```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1
 ```
+
+Then adapt the parser or Maildir selector based on the redacted `source_debug` result.

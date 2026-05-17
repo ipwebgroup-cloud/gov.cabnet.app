@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — CLI pre-ride future EDXEIX candidate diagnostic v3.2.23
+ * gov.cabnet.app — CLI pre-ride future EDXEIX candidate diagnostic v3.2.24
  *
  * Default: dry-run parse/readiness only. No EDXEIX, no AADE, no queue jobs.
  * Optional --write=1 stores sanitized candidate metadata only if the additive table exists.
@@ -24,12 +24,16 @@ $json = gov_prc_bool(prc_cli_value($argv, 'json', '0'));
 $latestMail = gov_prc_bool(prc_cli_value($argv, 'latest-mail', '0'));
 $emailFile = trim((string)prc_cli_value($argv, 'email-file', ''));
 $write = gov_prc_bool(prc_cli_value($argv, 'write', '0'));
+$debugSource = gov_prc_bool(prc_cli_value($argv, 'debug-source', '0'));
+$debugLines = (int)prc_cli_value($argv, 'debug-lines', '24');
 
 try {
     $result = gov_prc_run([
         'latest_mail' => $latestMail,
         'email_file' => $emailFile,
         'write' => $write,
+        'debug_source' => $debugSource,
+        'debug_lines' => $debugLines,
     ]);
 } catch (Throwable $e) {
     $result = [
@@ -50,7 +54,7 @@ $class = is_array($result['classification'] ?? null) ? $result['classification']
 $candidate = is_array($result['candidate'] ?? null) ? $result['candidate'] : [];
 $writeResult = is_array($result['write'] ?? null) ? $result['write'] : [];
 
-echo "gov.cabnet.app — Pre-Ride Candidate Diagnostic v3.2.23\n";
+echo "gov.cabnet.app — Pre-Ride Candidate Diagnostic v3.2.24\n";
 echo "Classification: " . (string)($class['code'] ?? '') . "\n";
 echo "Message: " . (string)($class['message'] ?? '') . "\n";
 

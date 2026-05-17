@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.23
+ * gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.24
  *
  * Web UI is dry-run/read-only only. It never performs EDXEIX transport.
  */
@@ -45,7 +45,7 @@ try {
 
 opsui_shell_begin([
     'title' => 'EDXEIX Submit Diagnostic',
-    'page_title' => 'EDXEIX Submit Diagnostic v3.2.23',
+    'page_title' => 'EDXEIX Submit Diagnostic v3.2.24',
     'subtitle' => 'Dry-run submit-readiness and redirect-trace command center. Web mode performs no EDXEIX HTTP transport.',
     'breadcrumbs' => 'Operations / EDXEIX / Submit Diagnostic',
     'active_section' => 'EDXEIX',

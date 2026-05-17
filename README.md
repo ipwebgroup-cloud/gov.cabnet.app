@@ -1,26 +1,20 @@
 # gov.cabnet.app — Bolt → EDXEIX Integration
 
-Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX preflight/diagnostic workflow.
+Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness workflow.
 
 ## Current safety posture
 
-No unattended live EDXEIX submission is enabled by this package. Current work is limited to:
+No unattended live EDXEIX submission is enabled.
 
-- Bolt reference sync
-- Bolt order sync
-- normalized local bookings
-- mapping checks
-- EDXEIX payload preview/preflight
-- local queue visibility
-- readiness audit
-- pre-ride email future candidate diagnostics
-- dry-run/local audit behavior only
+Current ASAP automation track:
 
-Live EDXEIX submission must remain disabled unless a real eligible future trip/pre-ride candidate exists and Andreas explicitly requests a supervised live-submit diagnostic.
+- EDXEIX submit diagnostic tracing is installed.
+- Future guard is 30 minutes.
+- Historical/terminal/cancelled/mail receipt-only/test-like rows remain blocked.
+- Pre-ride future candidate diagnostics are installed as a separate path.
+- v3.2.24 adds opt-in redacted source diagnostics for Maildir parser troubleshooting.
 
 ## cPanel layout
-
-Expected server paths:
 
 ```text
 /home/cabnet/public_html/gov.cabnet.app
@@ -29,25 +23,9 @@ Expected server paths:
 /home/cabnet/gov.cabnet.app_sql
 ```
 
-## v3.2.23 note
+## Important commands
 
-v3.2.23 improves the separate pre-ride candidate diagnostic path by adding a fallback label parser inside `edxeix_pre_ride_candidate_lib.php`. The existing production `BoltPreRideEmailParser.php` remains untouched so production V0/manual tooling behavior is not changed.
-
-## Key endpoints
-
-```text
-/ops/edxeix-submit-diagnostic.php
-/ops/pre-ride-edxeix-candidate.php
-/ops/index.php
-/ops/bolt-live.php
-/ops/jobs.php
-/ops/readiness.php
-/ops/submit.php
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1
 ```
-
-## Safety rules
-
-- No historical, terminal, cancelled, expired, invalid, or past Bolt order may be submitted.
-- Receipt-only `bolt_mail` rows stay blocked.
-- Pre-ride email candidates must pass +30 minute future guard, parser, mapping, exclusion, and duplicate checks.
-- Real credentials, sessions, cookies, tokens, API keys, and raw private data must remain server-only.
