@@ -1,32 +1,34 @@
-# gov.cabnet.app Patch — EDXEIX Submit Diagnostic v3.2.20
+# gov.cabnet.app Patch — EDXEIX Submit Diagnostic v3.2.21
 
 Generated for Andreas on 2026-05-17.
 
 ## What changed
 
-This patch keeps the project on the ASAP full-automation track by adding a safe diagnostic layer for the queue 2398 blocker: EDXEIX returned HTTP 302, but no remote/reference ID was captured and no saved contract was confirmed.
+This patch updates the EDXEIX submit diagnostic after server validation of v3.2.20.
+
+v3.2.20 installed correctly and performed no EDXEIX transport, but its default dry-run selected an old finished/test-like booking and showed the current future guard as `0 min`. v3.2.21 keeps the ASAP automation track safe by adding candidate discovery and a diagnostic +30 minute guard floor.
 
 Key changes:
 
-- Adds a private EDXEIX submit diagnostic library that can analyze a selected booking through the existing live-submit gate.
-- Adds a CLI diagnostic tool that defaults to dry-run/read-only.
-- Adds a dry-run `/ops/` diagnostic page for operator visibility and copy/paste terminal commands.
-- Adds safe redirect-chain tracing and classification for supervised CLI transport diagnostics.
-- Updates `SCOPE.md` so the immediate ASAP track is diagnostic redirect tracing, success proof, then controlled one-shot testing.
-- Updates `HANDOFF.md`, `CONTINUE_PROMPT.md`, `README.md`, and `PROJECT_FILE_MANIFEST.md` to preserve continuity.
-- Adds `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md`.
-
-No unattended live submission is enabled. The web page never POSTs to EDXEIX.
+- Adds candidate discovery to the CLI and web diagnostic page.
+- Stops default analysis from falling back to arbitrary stale rows.
+- Auto-selects only a real future Bolt candidate that passes diagnostic readiness filters.
+- Adds `--list-candidates=1 --limit=75` support.
+- Adds `candidate_report` to JSON output.
+- Adds diagnostic safety blockers separate from live-gate blockers.
+- Applies +30 minute minimum diagnostic future guard even if current config is lower.
+- Blocks diagnostic transport unless a booking/order is explicitly selected or server-only one-shot config selects it.
+- Updates scope, handoff, continue prompt, README, manifest, and diagnostic documentation.
 
 ## Files included
 
+- `SCOPE.md`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
-- `PATCH_README.md`
-- `PROJECT_FILE_MANIFEST.md`
 - `README.md`
-- `SCOPE.md`
-- `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md`
+- `PROJECT_FILE_MANIFEST.md`
+- `PATCH_README.md`
+- `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.21.md`
 - `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
 - `gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php`
 - `public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php`
@@ -36,13 +38,13 @@ No unattended live submission is enabled. The web page never POSTs to EDXEIX.
 Upload/replace:
 
 ```text
+/home/cabnet/SCOPE.md
 /home/cabnet/HANDOFF.md
 /home/cabnet/CONTINUE_PROMPT.md
-/home/cabnet/PATCH_README.md
-/home/cabnet/PROJECT_FILE_MANIFEST.md
 /home/cabnet/README.md
-/home/cabnet/SCOPE.md
-/home/cabnet/docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md
+/home/cabnet/PROJECT_FILE_MANIFEST.md
+/home/cabnet/PATCH_README.md
+/home/cabnet/docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.21.md
 /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
 /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
 /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
@@ -61,7 +63,7 @@ php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
 php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
 
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75
 ```
 
 Optional dry-run for a selected booking:
@@ -70,34 +72,29 @@ Optional dry-run for a selected booking:
 php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --booking-id=BOOKING_ID --json
 ```
 
-Supervised transport trace command for later only, after Andreas explicitly authorizes a real eligible future booking and server-only one-shot gates are enabled:
+Do not run transport unless explicitly authorized for a real future candidate.
 
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --booking-id=BOOKING_ID --transport=1 --confirm='I UNDERSTAND SUBMIT LIVE TO EDXEIX' --json
-```
-
-## Verification URLs
+## Verification URL
 
 ```text
 https://gov.cabnet.app/ops/edxeix-submit-diagnostic.php
-https://gov.cabnet.app/ops/live-submit-readiness.php
-https://gov.cabnet.app/ops/edxeix-final-submit-gate.php
 ```
 
 ## Expected result
 
-- Web diagnostic loads inside `/ops/` and clearly says it is dry-run/read-only.
-- CLI dry-run returns JSON with booking analysis, session summary, blockers, payload field names, and classification `DRY_RUN_DIAGNOSTIC_ONLY`.
-- No EDXEIX HTTP POST occurs unless `--transport=1` is used and all server-only live-submit gates are already enabled for one selected booking.
-- If transport is requested while gates are disabled, result is `TRANSPORT_BLOCKED_BY_SAFETY_GATE`.
-- No cookies, CSRF tokens, raw EDXEIX HTML, or raw payload values are printed.
+- Syntax checks pass.
+- CLI returns `candidate_report`.
+- If no real future Bolt candidate exists, classification is `NO_SAFE_CANDIDATE_AVAILABLE`.
+- If configured guard is below +30, output shows `future_guard_floor_applied: true` and diagnostic safety blocker `configured_future_guard_below_30_minimum`.
+- Web page shows candidate discovery and diagnostic safety blockers.
+- No EDXEIX HTTP transport is performed by default.
 
 ## Git commit title
 
-Add EDXEIX submit diagnostic tracing
+Harden EDXEIX diagnostic candidate discovery
 
 ## Git commit description
 
-Adds dry-run EDXEIX submit diagnostics and a gated CLI redirect-chain trace tool so HTTP 302 can be classified before moving toward full automation. Updates scope, handoff, README, manifest, and documentation for the ASAP automation track while keeping unattended live submission disabled.
+Improves the EDXEIX submit diagnostic after v3.2.20 server validation by adding candidate discovery, preventing stale default booking selection, applying a +30 minute diagnostic future-guard floor, requiring explicit booking/order selection for any transport trace, and exposing candidate_report plus diagnostic safety blockers in CLI and ops UI output.
 
-No SQL changes. No unattended worker. No live-submit behavior enabled by default.
+No SQL changes. No unattended submit behavior enabled. Web mode remains dry-run/read-only.

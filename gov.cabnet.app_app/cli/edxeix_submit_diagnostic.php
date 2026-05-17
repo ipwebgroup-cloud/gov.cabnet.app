@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.20
+ * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.21
  *
  * Default: dry-run analysis only. No EDXEIX HTTP transport.
  * Transport requires --transport=1 and the exact server-only confirmation phrase.
@@ -17,6 +17,8 @@ $follow = !gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'no-follow', '0'));
 $bookingId = trim((string)gov_edxdiag_cli_value($argv, 'booking-id', ''));
 $orderReference = trim((string)gov_edxdiag_cli_value($argv, 'order-reference', ''));
 $confirm = (string)gov_edxdiag_cli_value($argv, 'confirm', '');
+$candidateLimit = (int)gov_edxdiag_cli_value($argv, 'limit', '75');
+$listCandidates = gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'list-candidates', '0'));
 
 try {
     $result = gov_edxdiag_run([
@@ -25,6 +27,8 @@ try {
         'transport' => $transport,
         'follow_redirects' => $follow,
         'confirmation_phrase' => $confirm,
+        'candidate_limit' => $candidateLimit,
+        'list_candidates' => $listCandidates,
     ]);
 } catch (Throwable $e) {
     $result = [
@@ -47,7 +51,7 @@ if ($json) {
 $analysis = is_array($result['analysis'] ?? null) ? $result['analysis'] : [];
 $class = is_array($result['classification'] ?? null) ? $result['classification'] : [];
 
-echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.20\n";
+echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.21\n";
 echo "Started: " . (string)($result['started_at'] ?? '') . "\n";
 echo "Booking ID: " . (string)($analysis['booking_id'] ?? '') . "\n";
 echo "Order reference: " . (string)($analysis['order_reference'] ?? '') . "\n";
@@ -56,6 +60,34 @@ echo "Transport performed: " . (!empty($result['transport_performed']) ? 'YES' :
 echo "Classification: " . (string)($class['code'] ?? '') . "\n";
 echo "Message: " . (string)($class['message'] ?? '') . "\n";
 echo "Next action: " . (string)($result['next_action'] ?? '') . "\n";
+
+$candidateReport = is_array($result['candidate_report'] ?? null) ? $result['candidate_report'] : [];
+if ($candidateReport) {
+    echo "Candidate report:\n";
+    echo "- Checked: " . (string)($candidateReport['checked_count'] ?? 0) . "\n";
+    echo "- Ready candidates: " . (string)($candidateReport['ready_candidate_count'] ?? 0) . "\n";
+    echo "- Configured guard minutes: " . (string)($candidateReport['configured_future_guard_minutes'] ?? '') . "\n";
+    echo "- Effective guard minutes: " . (string)($candidateReport['effective_future_guard_minutes'] ?? '') . "\n";
+    if (!empty($candidateReport['future_guard_floor_applied'])) {
+        echo "- Guard floor applied: YES\n";
+    }
+    $rows = is_array($candidateReport['rows'] ?? null) ? $candidateReport['rows'] : [];
+    if ($listCandidates && $rows) {
+        echo "Recent candidate rows:\n";
+        foreach ($rows as $row) {
+            echo "  #" . (string)($row['booking_id'] ?? '')
+                . " " . (string)($row['started_at'] ?? '')
+                . " " . (string)($row['status'] ?? '')
+                . " " . (string)($row['plate'] ?? '')
+                . " ready=" . (!empty($row['diagnostic_ready_candidate']) ? 'YES' : 'NO')
+                . "\n";
+            $rowBlockers = is_array($row['diagnostic_safety_blockers'] ?? null) ? $row['diagnostic_safety_blockers'] : [];
+            if ($rowBlockers) {
+                echo "    blockers: " . implode(', ', $rowBlockers) . "\n";
+            }
+        }
+    }
+}
 
 $blockers = is_array($result['transport_blockers'] ?? null) ? $result['transport_blockers'] : [];
 if ($blockers) {

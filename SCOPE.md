@@ -2,9 +2,7 @@
 
 ## Goal
 
-Build and harden a safe Bolt Fleet API → normalized local bookings → EDXEIX submission pipeline.
-
-The ASAP automation track is active, but safety remains stricter than speed: server-side automation must only advance after we can prove what EDXEIX does after submit and can verify a saved contract/reference.
+Build and harden a safe Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness/submit-diagnostic pipeline, moving toward full automation only after confirmed proof that EDXEIX accepts and saves a real future trip.
 
 ## In scope now
 
@@ -14,34 +12,33 @@ The ASAP automation track is active, but safety remains stricter than speed: ser
 - Map Bolt drivers/vehicles to EDXEIX IDs.
 - Build EDXEIX payload previews.
 - Block terminal/cancelled/old orders.
-- Require a future guard before any order can be considered submission-safe.
+- Require a +30 minute minimum future guard before any order can be considered submit-diagnostic safe.
 - Stage local jobs only when explicitly requested.
 - Maintain readiness/audit pages.
-- Keep normal behavior dry-run, local-only, preflight-only, read-only, or explicitly gated.
-- Diagnose EDXEIX submit behavior without assuming HTTP 302 means success.
-- Capture safe redirect-chain fingerprints for a supervised one-shot submit diagnostic.
-- Classify EDXEIX submit outcomes as login/session, CSRF/session rejection, validation error, success candidate, or unknown.
-- Use browser/extension proof capture as a fallback/helper when server-side EDXEIX automation lacks a reliable success signal.
+- Maintain dry-run/local audit behavior by default.
+- Run EDXEIX submit diagnostics to classify HTTP 302/redirect behavior without treating redirect as proof.
+- Discover real future Bolt candidates and show why each candidate is or is not eligible.
+- Use browser-extension/operator proof capture only as a fallback/helper layer when EDXEIX browser state is required.
 
-## ASAP automation milestones
+## ASAP automation track
 
-1. **Diagnostic redirect trace** — identify what EDXEIX HTTP 302 really means.
-2. **Success proof** — confirm a saved contract/reference through a verifier/list match.
-3. **Controlled one-shot** — one eligible future Bolt trip, one explicitly authorized attempt, no retry loop.
-4. **Repeatable supervised flow** — prove the same success pattern more than once.
-5. **Worker readiness** — only after proof, consider a disabled-by-default automatic worker.
-6. **Browser-extension fallback** — keep as helper/proof bridge, not the primary automation brain.
+1. Keep server-side queue/preflight as the automation brain.
+2. Use v3.2.21 candidate discovery to find only real future Bolt candidates.
+3. Correct any mapping/config/session blockers visible in the diagnostic.
+4. When a real future candidate exists, run dry-run diagnostics against that explicit booking.
+5. Only after explicit approval, run one supervised diagnostic transport trace.
+6. Classify the final EDXEIX result and verify saved contract/list proof.
+7. Promote to one-shot controlled live submit only after proof is reliable.
+8. Promote to unattended worker only after repeated proof and duplicate protection are confirmed.
 
 ## Out of scope until explicit approval
 
 - Unattended automatic EDXEIX submission.
 - Cron-enabled live submission workers.
-- Retry loops for failed/unknown EDXEIX submits.
-- Treating HTTP 302 alone as saved/confirmed.
-- Committing production credentials, cookies, API keys, real SQL dumps, raw EDXEIX HTML, or runtime sessions.
+- Live form POSTs to EDXEIX without one-shot authorization.
+- Treating HTTP 302 alone as success.
+- Committing production credentials, cookies, API keys, real SQL dumps, or runtime sessions.
 
 ## Current live-test blocker
 
-Queue 2398 is closed as **not confirmed / not saved**. One supervised POST returned HTTP 302, but no remote/reference ID was captured and no EDXEIX list/search proof confirmed the expected contract.
-
-A new live diagnostic requires a real eligible future Bolt ride and explicit one-shot authorization. Historical, cancelled, terminal, expired, invalid, receipt-only, lab/test, or past Bolt orders must never be submitted.
+A real Bolt ride must be scheduled sufficiently in the future before a true live-safe EDXEIX candidate can exist. The diagnostic now enforces a +30 minute minimum guard even if current config is lower.

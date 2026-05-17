@@ -1,68 +1,35 @@
 # Project File Manifest
 
-Generated/updated for the v3.2.20 EDXEIX submit diagnostic patch.
+Generated from the sanitized gov.cabnet.app project line. This patch adds/updates the v3.2.21 EDXEIX submit diagnostic files.
 
-This manifest lists the important repository paths known to the current sanitized project line. It is not a secret/runtime inventory.
+## Current patch files
 
-- `.gitignore`
 - `CONTINUE_PROMPT.md`
-- `DEPLOYMENT.md`
 - `HANDOFF.md`
 - `PATCH_README.md`
 - `PROJECT_FILE_MANIFEST.md`
 - `README.md`
-- `SANITIZATION_REPORT.md`
 - `SCOPE.md`
-- `SECURITY.md`
-- `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md`
-- `docs/RECOMMENDATIONS.md`
-- `docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md`
-- `gov.cabnet.app_app/.gitignore`
+- `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.21.md`
 - `gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php`
-- `gov.cabnet.app_app/cli/import_session.php`
-- `gov.cabnet.app_app/cli/process_jobs.php`
-- `gov.cabnet.app_app/cli/sync_bolt.php`
-- `gov.cabnet.app_app/cron/cron-examples.txt`
-- `gov.cabnet.app_app/lib/bolt_sync_lib.php`
-- `gov.cabnet.app_app/lib/bolt_visibility_diagnostic.php`
-- `gov.cabnet.app_app/lib/edxeix_live_submit_gate.php`
 - `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
-- `gov.cabnet.app_app/src/Bolt/BoltApiClient.php`
-- `gov.cabnet.app_app/src/Bolt/BoltSyncService.php`
-- `gov.cabnet.app_app/src/Bolt/BoltTokenService.php`
-- `gov.cabnet.app_app/src/BoltMail/`
-- `gov.cabnet.app_app/src/Config.php`
-- `gov.cabnet.app_app/src/Database.php`
-- `gov.cabnet.app_app/src/Domain/BookingNormalizer.php`
-- `gov.cabnet.app_app/src/Domain/MappingService.php`
-- `gov.cabnet.app_app/src/Domain/SubmissionService.php`
-- `gov.cabnet.app_app/src/Edxeix/EdxeixFormReader.php`
-- `gov.cabnet.app_app/src/Edxeix/EdxeixPayloadBuilder.php`
+- `public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php`
+
+## Existing baseline highlights
+
+- `.gitignore`
+- `DEPLOYMENT.md`
+- `SANITIZATION_REPORT.md`
+- `SECURITY.md`
+- `docs/RECOMMENDATIONS.md`
+- `gov.cabnet.app_app/lib/bolt_sync_lib.php`
+- `gov.cabnet.app_app/lib/edxeix_live_submit_gate.php`
 - `gov.cabnet.app_app/src/Edxeix/EdxeixSubmitter.php`
-- `gov.cabnet.app_app/src/Edxeix/SessionStore.php`
-- `gov.cabnet.app_app/src/HttpClient.php`
-- `gov.cabnet.app_app/src/Logger.php`
-- `gov.cabnet.app_app/src/Receipts/`
-- `gov.cabnet.app_app/src/Repository/AttemptRepository.php`
-- `gov.cabnet.app_app/src/Repository/BookingRepository.php`
-- `gov.cabnet.app_app/src/Repository/JobRepository.php`
-- `gov.cabnet.app_app/src/Repository/MappingRepository.php`
-- `gov.cabnet.app_app/src/Repository/RawPayloadRepository.php`
-- `gov.cabnet.app_app/src/Support/`
-- `gov.cabnet.app_app/src/bootstrap.php`
-- `gov.cabnet.app_app/storage/artifacts/.gitkeep`
-- `gov.cabnet.app_app/storage/logs/.gitkeep`
-- `gov.cabnet.app_app/storage/runtime/.gitkeep`
 - `gov.cabnet.app_app/storage/runtime/edxeix_session.json.example`
-- `gov.cabnet.app_config/.gitignore`
 - `gov.cabnet.app_config/README.md`
 - `gov.cabnet.app_config/bolt.php.example`
 - `gov.cabnet.app_config/config.php.example`
-- `gov.cabnet.app_sql/`
-- `public_html/gov.cabnet.app/.htaccess`
-- `public_html/gov.cabnet.app/_auth_prepend.php`
-- `public_html/gov.cabnet.app/bolt-api-smoke-test.php`
-- `public_html/gov.cabnet.app/bolt-fleet-orders-watch.php`
+- `gov.cabnet.app_sql/current_schema_sanitized.sql`
 - `public_html/gov.cabnet.app/bolt_edxeix_preflight.php`
 - `public_html/gov.cabnet.app/bolt_jobs_queue.php`
 - `public_html/gov.cabnet.app/bolt_readiness_audit.php`
@@ -70,14 +37,8 @@ This manifest lists the important repository paths known to the current sanitize
 - `public_html/gov.cabnet.app/bolt_submission_worker.php`
 - `public_html/gov.cabnet.app/bolt_sync_orders.php`
 - `public_html/gov.cabnet.app/bolt_sync_reference.php`
-- `public_html/gov.cabnet.app/edxeix-extension-payload.php`
-- `public_html/gov.cabnet.app/index.php`
-- `public_html/gov.cabnet.app/ops/_auth.php`
-- `public_html/gov.cabnet.app/ops/_shell.php`
 - `public_html/gov.cabnet.app/ops/bolt-live.php`
-- `public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php`
 - `public_html/gov.cabnet.app/ops/index.php`
 - `public_html/gov.cabnet.app/ops/jobs.php`
 - `public_html/gov.cabnet.app/ops/readiness.php`
 - `public_html/gov.cabnet.app/ops/submit.php`
-- `tools/firefox-edxeix-autofill-helper/`

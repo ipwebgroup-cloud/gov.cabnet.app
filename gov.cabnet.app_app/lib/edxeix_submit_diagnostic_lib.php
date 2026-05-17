@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX submit diagnostic library v3.2.20
+ * gov.cabnet.app — EDXEIX submit diagnostic library v3.2.21
  *
  * Purpose:
  * - Keep EDXEIX automation progress on the ASAP track without enabling unattended live submit.
@@ -265,7 +265,7 @@ if (!function_exists('gov_edxdiag_curl_step')) {
 
         $headers = [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-Agent: gov.cabnet.app EDXEIX submit diagnostic v3.2.20',
+            'User-Agent: gov.cabnet.app EDXEIX submit diagnostic v3.2.21',
             'Cookie: ' . $cookie,
         ];
 
@@ -416,8 +416,151 @@ if (!function_exists('gov_edxdiag_classify_trace')) {
     }
 }
 
+
+if (!function_exists('gov_edxdiag_effective_future_guard_minutes')) {
+    function gov_edxdiag_effective_future_guard_minutes(): int
+    {
+        $config = gov_bridge_load_config();
+        $configured = (int)($config['edxeix']['future_start_guard_minutes'] ?? 30);
+        return max(30, $configured);
+    }
+}
+
+if (!function_exists('gov_edxdiag_configured_future_guard_minutes')) {
+    function gov_edxdiag_configured_future_guard_minutes(): int
+    {
+        $config = gov_bridge_load_config();
+        return (int)($config['edxeix']['future_start_guard_minutes'] ?? 30);
+    }
+}
+
+if (!function_exists('gov_edxdiag_future_guard_passes')) {
+    function gov_edxdiag_future_guard_passes(?string $startedAt, int $guardMinutes): bool
+    {
+        if (!$startedAt) {
+            return false;
+        }
+        $ts = strtotime($startedAt);
+        return $ts !== false && $ts >= (time() + ($guardMinutes * 60));
+    }
+}
+
+if (!function_exists('gov_edxdiag_diagnostic_safety_blockers')) {
+    function gov_edxdiag_diagnostic_safety_blockers(array $analysis): array
+    {
+        $configuredGuard = gov_edxdiag_configured_future_guard_minutes();
+        $effectiveGuard = gov_edxdiag_effective_future_guard_minutes();
+        $startedAt = (string)($analysis['started_at'] ?? '');
+        $blockers = [];
+
+        if ($configuredGuard < 30) {
+            $blockers[] = 'configured_future_guard_below_30_minimum';
+        }
+        if ($startedAt === '') {
+            $blockers[] = 'diagnostic_missing_started_at';
+        } elseif (!gov_edxdiag_future_guard_passes($startedAt, $effectiveGuard)) {
+            $blockers[] = 'diagnostic_started_at_not_' . $effectiveGuard . '_min_future';
+        }
+        if (empty($analysis['is_real_bolt'])) {
+            $blockers[] = 'diagnostic_not_real_bolt_source';
+        }
+        if (!empty($analysis['is_receipt_only_booking'])) {
+            $blockers[] = 'diagnostic_receipt_only_booking';
+        }
+        if (!empty($analysis['is_lab_or_test'])) {
+            $blockers[] = 'diagnostic_lab_or_test_booking';
+        }
+        if (!empty($analysis['terminal_status'])) {
+            $blockers[] = 'diagnostic_terminal_status';
+        }
+        if (empty($analysis['mapping_ready'])) {
+            $blockers[] = 'diagnostic_mapping_not_ready';
+        }
+        if (empty($analysis['technical_payload_valid']) && empty($analysis['edxeix_payload_preview'])) {
+            $blockers[] = 'diagnostic_payload_unavailable';
+        }
+
+        return array_values(array_unique($blockers));
+    }
+}
+
+if (!function_exists('gov_edxdiag_candidate_ready')) {
+    function gov_edxdiag_candidate_ready(array $analysis): bool
+    {
+        $blockers = gov_edxdiag_diagnostic_safety_blockers($analysis);
+        $softConfigBlockers = ['configured_future_guard_below_30_minimum'];
+        $hardBlockers = array_values(array_diff($blockers, $softConfigBlockers));
+        return empty($hardBlockers);
+    }
+}
+
+if (!function_exists('gov_edxdiag_candidate_summary')) {
+    function gov_edxdiag_candidate_summary(array $analysis): array
+    {
+        $effectiveGuard = gov_edxdiag_effective_future_guard_minutes();
+        return [
+            'booking_id' => (string)($analysis['booking_id'] ?? ''),
+            'order_reference' => (string)($analysis['order_reference'] ?? ''),
+            'source_system' => (string)($analysis['source_system'] ?? ''),
+            'status' => (string)($analysis['status'] ?? ''),
+            'started_at' => (string)($analysis['started_at'] ?? ''),
+            'driver_name' => (string)($analysis['driver_name'] ?? ''),
+            'plate' => (string)($analysis['plate'] ?? ''),
+            'is_real_bolt' => !empty($analysis['is_real_bolt']),
+            'mapping_ready' => !empty($analysis['mapping_ready']),
+            'terminal_status' => !empty($analysis['terminal_status']),
+            'diagnostic_future_guard_minutes' => $effectiveGuard,
+            'diagnostic_future_guard_passed' => gov_edxdiag_future_guard_passes((string)($analysis['started_at'] ?? ''), $effectiveGuard),
+            'diagnostic_ready_candidate' => gov_edxdiag_candidate_ready($analysis),
+            'diagnostic_safety_blockers' => gov_edxdiag_diagnostic_safety_blockers($analysis),
+        ];
+    }
+}
+
+if (!function_exists('gov_edxdiag_candidate_report')) {
+    function gov_edxdiag_candidate_report(mysqli $db, array $liveConfig, int $limit = 75): array
+    {
+        $limit = max(1, min(250, $limit));
+        $rows = gov_live_recent_bookings($db, $limit);
+        $summaries = [];
+        $selectedRow = null;
+        $selectedAnalysis = null;
+        $readyCount = 0;
+
+        foreach ($rows as $row) {
+            $analysis = gov_live_analyze_booking($db, $row, $liveConfig);
+            $summary = gov_edxdiag_candidate_summary($analysis);
+            if (!empty($summary['diagnostic_ready_candidate'])) {
+                $readyCount++;
+                if ($selectedRow === null) {
+                    $selectedRow = $row;
+                    $selectedAnalysis = $analysis;
+                }
+            }
+            if (count($summaries) < 15) {
+                $summaries[] = $summary;
+            }
+        }
+
+        $configuredGuard = gov_edxdiag_configured_future_guard_minutes();
+        $effectiveGuard = gov_edxdiag_effective_future_guard_minutes();
+
+        return [
+            'checked_count' => count($rows),
+            'ready_candidate_count' => $readyCount,
+            'configured_future_guard_minutes' => $configuredGuard,
+            'effective_future_guard_minutes' => $effectiveGuard,
+            'future_guard_floor_applied' => $effectiveGuard > $configuredGuard,
+            'selected_booking_id' => is_array($selectedAnalysis) ? (string)($selectedAnalysis['booking_id'] ?? '') : '',
+            'selected_order_reference' => is_array($selectedAnalysis) ? (string)($selectedAnalysis['order_reference'] ?? '') : '',
+            'rows' => $summaries,
+            '_selected_row' => $selectedRow,
+        ];
+    }
+}
+
 if (!function_exists('gov_edxdiag_select_booking')) {
-    function gov_edxdiag_select_booking(mysqli $db, array $options, array $liveConfig): ?array
+    function gov_edxdiag_select_booking(mysqli $db, array $options, array $liveConfig, ?array $candidateReport = null): ?array
     {
         $bookingId = trim((string)($options['booking_id'] ?? ''));
         $orderRef = trim((string)($options['order_reference'] ?? ''));
@@ -448,8 +591,11 @@ if (!function_exists('gov_edxdiag_select_booking')) {
             }
         }
 
-        $rows = gov_live_recent_bookings($db, 25);
-        return $rows[0] ?? null;
+        if (is_array($candidateReport) && is_array($candidateReport['_selected_row'] ?? null)) {
+            return $candidateReport['_selected_row'];
+        }
+
+        return null;
     }
 }
 
@@ -469,6 +615,9 @@ if (!function_exists('gov_edxdiag_summarize_analysis')) {
             'is_lab_or_test' => !empty($analysis['is_lab_or_test']),
             'mapping_ready' => !empty($analysis['mapping_ready']),
             'future_guard_passed' => !empty($analysis['future_guard_passed']),
+            'diagnostic_future_guard_minutes' => gov_edxdiag_effective_future_guard_minutes(),
+            'diagnostic_future_guard_passed' => gov_edxdiag_future_guard_passes((string)($analysis['started_at'] ?? ''), gov_edxdiag_effective_future_guard_minutes()),
+            'diagnostic_safety_blockers' => gov_edxdiag_diagnostic_safety_blockers($analysis),
             'terminal_status' => !empty($analysis['terminal_status']),
             'technical_payload_valid' => !empty($analysis['technical_payload_valid']),
             'technical_blockers' => $analysis['technical_blockers'] ?? [],
@@ -485,23 +634,33 @@ if (!function_exists('gov_edxdiag_run')) {
     {
         $db = gov_bridge_db();
         $liveConfig = gov_live_load_config();
-        $booking = gov_edxdiag_select_booking($db, $options, $liveConfig);
+        $candidateLimit = (int)($options['candidate_limit'] ?? 75);
+        $candidateReport = gov_edxdiag_candidate_report($db, $liveConfig, $candidateLimit);
+        $booking = gov_edxdiag_select_booking($db, $options, $liveConfig, $candidateReport);
         $transportRequested = !empty($options['transport']);
         $followRedirects = array_key_exists('follow_redirects', $options) ? (bool)$options['follow_redirects'] : true;
         $confirmation = (string)($options['confirmation_phrase'] ?? '');
         $expectedConfirmation = (string)($liveConfig['confirmation_phrase'] ?? 'I UNDERSTAND SUBMIT LIVE TO EDXEIX');
+        $explicitSelection = trim((string)($options['booking_id'] ?? '')) !== ''
+            || trim((string)($options['order_reference'] ?? '')) !== ''
+            || trim((string)($liveConfig['allowed_booking_id'] ?? '')) !== ''
+            || trim((string)($liveConfig['allowed_order_reference'] ?? '')) !== '';
+        $safeCandidateReport = $candidateReport;
+        unset($safeCandidateReport['_selected_row']);
 
         if (!$booking) {
             return [
-                'ok' => false,
+                'ok' => true,
                 'started_at' => gov_edxdiag_now(),
                 'transport_requested' => $transportRequested,
                 'transport_performed' => false,
                 'classification' => [
-                    'code' => 'NO_BOOKING_SELECTED',
-                    'message' => 'No normalized booking matched the requested booking/order reference.',
+                    'code' => 'NO_SAFE_CANDIDATE_AVAILABLE',
+                    'message' => 'No explicit booking was selected and no real future Bolt candidate passed the diagnostic readiness filter.',
                 ],
                 'session_summary' => gov_edxdiag_safe_session_summary($liveConfig),
+                'candidate_report' => $safeCandidateReport,
+                'next_action' => 'Wait for or create a real future Bolt trip, then rerun dry-run diagnostics before any one-shot transport.',
             ];
         }
 
@@ -515,8 +674,14 @@ if (!function_exists('gov_edxdiag_run')) {
         ];
 
         if ($transportRequested) {
+            if (!$explicitSelection) {
+                $transportBlockers[] = 'explicit_booking_or_order_required_for_transport';
+            }
             if ($confirmation !== $expectedConfirmation) {
                 $transportBlockers[] = 'confirmation_phrase_mismatch';
+            }
+            foreach (gov_edxdiag_diagnostic_safety_blockers($analysis) as $diagnosticBlocker) {
+                $transportBlockers[] = $diagnosticBlocker;
             }
             if (empty($analysis['live_submission_allowed'])) {
                 $transportBlockers[] = 'live_gate_not_allowed';
@@ -565,6 +730,7 @@ if (!function_exists('gov_edxdiag_run')) {
             'classification' => $classification,
             'transport_blockers' => $transportBlockers,
             'session_summary' => gov_edxdiag_safe_session_summary($liveConfig),
+            'candidate_report' => $safeCandidateReport,
             'analysis' => $safeAnalysis,
             'trace' => $trace,
             'next_action' => gov_edxdiag_next_action((string)($classification['code'] ?? '')),
