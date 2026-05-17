@@ -38,6 +38,8 @@ function mc2_file_status(string $path): array
 
 $tools = [
     ['Core', '/ops/mapping-center.php', 'Mapping Center', 'Main mapping menu and route hub.', 'center'],
+    ['Core', '/ops/mapping-workbench-v3.php', 'Mapping Workbench V3', 'Grouped driver + active vehicle + lessor workflow.', 'workbench'],
+    ['Safety', '/ops/pre-ride-email-v3-emt8640-exemption-audit.php', 'Admin Exclusions', 'EMT8640 / Mercedes-Benz Sprinter audit: no invoice, no driver mail.', 'admin-excluded'],
     ['Core', '/ops/mapping-health.php', 'Mapping Health', 'Read-only failure-point dashboard.', 'health'],
     ['Company', '/ops/company-mapping-control.php', 'Company Mapping Control', 'Lessor/company overview and starting-point warning table.', 'companies'],
     ['Company', '/ops/company-mapping-detail.php?lessor=1756', 'Company Mapping Detail', 'One-company view: drivers, vehicles, starting point, export comparison.', 'whiteblue'],
@@ -65,7 +67,7 @@ if (function_exists('opsui_shell_begin')) {
 <style>
 .map-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.map-tool-card{background:#fff;border:1px solid #d8dde7;border-radius:6px;padding:16px;min-height:150px;box-shadow:0 6px 18px rgba(26,33,52,.05)}.map-tool-card h3{margin:0 0 8px}.map-tool-card p{margin:0 0 12px;color:#52617f}.map-tool-meta{font-size:12px;color:#667085;margin:8px 0}.map-route-table td,.map-route-table th{vertical-align:top}.map-mini-actions{display:flex;gap:8px;flex-wrap:wrap}.map-mini-actions a{display:inline-block;background:#4f5ea7;color:#fff;border-radius:5px;padding:8px 10px;text-decoration:none;font-weight:700;font-size:13px}.map-mini-actions a.secondary{background:#6b7280}.map-risk{border-left:5px solid #d4922d}.map-ok{border-left:5px solid #2f9e44}@media(max-width:1000px){.map-card-grid{grid-template-columns:1fr}}
 </style>
-<?php if (function_exists('gov_mapping_nav')) { gov_mapping_nav('center'); } ?>
+<?php if (function_exists('gov_mapping_nav_render')) { gov_mapping_nav_render('/ops/mapping-center.php'); } ?>
 
 <section class="card hero">
     <h1>Mapping Center</h1>
@@ -76,6 +78,7 @@ if (function_exists('opsui_shell_begin')) {
         <?= mc2_badge('NO EDXEIX CALL', 'good') ?>
         <?= mc2_badge('NO DB WRITE', 'good') ?>
         <?= mc2_badge('MAPPING GOVERNANCE', 'neutral') ?>
+        <?= mc2_badge('ADMIN EXCLUDED VISIBLE', 'warn') ?>
     </div>
 </section>
 
@@ -126,6 +129,7 @@ if (function_exists('opsui_shell_begin')) {
         <li>Driver and vehicle mappings must resolve to the same EDXEIX lessor unless manually investigated.</li>
         <li>Live EDXEIX visual confirmation is the strongest proof for driver/vehicle/starting point IDs.</li>
         <li>Production pre-ride workflow remains operator-confirmed; mapping tools do not enable automatic EDXEIX submission.</li>
+        <li>Mercedes-Benz Sprinter / EMT8640 is permanently <strong>Admin Excluded</strong>: no invoicing, no driver email, and no automated EDXEIX processing. Mapping pages label this vehicle wherever it appears.</li>
     </ul>
 </section>
 <?php

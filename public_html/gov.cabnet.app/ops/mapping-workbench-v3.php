@@ -103,6 +103,55 @@ function mw3_plate_from_label(string $label): string
     }
     return mw3_plate_norm($label);
 }
+
+function mw3_admin_exclusion_reason(): string
+{
+    return 'Admin Excluded: Mercedes-Benz Sprinter / EMT8640 must not be invoiced, must not receive driver email, and must not enter automated EDXEIX processing.';
+}
+function mw3_model_norm(string $value): string
+{
+    $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = trim($value);
+    $value = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+    $value = str_replace(['-', '_', '/', '\\', '.', ',', ';', ':', '(', ')', '"', "'", "\xc2\xa0"], ' ', $value);
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    return trim($value);
+}
+function mw3_is_admin_excluded_vehicle_fields(string $plate = '', string $uuid = '', string $name = '', string $model = ''): bool
+{
+    $plateNorm = mw3_plate_norm($plate);
+    $uuidNorm = strtolower(trim($uuid));
+    $nameNorm = mw3_model_norm($name);
+    $modelNorm = mw3_model_norm($model);
+    if ($plateNorm === 'EMT8640') { return true; }
+    if ($uuidNorm === 'f9170acc-3bc4-43c5-9eed-65d9cadee490') { return true; }
+    if ($modelNorm === 'mercedes benz sprinter' || str_contains($modelNorm, 'mercedes benz sprinter')) { return true; }
+    if ($nameNorm === 'mercedes benz sprinter' || str_contains($nameNorm, 'mercedes benz sprinter')) { return true; }
+    return false;
+}
+function mw3_is_admin_excluded_vehicle_row(array $row): bool
+{
+    return mw3_is_admin_excluded_vehicle_fields(
+        (string)mw3_value($row, ['plate','vehicle_plate'], ''),
+        (string)mw3_value($row, ['external_vehicle_id','vehicle_external_id','vehicle_uuid'], ''),
+        (string)mw3_value($row, ['external_vehicle_name','vehicle_name'], ''),
+        (string)mw3_value($row, ['vehicle_model','model'], '')
+    );
+}
+function mw3_is_admin_excluded_workbench_item(array $driver, array $vehicle = []): bool
+{
+    if ($vehicle && mw3_is_admin_excluded_vehicle_row($vehicle)) { return true; }
+    return mw3_is_admin_excluded_vehicle_fields(
+        (string)mw3_value($driver, ['active_vehicle_plate'], ''),
+        (string)mw3_value($driver, ['active_vehicle_uuid'], ''),
+        '',
+        ''
+    );
+}
+function mw3_admin_excluded_badge(): string
+{
+    return mw3_badge('Admin Excluded', 'bad');
+}
 function mw3_table_rows(mysqli $db, string $table, string $view, string $query, int $limit): array
 {
     if (!gov_bridge_table_exists($db, $table)) { return []; }
@@ -464,6 +513,7 @@ try {
         $vehicleSuggestion = ($vehicle && $vehicleId === '') ? mw3_best_vehicle_suggestion($snapshot, (string)mw3_value($vehicle, ['plate','vehicle_plate'], $activePlate), $suggestLessor) : ['id'=>$vehicleId,'label'=>'current mapping','lessor_id'=>$vehicleLessor,'score'=>$vehicle ? 100 : 0,'reason'=>$vehicle ? 'current mapping' : 'no vehicle row'];
         $suggestLessor = $suggestLessor !== '' ? $suggestLessor : (string)($vehicleSuggestion['lessor_id'] ?? '');
         $conflict = ($driverLessor !== '' && $vehicleLessor !== '' && $driverLessor !== $vehicleLessor);
+        $adminExcluded = mw3_is_admin_excluded_workbench_item($driver, $vehicle ?: []);
         $needsMap = ($driverId === '' || ($vehicle && $vehicleId === '') || $driverLessor === '' || ($vehicle && $vehicleLessor === ''));
         $hasSuggestion = (($driverSuggestion['score'] ?? 0) >= 70 || ($vehicleSuggestion['score'] ?? 0) >= 70);
         if ($view === 'needs_map' && !$needsMap) { continue; }
@@ -473,6 +523,7 @@ try {
             'driver'=>$driver, 'vehicle'=>$vehicle, 'driver_id'=>$driverId, 'vehicle_id'=>$vehicleId,
             'driver_lessor'=>$driverLessor, 'vehicle_lessor'=>$vehicleLessor, 'suggest_lessor'=>$suggestLessor,
             'driver_suggestion'=>$driverSuggestion, 'vehicle_suggestion'=>$vehicleSuggestion, 'conflict'=>$conflict, 'needs_map'=>$needsMap,
+            'admin_excluded'=>$adminExcluded, 'admin_exclusion_reason'=>$adminExcluded ? mw3_admin_exclusion_reason() : '',
         ];
     }
     $state['drivers'] = $drivers; $state['vehicles'] = $vehicles; $state['workbench'] = $workbench; $state['ok'] = true;
@@ -498,6 +549,7 @@ if (mw3_request('format', '', 20) === 'json') {
                 'edxeix_vehicle_id'=>$item['vehicle_id'], 'vehicle_lessor_id'=>$item['vehicle_lessor'],
                 'suggest_lessor_id'=>$item['suggest_lessor'], 'driver_suggestion'=>$item['driver_suggestion'], 'vehicle_suggestion'=>$item['vehicle_suggestion'],
                 'conflict'=>$item['conflict'], 'needs_map'=>$item['needs_map'],
+                'admin_excluded'=>$item['admin_excluded'], 'admin_exclusion_reason'=>$item['admin_exclusion_reason'],
             ];
         }, $state['workbench']),
         'error'=>$state['error'],
@@ -522,7 +574,7 @@ if (function_exists('opsui_shell_begin')) {
 }
 ?>
 <style>
-.mw3-hero{border-left:5px solid #2f9e44}.mw3-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mw3-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.mw3-workbench{display:grid;gap:14px}.mw3-row{border:1px solid #d8dde7;border-radius:8px;background:#fff;box-shadow:0 6px 18px rgba(26,33,52,.05);padding:14px}.mw3-row.conflict{border-left:5px solid #b42318}.mw3-row.needs{border-left:5px solid #d4922d}.mw3-row.ready{border-left:5px solid #2f9e44}.mw3-pair{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px}.mw3-box{background:#f8fbff;border:1px solid #e1e7f0;border-radius:7px;padding:11px}.mw3-box h3{margin:0 0 8px;font-size:16px}.mw3-mono{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all;background:#eef2ff;border-radius:4px;padding:2px 4px}.mw3-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.mw3-form input,.mw3-form textarea,.mw3-form select{width:100%;padding:8px 10px;border:1px solid #d8dde7;border-radius:6px}.mw3-form label{font-size:12px;font-weight:700;color:#27385f}.mw3-form .wide{grid-column:span 2}.mw3-form .full{grid-column:1/-1}.mw3-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.mw3-actions a,.mw3-btn{display:inline-block;background:#4f5ea7;color:#fff;text-decoration:none;border:0;border-radius:5px;padding:9px 11px;font-weight:700;font-size:13px;cursor:pointer}.mw3-btn.green,.mw3-actions a.green{background:#2f9e44}.mw3-btn.orange,.mw3-actions a.orange{background:#c96f00}.mw3-btn.dark,.mw3-actions a.dark{background:#334155}.mw3-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:10px;color:#9a3412}.mw3-good{color:#166534}.mw3-warn{color:#b45309}.mw3-bad{color:#991b1b}.mw3-table-wrap{overflow:auto;border:1px solid #d8dde7;border-radius:8px}.mw3-table{width:100%;border-collapse:collapse;min-width:1100px}.mw3-table th,.mw3-table td{padding:9px 10px;border-bottom:1px solid #e1e7f0;text-align:left;vertical-align:top}.mw3-table th{font-size:12px;text-transform:uppercase;background:#f8fafc}.mw3-codebox{min-height:220px;width:100%;font-family:Consolas,Menlo,monospace;font-size:12px;background:#0b1220;color:#dbeafe;border-radius:8px;border:1px solid #111827;padding:12px}.mw3-filters{display:grid;grid-template-columns:1fr 180px 120px auto;gap:10px;align-items:end}.mw3-filters input,.mw3-filters select{width:100%;padding:9px;border:1px solid #d8dde7;border-radius:6px}@media(max-width:1100px){.mw3-grid,.mw3-two,.mw3-pair,.mw3-form,.mw3-filters{grid-template-columns:1fr}.mw3-form .wide{grid-column:auto}}
+.mw3-hero{border-left:5px solid #2f9e44}.mw3-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mw3-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.mw3-workbench{display:grid;gap:14px}.mw3-row{border:1px solid #d8dde7;border-radius:8px;background:#fff;box-shadow:0 6px 18px rgba(26,33,52,.05);padding:14px}.mw3-row.conflict{border-left:5px solid #b42318}.mw3-row.needs{border-left:5px solid #d4922d}.mw3-row.ready{border-left:5px solid #2f9e44}.mw3-row.admin-excluded{border-left:5px solid #7f1d1d;background:#fff7f7}.mw3-admin-excluded-note{background:#fee2e2;border:1px solid #fecaca;color:#7f1d1d;border-radius:7px;padding:10px;margin:10px 0;font-weight:700}.mw3-pair{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px}.mw3-box{background:#f8fbff;border:1px solid #e1e7f0;border-radius:7px;padding:11px}.mw3-box h3{margin:0 0 8px;font-size:16px}.mw3-mono{font-family:Consolas,Menlo,monospace;font-size:12px;word-break:break-all;background:#eef2ff;border-radius:4px;padding:2px 4px}.mw3-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.mw3-form input,.mw3-form textarea,.mw3-form select{width:100%;padding:8px 10px;border:1px solid #d8dde7;border-radius:6px}.mw3-form label{font-size:12px;font-weight:700;color:#27385f}.mw3-form .wide{grid-column:span 2}.mw3-form .full{grid-column:1/-1}.mw3-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.mw3-actions a,.mw3-btn{display:inline-block;background:#4f5ea7;color:#fff;text-decoration:none;border:0;border-radius:5px;padding:9px 11px;font-weight:700;font-size:13px;cursor:pointer}.mw3-btn.green,.mw3-actions a.green{background:#2f9e44}.mw3-btn.orange,.mw3-actions a.orange{background:#c96f00}.mw3-btn.dark,.mw3-actions a.dark{background:#334155}.mw3-note{background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:10px;color:#9a3412}.mw3-good{color:#166534}.mw3-warn{color:#b45309}.mw3-bad{color:#991b1b}.mw3-table-wrap{overflow:auto;border:1px solid #d8dde7;border-radius:8px}.mw3-table{width:100%;border-collapse:collapse;min-width:1100px}.mw3-table th,.mw3-table td{padding:9px 10px;border-bottom:1px solid #e1e7f0;text-align:left;vertical-align:top}.mw3-table th{font-size:12px;text-transform:uppercase;background:#f8fafc}.mw3-codebox{min-height:220px;width:100%;font-family:Consolas,Menlo,monospace;font-size:12px;background:#0b1220;color:#dbeafe;border-radius:8px;border:1px solid #111827;padding:12px}.mw3-filters{display:grid;grid-template-columns:1fr 180px 120px auto;gap:10px;align-items:end}.mw3-filters input,.mw3-filters select{width:100%;padding:9px;border:1px solid #d8dde7;border-radius:6px}@media(max-width:1100px){.mw3-grid,.mw3-two,.mw3-pair,.mw3-form,.mw3-filters{grid-template-columns:1fr}.mw3-form .wide{grid-column:auto}}
 </style>
 <?php if (function_exists('gov_mapping_nav_render')) { gov_mapping_nav_render('/ops/mapping-workbench-v3.php'); } ?>
 <section class="card hero mw3-hero">
@@ -600,12 +652,15 @@ if (function_exists('opsui_shell_begin')) {
       $suggestDriver=(string)($item['driver_suggestion']['id'] ?: $item['driver_id']);
       $suggestVehicle=(string)($item['vehicle_suggestion']['id'] ?: $item['vehicle_id']);
       $suggestLessor=(string)($item['suggest_lessor'] ?: $item['driver_lessor'] ?: $item['vehicle_lessor']);
-      $rowClass=$item['conflict'] ? 'conflict' : ($item['needs_map'] ? 'needs' : 'ready');
+      $rowClass=$item['admin_excluded'] ? 'admin-excluded' : ($item['conflict'] ? 'conflict' : ($item['needs_map'] ? 'needs' : 'ready'));
   ?>
     <article class="mw3-row <?= mw3_h($rowClass) ?>">
+      <?php if ($item['admin_excluded']): ?>
+        <div class="mw3-admin-excluded-note"><?= mw3_admin_excluded_badge() ?> <?= mw3_h($item['admin_exclusion_reason']) ?></div>
+      <?php endif; ?>
       <div class="mw3-pair">
         <div class="mw3-box"><h3>Driver</h3><strong><?= mw3_h($driverName) ?></strong><br><span class="mw3-mono"><?= mw3_h(mw3_value($d,['external_driver_id','driver_external_id','driver_uuid'],'')) ?></span><br>Current driver ID: <?= $item['driver_id'] !== '' ? mw3_badge($item['driver_id'],'good') : mw3_badge('missing','warn') ?><br>Driver lessor: <?= $item['driver_lessor'] !== '' ? mw3_badge($item['driver_lessor'],'info') : mw3_badge('missing','warn') ?></div>
-        <div class="mw3-box"><h3>Active vehicle</h3><strong><?= mw3_h($vehiclePlate ?: 'No active vehicle') ?></strong><br><span class="mw3-mono"><?= mw3_h($v ? mw3_value($v,['external_vehicle_id','vehicle_external_id','vehicle_uuid'],'') : mw3_value($d,['active_vehicle_uuid'],'')) ?></span><br>Current vehicle ID: <?= $item['vehicle_id'] !== '' ? mw3_badge($item['vehicle_id'],'good') : mw3_badge($v ? 'missing' : 'no row','warn') ?><br>Vehicle lessor: <?= $item['vehicle_lessor'] !== '' ? mw3_badge($item['vehicle_lessor'],'info') : mw3_badge($v ? 'missing' : 'no row','warn') ?></div>
+        <div class="mw3-box"><h3>Active vehicle</h3><strong><?= mw3_h($vehiclePlate ?: 'No active vehicle') ?></strong> <?= $item['admin_excluded'] ? mw3_admin_excluded_badge() : '' ?><br><span class="mw3-mono"><?= mw3_h($v ? mw3_value($v,['external_vehicle_id','vehicle_external_id','vehicle_uuid'],'') : mw3_value($d,['active_vehicle_uuid'],'')) ?></span><br>Current vehicle ID: <?= $item['vehicle_id'] !== '' ? mw3_badge($item['vehicle_id'],'good') : mw3_badge($v ? 'missing' : 'no row','warn') ?><br>Vehicle lessor: <?= $item['vehicle_lessor'] !== '' ? mw3_badge($item['vehicle_lessor'],'info') : mw3_badge($v ? 'missing' : 'no row','warn') ?></div>
         <div class="mw3-box"><h3>Snapshot suggestion</h3>
           Driver: <?= ($item['driver_suggestion']['score'] ?? 0) >= 70 ? mw3_badge($item['driver_suggestion']['id'] . ' ' . $item['driver_suggestion']['label'], 'good') : mw3_badge('no strong driver suggestion','neutral') ?><br>
           Vehicle: <?= ($item['vehicle_suggestion']['score'] ?? 0) >= 70 ? mw3_badge($item['vehicle_suggestion']['id'] . ' ' . $item['vehicle_suggestion']['label'], 'good') : mw3_badge('no strong vehicle suggestion','neutral') ?><br>

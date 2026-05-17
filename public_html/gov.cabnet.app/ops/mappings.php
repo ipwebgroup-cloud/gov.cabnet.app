@@ -187,6 +187,62 @@ function map_yes_badge(bool $mapped): string
     return $mapped ? map_badge('mapped', 'good') : map_badge('unmapped', 'bad');
 }
 
+function map_admin_exclusion_reason(): string
+{
+    return 'Admin Excluded: Mercedes-Benz Sprinter / EMT8640 must not be invoiced, must not receive driver email, and must not enter automated EDXEIX processing.';
+}
+function map_model_norm(string $value): string
+{
+    $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = trim($value);
+    $value = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+    $value = str_replace(['-', '_', '/', '\\', '.', ',', ';', ':', '(', ')', '"', "'", "\xc2\xa0"], ' ', $value);
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    return trim($value);
+}
+function map_plate_norm_local(string $plate): string
+{
+    $plate = html_entity_decode(strip_tags($plate), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $plate = trim($plate);
+    $plate = function_exists('mb_strtoupper') ? mb_strtoupper($plate, 'UTF-8') : strtoupper($plate);
+    $plate = strtr($plate, ['Α'=>'A','Β'=>'B','Ε'=>'E','Ζ'=>'Z','Η'=>'H','Ι'=>'I','Κ'=>'K','Μ'=>'M','Ν'=>'N','Ο'=>'O','Ρ'=>'P','Τ'=>'T','Υ'=>'Y','Χ'=>'X']);
+    return preg_replace('/[^A-Z0-9]/', '', $plate) ?? $plate;
+}
+function map_is_admin_excluded_vehicle_fields(string $plate = '', string $uuid = '', string $name = '', string $model = ''): bool
+{
+    $plateNorm = map_plate_norm_local($plate);
+    $uuidNorm = strtolower(trim($uuid));
+    $nameNorm = map_model_norm($name);
+    $modelNorm = map_model_norm($model);
+    if ($plateNorm === 'EMT8640') { return true; }
+    if ($uuidNorm === 'f9170acc-3bc4-43c5-9eed-65d9cadee490') { return true; }
+    if ($modelNorm === 'mercedes benz sprinter' || str_contains($modelNorm, 'mercedes benz sprinter')) { return true; }
+    if ($nameNorm === 'mercedes benz sprinter' || str_contains($nameNorm, 'mercedes benz sprinter')) { return true; }
+    return false;
+}
+function map_is_admin_excluded_vehicle_row(array $row): bool
+{
+    return map_is_admin_excluded_vehicle_fields(
+        (string)map_value($row, ['plate', 'vehicle_plate'], ''),
+        (string)map_value($row, ['external_vehicle_id', 'vehicle_external_id', 'vehicle_uuid'], ''),
+        (string)map_value($row, ['external_vehicle_name', 'vehicle_name'], ''),
+        (string)map_value($row, ['vehicle_model', 'model'], '')
+    );
+}
+function map_is_admin_excluded_driver_row(array $row): bool
+{
+    return map_is_admin_excluded_vehicle_fields(
+        (string)map_value($row, ['active_vehicle_plate'], ''),
+        (string)map_value($row, ['active_vehicle_uuid'], ''),
+        '',
+        ''
+    );
+}
+function map_admin_excluded_badge(): string
+{
+    return map_badge('Admin Excluded', 'bad');
+}
+
 function map_is_mapped(array $row, array $keys): bool
 {
     $value = map_value($row, $keys, '');
@@ -210,6 +266,8 @@ function map_sanitize_driver(array $row): array
         'is_mapped' => $mapped,
         'mapping_status' => $mapped ? 'mapped' : 'unmapped',
         'last_seen_at' => (string)map_value($row, ['last_seen_at', 'updated_at', 'created_at'], ''),
+        'admin_excluded' => map_is_admin_excluded_driver_row($row),
+        'admin_exclusion_reason' => map_is_admin_excluded_driver_row($row) ? map_admin_exclusion_reason() : '',
     ];
 }
 
@@ -229,6 +287,8 @@ function map_sanitize_vehicle(array $row): array
         'is_mapped' => $mapped,
         'mapping_status' => $mapped ? 'mapped' : 'unmapped',
         'last_seen_at' => (string)map_value($row, ['last_seen_at', 'updated_at', 'created_at'], ''),
+        'admin_excluded' => map_is_admin_excluded_vehicle_row($row),
+        'admin_exclusion_reason' => map_is_admin_excluded_vehicle_row($row) ? map_admin_exclusion_reason() : '',
     ];
 }
 
@@ -927,6 +987,7 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
         th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; font-size:14px; }
         th { background:#f8fafc; font-size:12px; text-transform:uppercase; letter-spacing:.02em; }
         tr.unmapped { background:#fffafa; }
+        tr.admin-excluded { background:#fff7f7; }
         .small { font-size:13px; color:var(--muted); }
         code { background:#eef2ff; padding:2px 5px; border-radius:5px; }
         .error { color:var(--red); font-weight:700; }
@@ -1084,9 +1145,9 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
             <div class="table-wrap"><table>
                 <thead><tr><th>Status</th><th>ID</th><th>Source</th><th>Bolt Driver UUID</th><th>Driver Name</th><th>Phone</th><th>EDXEIX Driver ID</th><th>EDXEIX Lessor ID</th><th>Update EDXEIX IDs</th><th>Active Vehicle UUID</th><th>Active Plate</th><th>Active</th><th>Last Seen</th></tr></thead>
                 <tbody>
-                <?php foreach ($state['drivers'] as $row): $mapped = map_is_mapped($row, ['edxeix_driver_id', 'driver_id']); $current = map_value($row, ['edxeix_driver_id', 'driver_id'], ''); $currentLessor = map_value($row, ['edxeix_lessor_id'], ''); ?>
-                    <tr class="<?= $mapped ? '' : 'unmapped' ?>">
-                        <td><?= map_yes_badge($mapped) ?></td>
+                <?php foreach ($state['drivers'] as $row): $mapped = map_is_mapped($row, ['edxeix_driver_id', 'driver_id']); $current = map_value($row, ['edxeix_driver_id', 'driver_id'], ''); $currentLessor = map_value($row, ['edxeix_lessor_id'], ''); $adminExcluded = map_is_admin_excluded_driver_row($row); ?>
+                    <tr class="<?= $adminExcluded ? 'admin-excluded' : ($mapped ? '' : 'unmapped') ?>">
+                        <td><?= map_yes_badge($mapped) ?><?= $adminExcluded ? '<br>' . map_admin_excluded_badge() : '' ?></td>
                         <td><?= map_h(map_value($row, ['id'], '')) ?></td>
                         <td><?= map_h(map_value($row, ['source_system', 'source_type', 'source'], '')) ?></td>
                         <td><code><?= map_h(map_value($row, ['external_driver_id', 'driver_external_id', 'driver_uuid'], '')) ?></code></td>
@@ -1105,7 +1166,7 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
                             </form>
                         </td>
                         <td><code><?= map_h(map_value($row, ['active_vehicle_uuid'], '')) ?></code></td>
-                        <td><?= map_h(map_value($row, ['active_vehicle_plate'], '')) ?></td>
+                        <td><?= map_h(map_value($row, ['active_vehicle_plate'], '')) ?><?= $adminExcluded ? '<br>' . map_admin_excluded_badge() : '' ?></td>
                         <td><?= map_value($row, ['is_active'], '1') === '0' ? map_badge('inactive', 'warn') : map_badge('active', 'good') ?></td>
                         <td><?= map_h(map_value($row, ['last_seen_at', 'updated_at', 'created_at'], '')) ?></td>
                     </tr>
@@ -1124,15 +1185,15 @@ $queryString = http_build_query(['view' => $state['view'], 'q' => $state['query'
             <div class="table-wrap"><table>
                 <thead><tr><th>Status</th><th>ID</th><th>Source</th><th>Bolt Vehicle UUID</th><th>Plate</th><th>Name</th><th>Model</th><th>EDXEIX Vehicle ID</th><th>EDXEIX Lessor ID</th><th>Update EDXEIX IDs</th><th>Active</th><th>Last Seen</th></tr></thead>
                 <tbody>
-                <?php foreach ($state['vehicles'] as $row): $mapped = map_is_mapped($row, ['edxeix_vehicle_id', 'vehicle_id']); $current = map_value($row, ['edxeix_vehicle_id', 'vehicle_id'], ''); $currentLessor = map_value($row, ['edxeix_lessor_id'], ''); ?>
-                    <tr class="<?= $mapped ? '' : 'unmapped' ?>">
-                        <td><?= map_yes_badge($mapped) ?></td>
+                <?php foreach ($state['vehicles'] as $row): $mapped = map_is_mapped($row, ['edxeix_vehicle_id', 'vehicle_id']); $current = map_value($row, ['edxeix_vehicle_id', 'vehicle_id'], ''); $currentLessor = map_value($row, ['edxeix_lessor_id'], ''); $adminExcluded = map_is_admin_excluded_vehicle_row($row); ?>
+                    <tr class="<?= $adminExcluded ? 'admin-excluded' : ($mapped ? '' : 'unmapped') ?>">
+                        <td><?= map_yes_badge($mapped) ?><?= $adminExcluded ? '<br>' . map_admin_excluded_badge() : '' ?></td>
                         <td><?= map_h(map_value($row, ['id'], '')) ?></td>
                         <td><?= map_h(map_value($row, ['source_system', 'source_type', 'source'], '')) ?></td>
                         <td><code><?= map_h(map_value($row, ['external_vehicle_id', 'vehicle_external_id', 'vehicle_uuid'], '')) ?></code></td>
-                        <td><strong><?= map_h(map_value($row, ['plate', 'vehicle_plate'], '')) ?></strong></td>
+                        <td><strong><?= map_h(map_value($row, ['plate', 'vehicle_plate'], '')) ?></strong><?= $adminExcluded ? '<br>' . map_admin_excluded_badge() : '' ?></td>
                         <td><?= map_h(map_value($row, ['external_vehicle_name', 'vehicle_name'], '')) ?></td>
-                        <td><?= map_h(map_value($row, ['vehicle_model', 'model'], '')) ?></td>
+                        <td><?= map_h(map_value($row, ['vehicle_model', 'model'], '')) ?><?= $adminExcluded ? '<br><span class="small error">No invoicing · no driver mail</span>' : '' ?></td>
                         <td><strong><?= map_h($current) ?></strong></td>
                         <td><strong><?= map_h($currentLessor) ?></strong></td>
                         <td>
