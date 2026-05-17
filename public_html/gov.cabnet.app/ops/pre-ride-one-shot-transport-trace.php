@@ -81,7 +81,7 @@ $performed = !empty($result['transport_performed']);
 <div class="wrap">
   <section class="card hero <?= $performed ? 'warn' : ($armable ? 'ok' : '') ?>">
     <h1>Pre-Ride One-Shot EDXEIX Transport Trace</h1>
-    <p class="muted">v3.2.31 — closure/retry-prevention and EDXEIX form-token diagnostic. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. No repeat POST while held.</p>
+    <p class="muted">v3.2.32 — closure/retry-prevention and EDXEIX form-token diagnostic. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. No repeat POST while held.</p>
     <p><strong>Classification:</strong> <span class="pill <?= $performed ? 'warn' : ($armable ? 'ok' : 'bad') ?>"><?= prtx_h($classCode) ?></span></p>
     <p><?= prtx_h($classMsg) ?></p>
   </section>

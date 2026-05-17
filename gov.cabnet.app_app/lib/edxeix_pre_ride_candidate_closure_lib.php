@@ -1,7 +1,7 @@
 <?php
 /**
  * gov.cabnet.app — Pre-ride candidate closure / retry prevention library.
- * v3.2.31
+ * v3.2.32
  *
  * Purpose:
  * - Mark a captured pre-ride candidate as manually submitted via V0/laptop.
@@ -152,7 +152,20 @@ if (!function_exists('gov_prcl_mark_manual')) {
         $method = trim((string)($input['method'] ?? 'v0_laptop_manual'));
         if ($method === '') { $method = 'v0_laptop_manual'; }
         $submittedBy = trim((string)($input['submitted_by'] ?? 'operator'));
-        $submittedAt = trim((string)($input['submitted_at'] ?? gov_prcl_now()));
+        $submittedAtRaw = trim((string)($input['submitted_at'] ?? ''));
+        $dateWarnings = [];
+        if ($submittedAtRaw === '') {
+            $submittedAt = gov_prcl_now();
+            $dateWarnings[] = 'submitted_at_empty_defaulted_to_now';
+        } else {
+            $submittedAtTs = strtotime($submittedAtRaw);
+            if ($submittedAtTs === false) {
+                $submittedAt = gov_prcl_now();
+                $dateWarnings[] = 'submitted_at_invalid_defaulted_to_now';
+            } else {
+                $submittedAt = date('Y-m-d H:i:s', $submittedAtTs);
+            }
+        }
         $note = trim((string)($input['note'] ?? 'Manually submitted via V0/laptop. Server-side retry blocked.'));
 
         $closure = [
@@ -221,6 +234,7 @@ if (!function_exists('gov_prcl_mark_manual')) {
                 'method' => $method,
                 'submitted_by' => $submittedBy,
                 'submitted_at' => $submittedAt,
+                'warnings' => $dateWarnings,
                 'message' => 'Candidate marked manually submitted via V0/laptop and archived for server retry prevention.',
             ];
         } catch (Throwable $e) {

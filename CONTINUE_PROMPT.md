@@ -1,17 +1,5 @@
-You are Sophion assisting Andreas with gov.cabnet.app Bolt → EDXEIX bridge.
+Continue gov.cabnet.app Bolt → EDXEIX bridge from v3.2.32.
 
-Continue from v3.2.31.
+Priority: keep V0 production untouched. Candidate 4 was manually submitted through V0/laptop after server-side v3.2.30 POST returned HTTP 419/session expired. v3.2.31 added closure/retry prevention but manual closure failed because submitted_at was empty. v3.2.32 fixes the closure timestamp default.
 
-Critical context:
-- V0 laptop workflow is production and must remain untouched.
-- Candidate 4 was a real ride submitted manually via V0 after the server-side v3.2.30 POST returned HTTP 419/session expired.
-- Do not retry candidate 4 server-side.
-- v3.2.31 adds candidate closure, retry prevention, latest-ready fix, and form-token diagnostics.
-- Next development should solve EDXEIX session/CSRF form-token acceptance without enabling unattended automation.
-
-Safety rules:
-- No unattended EDXEIX submit.
-- No cron.
-- No AADE changes.
-- No normalized_bookings writes for this path.
-- No live config write unless Andreas explicitly approves.
+Next: verify v3.2.32, mark candidate 4 as manual_submitted_v0, confirm server retry is blocked, then work on EDXEIX fresh form-token/session diagnostics.

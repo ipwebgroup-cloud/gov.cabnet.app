@@ -1,5 +1,3 @@
-# gov.cabnet.app — v3.2.31 Patch
+# gov.cabnet.app
 
-Candidate closure, retry prevention, and EDXEIX form-token diagnostics for the Bolt → EDXEIX pre-ride automation track.
-
-V0 production remains untouched.
+Plain PHP/mysqli Bolt → EDXEIX bridge. Current patch: v3.2.32 closure timestamp fix.

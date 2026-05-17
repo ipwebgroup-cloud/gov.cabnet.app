@@ -1,19 +1,14 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+# gov.cabnet.app Handoff — v3.2.32
 
-Current state: v3.2.31 candidate closure / retry prevention / EDXEIX form-token diagnostic.
+Current state:
+- v3.2.30 performed one supervised server-side POST attempt for candidate 4 and received HTTP 419 / session expired.
+- The real ride was submitted manually through V0/laptop by Andreas.
+- v3.2.31 installed closure/retry prevention and held future POSTs pending form-token integration, but the CLI manual closure write failed because `submitted_at` was an empty string.
+- v3.2.32 fixes the submitted_at normalization.
 
-Latest proven facts:
-- v3.2.30 performed one supervised POST for candidate 4.
-- EDXEIX returned HTTP 419 / Ο χρόνος σύνδεσης έληξε.
-- The server-side POST is not confirmed saved.
-- Andreas submitted the real ride manually through V0 from the laptop.
-- Candidate 4 must not be retried server-side.
+Next safe step after deployment:
+1. Run syntax checks.
+2. Mark candidate 4 as manual V0 submission.
+3. Verify transport trace is blocked by closure/manual-submitted state.
 
-v3.2.31 purpose:
-- Add closure table and mark-manual tooling.
-- Archive manually submitted candidates.
-- Fix latest-ready selection.
-- Add form-token diagnostic GET.
-- Hold future server-side POST attempts until fresh token integration.
-
-V0 production must remain untouched.
+V0 production remains untouched.

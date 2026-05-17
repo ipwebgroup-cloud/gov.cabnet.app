@@ -419,7 +419,7 @@ if (!function_exists('gov_prtx_run')) {
 
         $result = [
             'ok' => !$transportRequested || ($trace !== null && empty($blockers)),
-            'version' => 'v3.2.31-closure-retry-prevention-form-token-diagnostic',
+            'version' => 'v3.2.32-closure-retry-prevention-form-token-diagnostic',
             'started_at' => gov_prtx_now(),
             'classification' => $classification,
             'transport_requested' => $transportRequested,

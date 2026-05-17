@@ -1,7 +1,7 @@
 <?php
 /**
  * gov.cabnet.app — Ops mark pre-ride candidate manually submitted via V0/laptop.
- * v3.2.31
+ * v3.2.32
  */
 
 declare(strict_types=1);
@@ -59,7 +59,7 @@ try {
 <div class="wrap">
 <section class="card hero">
   <h1>Pre-Ride Candidate Closure / V0 Manual Submission Mark</h1>
-  <p class="muted">v3.2.31 — marks a captured candidate as manually submitted through V0/laptop and blocks future server-side retry. No EDXEIX HTTP request is performed.</p>
+  <p class="muted">v3.2.32 — marks a captured candidate as manually submitted through V0/laptop and blocks future server-side retry. No EDXEIX HTTP request is performed.</p>
 </section>
 
 <?php if (is_array($result)): ?>
@@ -105,7 +105,7 @@ try {
     <input type="hidden" name="candidate_id" value="<?= prcl_h($candidateId) ?>">
     <label>Method<br><input name="method" value="v0_laptop_manual"></label><br><br>
     <label>Submitted by<br><input name="submitted_by" value="Andreas"></label><br><br>
-    <label>Submitted at<br><input name="submitted_at" value="<?= prcl_h(gov_prcl_now()) ?>"></label><br><br>
+    <label>Submitted at<br><input name="submitted_at" value="<?= prcl_h(gov_prcl_now()) ?>"></label><br><small class="muted">May be left blank; v3.2.32 will default to current server time.</small><br><br>
     <label>Note<br><textarea name="note" rows="3">Manually submitted via V0 laptop/browser. Server-side retry blocked.</textarea></label><br><br>
     <label>Type exact confirmation phrase<br><textarea name="confirmation_phrase" rows="2" placeholder="I CONFIRM THIS CANDIDATE WAS MANUALLY SUBMITTED VIA V0"></textarea></label>
     <p class="muted">Required phrase: <code>I CONFIRM THIS CANDIDATE WAS MANUALLY SUBMITTED VIA V0</code></p>

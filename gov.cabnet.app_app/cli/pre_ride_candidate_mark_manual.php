@@ -2,7 +2,7 @@
 <?php
 /**
  * gov.cabnet.app — CLI mark pre-ride candidate manually submitted via V0/laptop.
- * v3.2.31
+ * v3.2.32
  */
 
 declare(strict_types=1);
@@ -13,7 +13,7 @@ $options = [
     'candidate_id' => 0,
     'method' => 'v0_laptop_manual',
     'submitted_by' => 'operator',
-    'submitted_at' => '',
+    'submitted_at' => '', // Empty is valid; library defaults it to current server time.
     'note' => 'Manually submitted via V0/laptop. Server-side retry blocked.',
 ];
 $json = false;
@@ -39,7 +39,7 @@ try {
     }
     $db = gov_bridge_db();
     $result = gov_prcl_mark_manual($db, (int)$options['candidate_id'], $options);
-    $result['version'] = 'v3.2.31-pre-ride-candidate-manual-closure';
+    $result['version'] = 'v3.2.32-pre-ride-candidate-manual-closure';
     $result['safety'] = [
         'edxeix_transport' => false,
         'aade_call' => false,
@@ -59,7 +59,7 @@ try {
 } catch (Throwable $e) {
     $error = [
         'ok' => false,
-        'version' => 'v3.2.31-pre-ride-candidate-manual-closure',
+        'version' => 'v3.2.32-pre-ride-candidate-manual-closure',
         'message' => $e->getMessage(),
         'safety' => [
             'edxeix_transport' => false,
