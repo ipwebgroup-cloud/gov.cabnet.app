@@ -1,27 +1,20 @@
-# gov.cabnet.app — Handoff v3.2.27
+# gov.cabnet.app — Handoff v3.2.28
 
-Current state: pre-ride EDXEIX future candidate path is working.
+Current state: pre-ride future candidate parsing and one-shot readiness are validated. Candidate ID 2 was captured as ready, then later became blocked in the web UI because the pickup time passed the 30-minute future guard window. This is correct and safe.
 
-Validated immediately before this patch:
+v3.2.28 adds a read-only readiness watch layer:
 
-- v3.2.26 parsed the latest Bolt pre-ride Maildir email using diagnostics fallback HTML label parsing.
-- The candidate was classified `PRE_RIDE_READY_CANDIDATE`.
-- Metadata was captured as `candidate_id=2`.
-- Candidate details: pickup `2026-05-17 13:51:11`, end `2026-05-17 14:22:11`, driver `Filippos Giannakopoulos`, vehicle `EMX6874`.
-- Mapping resolved: lessor `3814`, driver `17585`, vehicle `13799`, starting point `6467495`.
-- No EDXEIX transport occurred.
-- Production V0 and AADE remain unaffected.
+- `gov.cabnet.app_app/cli/pre_ride_readiness_watch.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-readiness-watch.php`
+- `gov.cabnet.app_app/lib/edxeix_pre_ride_readiness_watch_lib.php`
 
-v3.2.27 adds a read-only one-shot readiness packet:
+Safety remains:
 
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_readiness.php --candidate-id=2 --json
-```
+- No EDXEIX transport.
+- No AADE/myDATA call.
+- No queue job.
+- No normalized booking write.
+- Optional write only captures sanitized pre-ride metadata.
+- Live-submit remains disabled.
 
-Ops URL:
-
-```text
-https://gov.cabnet.app/ops/pre-ride-one-shot-readiness.php?candidate_id=2
-```
-
-Critical rule: do not enable live EDXEIX submission unless Andreas explicitly approves the next supervised one-shot transport patch.
+Next safe step: use the watch page/CLI during the next real future pre-ride email. If it returns `WATCH_CAPTURED_READY_PACKET` with the trip still at least 30 minutes in the future, Andreas may explicitly approve a separate supervised one-shot transport patch.

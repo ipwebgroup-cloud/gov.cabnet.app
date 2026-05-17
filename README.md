@@ -1,10 +1,7 @@
-# gov.cabnet.app — Bolt → EDXEIX Bridge
+# gov.cabnet.app — v3.2.28 Patch
 
-Plain PHP/mysqli bridge for Bolt Fleet/pre-ride intake, normalized operational readiness, and EDXEIX preflight tooling.
+Adds a safe pre-ride readiness watch layer for the Bolt → EDXEIX automation track.
 
-Current ASAP automation track:
+No EDXEIX transport, AADE call, queue job, normalized booking write, cron install, or live-submit config change is performed.
 
-- v3.2.26: real pre-ride Maildir email parsed and captured as ready candidate metadata.
-- v3.2.27: read-only one-shot readiness packet for a captured pre-ride candidate.
-
-No live EDXEIX submission is enabled by this package.
+See `PATCH_README.md` and `docs/EDXEIX_PRE_RIDE_READINESS_WATCH_v3.2.28.md`.

@@ -1,21 +1,22 @@
-# Scope — gov.cabnet.app Bolt → EDXEIX Bridge
+# Scope — v3.2.28
 
 ## In scope
 
-- Bolt/pre-ride email parsing.
-- EDXEIX payload preview.
-- Future-only readiness checks.
-- Mapping checks for lessor, driver, vehicle, and starting point.
-- Admin Excluded vehicle blocking.
-- Read-only diagnostics and supervised readiness packets.
+- Detect latest pre-ride Maildir candidate readiness.
+- Optionally capture sanitized metadata when explicitly requested.
+- Show latest captured one-shot readiness packet.
+- Provide an ops page with optional auto-refresh.
 
-## Out of scope unless explicitly approved
+## Out of scope
 
-- Unattended live EDXEIX submission.
-- Cron/live workers for EDXEIX.
-- Submitting historical, terminal, cancelled, expired, invalid, or past trips.
-- Storing secrets or raw email bodies in Git or diagnostics.
+- EDXEIX transport.
+- Live submit enablement.
+- AADE/myDATA changes.
+- Queue jobs.
+- Normalized booking writes.
+- Cron installation.
+- Frameworks or build tools.
 
-## Current phase
+## ASAP track
 
-v3.2.27 adds a read-only pre-ride one-shot readiness packet. The next step can be a supervised one-shot transport trace only after Andreas explicitly approves it.
+The readiness watch is intended to prevent missing the 30-minute future guard window. It prepares the project for the next explicitly approved supervised one-shot transport patch.
