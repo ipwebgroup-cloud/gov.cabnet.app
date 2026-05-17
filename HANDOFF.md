@@ -1,21 +1,19 @@
-# HANDOFF — gov.cabnet.app v3.2.30
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
 
-Current ASAP track:
+Current state: v3.2.31 candidate closure / retry prevention / EDXEIX form-token diagnostic.
 
-- v3.2.26 fixed pre-ride Maildir HTML fallback parsing.
-- v3.2.27 added one-shot readiness packet.
-- v3.2.28 added readiness watch.
-- v3.2.29 added read-only transport rehearsal.
-- v3.2.30 adds supervised one-candidate EDXEIX HTTP POST trace.
+Latest proven facts:
+- v3.2.30 performed one supervised POST for candidate 4.
+- EDXEIX returned HTTP 419 / Ο χρόνος σύνδεσης έληξε.
+- The server-side POST is not confirmed saved.
+- Andreas submitted the real ride manually through V0 from the laptop.
+- Candidate 4 must not be retried server-side.
 
-v3.2.30 is not unattended automation. It requires explicit candidate ID, exact payload hash, transport flag, and confirmation phrase.
+v3.2.31 purpose:
+- Add closure table and mark-manual tooling.
+- Archive manually submitted candidates.
+- Fix latest-ready selection.
+- Add form-token diagnostic GET.
+- Hold future server-side POST attempts until fresh token integration.
 
-Confirmation phrase:
-
-```text
-I UNDERSTAND POST THIS ONE PRE-RIDE CANDIDATE TO EDXEIX
-```
-
-The previously rehearsed candidate 2 was valid only while >30 minutes before pickup. Past/too-close candidates must remain blocked.
-
-Never retry a candidate after confirmed success. Verify EDXEIX manually after any POST trace.
+V0 production must remain untouched.

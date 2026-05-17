@@ -1,5 +1,5 @@
-# gov.cabnet.app — v3.2.30 Patch
+# gov.cabnet.app — v3.2.31 Patch
 
-Supervised pre-ride one-shot EDXEIX transport trace.
+Candidate closure, retry prevention, and EDXEIX form-token diagnostics for the Bolt → EDXEIX pre-ride automation track.
 
-Default mode is dry-run. Actual EDXEIX POST requires explicit candidate ID, exact payload hash, transport flag, and exact confirmation phrase.
+V0 production remains untouched.

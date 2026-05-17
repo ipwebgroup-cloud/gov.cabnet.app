@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Pre-ride EDXEIX one-shot readiness packet v3.2.27
+ * gov.cabnet.app — Pre-ride EDXEIX one-shot readiness packet v3.2.31
  *
  * Purpose:
  * - Convert an already captured or latest pre-ride candidate into a locked readiness packet.
@@ -19,6 +19,7 @@
 declare(strict_types=1);
 
 require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php';
+require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_closure_lib.php';
 
 if (!function_exists('gov_pror_bool')) {
     function gov_pror_bool($value): bool
@@ -66,13 +67,24 @@ if (!function_exists('gov_pror_fetch_latest_ready_candidate_row')) {
     function gov_pror_fetch_latest_ready_candidate_row(mysqli $db): ?array
     {
         if (!gov_pror_table_exists($db)) { return null; }
-        return gov_bridge_fetch_one(
-            $db,
-            "SELECT * FROM edxeix_pre_ride_candidates
-             WHERE ready_for_edxeix = 1 AND status = 'ready'
-             ORDER BY pickup_datetime ASC, id DESC
-             LIMIT 1"
-        );
+        $guard = function_exists('gov_prc_effective_future_guard_minutes') ? gov_prc_effective_future_guard_minutes() : 30;
+        $cutoff = date('Y-m-d H:i:s', time() + ($guard * 60));
+        $sql = "SELECT * FROM edxeix_pre_ride_candidates
+                WHERE ready_for_edxeix = 1
+                  AND status = 'ready'
+                  AND pickup_datetime IS NOT NULL
+                  AND pickup_datetime >= ?";
+        $params = [$cutoff];
+        if (function_exists('gov_bridge_table_exists') && gov_bridge_table_exists($db, 'edxeix_pre_ride_candidate_closures')) {
+            $sql .= " AND NOT EXISTS (
+                        SELECT 1 FROM edxeix_pre_ride_candidate_closures c
+                        WHERE c.candidate_id = edxeix_pre_ride_candidates.id
+                           OR (c.source_hash <> '' AND c.source_hash = edxeix_pre_ride_candidates.source_hash)
+                     )";
+        }
+        // v3.2.31: latest-ready means newest still-future, not the oldest historical ready row.
+        $sql .= " ORDER BY id DESC, created_at DESC LIMIT 1";
+        return gov_bridge_fetch_one($db, $sql, $params);
     }
 }
 
@@ -310,6 +322,9 @@ if (!function_exists('gov_pror_build_packet')) {
         $candidateBlockers = is_array($candidate['safety_blockers'] ?? null) ? $candidate['safety_blockers'] : [];
         $payloadHash = gov_pror_payload_hash($payload);
         $duplicate = gov_pror_duplicate_success_state($db, $payloadHash);
+        $closureState = function_exists('gov_prcl_closure_state')
+            ? gov_prcl_closure_state($db, $candidate, $payload)
+            : ['table_exists' => false, 'closed' => false, 'manual_submitted_v0' => false];
         $liveGate = gov_pror_live_gate_summary();
         $guard = function_exists('gov_prc_effective_future_guard_minutes') ? gov_prc_effective_future_guard_minutes() : 30;
         $pickupAt = trim((string)($candidate['pickup_datetime'] ?? ($payload['started_at'] ?? '')));
@@ -329,6 +344,7 @@ if (!function_exists('gov_pror_build_packet')) {
             if (trim((string)($mapping[$key] ?? '')) === '') { $blockers[] = 'mapping_missing_' . $key; }
         }
         if (!empty($duplicate['duplicate_success_detected'])) { $blockers[] = 'duplicate_success_detected_for_payload_hash'; }
+        if (!empty($closureState['closed']) || !empty($closureState['manual_submitted_v0'])) { $blockers[] = 'candidate_closed_or_manually_submitted_via_v0'; }
         if (!empty($liveGate['live_submit_enabled']) || !empty($liveGate['http_submit_enabled'])) {
             $blockers[] = 'unexpected_live_submit_gate_enabled_for_readiness_packet';
         }
@@ -379,13 +395,14 @@ if (!function_exists('gov_pror_build_packet')) {
             'payload_missing_fields' => $missingPayload,
             'candidate_safety_blockers' => $candidateBlockers,
             'duplicate_check' => $duplicate,
+            'closure_state' => $closureState,
             'live_gate_summary' => $liveGate,
             'operator_packet' => $operatorPacket,
             'candidate' => $candidate,
             'pre_ride_candidate_report' => is_array($source['pre_ride_candidate_report'] ?? null) ? $source['pre_ride_candidate_report'] : null,
             'next_action' => $ready
-                ? 'Review this readiness packet. Do not submit yet. The next patch can add a supervised one-shot transport trace only if explicitly approved.'
-                : 'Fix the listed readiness blockers, then rerun the one-shot readiness packet. Do not attempt EDXEIX transport.',
+                ? 'Review this readiness packet. No submit is performed here. v3.2.31 also blocks manually closed/V0-submitted candidates from retry.'
+                : 'Fix the listed readiness blockers, mark manual V0 submissions closed, or capture a new future candidate. Do not attempt EDXEIX transport.',
         ];
     }
 }

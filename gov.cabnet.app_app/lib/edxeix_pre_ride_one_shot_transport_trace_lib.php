@@ -1,7 +1,7 @@
 <?php
 /**
  * gov.cabnet.app — Supervised pre-ride one-shot EDXEIX transport trace.
- * v3.2.30
+ * v3.2.31
  *
  * Purpose:
  * - Perform exactly one explicitly approved HTTP POST trace for one captured,
@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_transport_rehearsal_lib.php';
 require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php';
+require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_closure_lib.php';
 
 if (!function_exists('gov_prtx_bool')) {
     function gov_prtx_bool($value): bool
@@ -74,6 +75,176 @@ if (!function_exists('gov_prtx_first_final_status')) {
             'final_status' => $last,
             'step_count' => count($steps),
         ];
+    }
+}
+
+
+if (!function_exists('gov_prtx_previous_attempt_state')) {
+    /** @return array<string,mixed> */
+    function gov_prtx_previous_attempt_state(string $candidateId, string $payloadHash): array
+    {
+        $out = [
+            'table_exists' => false,
+            'performed_count' => 0,
+            'last_attempt_id' => '',
+            'last_classification_code' => '',
+            'last_first_http_status' => 0,
+            'last_final_http_status' => 0,
+            'retry_blocked' => false,
+            'warnings' => [],
+        ];
+        try {
+            $db = gov_bridge_db();
+            if (!function_exists('gov_bridge_table_exists') || !gov_bridge_table_exists($db, 'edxeix_pre_ride_transport_attempts')) {
+                return $out;
+            }
+            $out['table_exists'] = true;
+            $conditions = [];
+            $params = [];
+            if ($candidateId !== '') { $conditions[] = 'candidate_id = ?'; $params[] = $candidateId; }
+            if ($payloadHash !== '') { $conditions[] = 'payload_hash = ?'; $params[] = $payloadHash; }
+            if (!$conditions) { return $out; }
+            $where = '(' . implode(' OR ', $conditions) . ') AND transport_performed = 1';
+            $count = gov_bridge_fetch_one($db, 'SELECT COUNT(*) AS c FROM edxeix_pre_ride_transport_attempts WHERE ' . $where, $params);
+            $out['performed_count'] = (int)($count['c'] ?? 0);
+            $last = gov_bridge_fetch_one($db, 'SELECT * FROM edxeix_pre_ride_transport_attempts WHERE ' . $where . ' ORDER BY id DESC LIMIT 1', $params);
+            if (is_array($last)) {
+                $out['last_attempt_id'] = (string)($last['id'] ?? '');
+                $out['last_classification_code'] = (string)($last['classification_code'] ?? '');
+                $out['last_first_http_status'] = (int)($last['first_http_status'] ?? 0);
+                $out['last_final_http_status'] = (int)($last['final_http_status'] ?? 0);
+            }
+            // v3.2.31: after any performed server POST trace, require manual review / closure before another POST.
+            $out['retry_blocked'] = $out['performed_count'] > 0;
+            return $out;
+        } catch (Throwable $e) {
+            $out['warnings'][] = 'previous_attempt_state_warning: ' . $e->getMessage();
+            return $out;
+        }
+    }
+}
+
+if (!function_exists('gov_prtx_extract_form_token')) {
+    function gov_prtx_extract_form_token(string $body): string
+    {
+        if (preg_match('/<input\b(?=[^>]*\bname=["\']_token["\'])(?=[^>]*\bvalue=["\']([^"\']*)["\'])[^>]*>/i', $body, $m)) {
+            return html_entity_decode((string)$m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        if (preg_match('/name=["\']_token["\'][^>]*value=["\']([^"\']*)["\']/i', $body, $m)) {
+            return html_entity_decode((string)$m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        if (preg_match('/value=["\']([^"\']*)["\'][^>]*name=["\']_token["\']/i', $body, $m)) {
+            return html_entity_decode((string)$m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        return '';
+    }
+}
+
+if (!function_exists('gov_prtx_form_token_diagnostic')) {
+    /** @return array<string,mixed> */
+    function gov_prtx_form_token_diagnostic(): array
+    {
+        $out = [
+            'ok' => false,
+            'performed' => false,
+            'method' => 'GET',
+            'url' => '',
+            'status' => 0,
+            'token_present' => false,
+            'token_hash_16' => '',
+            'session_csrf_hash_16' => '',
+            'token_matches_session_csrf' => false,
+            'body_fingerprint' => null,
+            'raw_token_printed' => false,
+            'raw_cookie_printed' => false,
+            'raw_body_printed' => false,
+            'warnings' => [],
+        ];
+        try {
+            $liveConfig = gov_live_load_config();
+            $url = trim((string)($liveConfig['edxeix_submit_url'] ?? ''));
+            $out['url'] = function_exists('gov_edxdiag_safe_url') ? gov_edxdiag_safe_url($url) : $url;
+            if ($url === '') { $out['warnings'][] = 'edxeix_submit_url_missing'; return $out; }
+            $session = gov_edxdiag_load_session_raw($liveConfig);
+            $cookie = trim((string)($session['cookie_header'] ?? ''));
+            $sessionCsrf = trim((string)($session['csrf_token'] ?? ''));
+            if ($sessionCsrf !== '') { $out['session_csrf_hash_16'] = substr(hash('sha256', $sessionCsrf), 0, 16); }
+            if ($cookie === '') { $out['warnings'][] = 'session_cookie_missing'; return $out; }
+            $timeout = (int)($liveConfig['curl_timeout_seconds'] ?? 45);
+            $timeout = max(10, min(120, $timeout));
+            $ch = curl_init();
+            if (!$ch) { $out['warnings'][] = 'curl_init_failed'; return $out; }
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HEADER => true,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_CONNECTTIMEOUT => $timeout,
+                CURLOPT_TIMEOUT => $timeout,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_HTTPHEADER => [
+                    'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Cookie: ' . $cookie,
+                    'User-Agent: gov.cabnet.app EDXEIX form token diagnostic v3.2.31',
+                ],
+            ]);
+            $raw = curl_exec($ch);
+            if ($raw === false) {
+                $out['warnings'][] = 'curl_error: ' . curl_error($ch) . ' (' . curl_errno($ch) . ')';
+                curl_close($ch);
+                return $out;
+            }
+            $out['performed'] = true;
+            $out['status'] = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $headerSize = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $body = substr((string)$raw, $headerSize);
+            curl_close($ch);
+            $token = gov_prtx_extract_form_token($body);
+            $out['token_present'] = $token !== '';
+            if ($token !== '') { $out['token_hash_16'] = substr(hash('sha256', $token), 0, 16); }
+            $out['token_matches_session_csrf'] = $token !== '' && $sessionCsrf !== '' && hash_equals($token, $sessionCsrf);
+            $out['body_fingerprint'] = function_exists('gov_edxdiag_body_fingerprint') ? gov_edxdiag_body_fingerprint($body) : [
+                'bytes' => strlen($body),
+                'sha256_16' => substr(hash('sha256', $body), 0, 16),
+            ];
+            $signals = is_array($out['body_fingerprint']['signals'] ?? null) ? $out['body_fingerprint']['signals'] : [];
+            $out['ok'] = $out['performed'] && $out['status'] >= 200 && $out['status'] < 300 && $out['token_present'] && empty($signals['login']) && empty($signals['csrf']);
+            if (!$out['token_present']) { $out['warnings'][] = 'form_token_not_found'; }
+            if (!empty($signals['login'])) { $out['warnings'][] = 'form_get_looks_like_login_or_session_page'; }
+            if (!empty($signals['csrf'])) { $out['warnings'][] = 'form_get_contains_csrf_or_session_signal'; }
+            if ($out['token_present'] && !$out['token_matches_session_csrf']) { $out['warnings'][] = 'form_token_differs_from_saved_session_csrf'; }
+            return $out;
+        } catch (Throwable $e) {
+            $out['warnings'][] = 'form_token_diagnostic_exception: ' . $e->getMessage();
+            return $out;
+        }
+    }
+}
+
+if (!function_exists('gov_prtx_pre_transport_hold_blockers')) {
+    /** @param array<string,mixed> $rehearsal @param array<string,mixed> $formDiag @return array<int,string> */
+    function gov_prtx_pre_transport_hold_blockers(array $rehearsal, array $formDiag): array
+    {
+        $blockers = [];
+        $packet = is_array($rehearsal['operator_rehearsal_packet'] ?? null) ? $rehearsal['operator_rehearsal_packet'] : [];
+        $candidateId = (string)($packet['candidate_id'] ?? '');
+        $payloadHash = (string)($packet['payload_hash'] ?? '');
+        $closure = is_array($rehearsal['readiness_packet']['closure_state'] ?? null) ? $rehearsal['readiness_packet']['closure_state'] : [];
+        if (!empty($closure['closed']) || !empty($closure['manual_submitted_v0'])) {
+            $blockers[] = 'candidate_closed_or_manually_submitted_via_v0';
+        }
+        $previous = gov_prtx_previous_attempt_state($candidateId, $payloadHash);
+        if (!empty($previous['retry_blocked'])) {
+            $blockers[] = 'previous_server_transport_attempt_requires_manual_review_or_new_candidate';
+        }
+        if (empty($formDiag['ok'])) {
+            $blockers[] = 'edxeix_form_token_diagnostic_not_ready';
+        }
+        // v3.2.31 is intentionally a safe hold/retry-prevention patch. A later patch may integrate a freshly fetched form token.
+        $blockers[] = 'transport_disabled_pending_fresh_form_token_integration_patch';
+        return array_values(array_unique($blockers));
     }
 }
 
@@ -195,16 +366,25 @@ if (!function_exists('gov_prtx_run')) {
         $transportRequested = gov_prtx_bool($options['transport'] ?? false);
         $followRedirects = array_key_exists('follow_redirects', $options) ? gov_prtx_bool($options['follow_redirects']) : true;
         $rehearsal = gov_prt_run($candidateId > 0 ? ['candidate_id' => $candidateId] : ['latest_ready' => true]);
+        $formTokenDiagnostic = gov_prtx_form_token_diagnostic();
+        $preTransportHoldBlockers = gov_prtx_pre_transport_hold_blockers($rehearsal, $formTokenDiagnostic);
         $blockers = gov_prtx_transport_blockers($options, $rehearsal);
+        if ($transportRequested) { $blockers = array_values(array_unique(array_merge($blockers, $preTransportHoldBlockers))); }
         $packet = is_array($rehearsal['operator_rehearsal_packet'] ?? null) ? $rehearsal['operator_rehearsal_packet'] : [];
         $payload = is_array($packet['payload_preview'] ?? null) ? $packet['payload_preview'] : [];
         $trace = null;
         $classification = [
-            'code' => !empty($rehearsal['ready_for_later_supervised_transport_patch']) ? 'PRE_RIDE_TRANSPORT_TRACE_ARMABLE' : 'PRE_RIDE_TRANSPORT_TRACE_BLOCKED',
+            'code' => !empty($rehearsal['ready_for_later_supervised_transport_patch']) ? 'PRE_RIDE_TRANSPORT_TRACE_HELD_FOR_SESSION_REFRESH' : 'PRE_RIDE_TRANSPORT_TRACE_BLOCKED',
             'message' => !empty($rehearsal['ready_for_later_supervised_transport_patch'])
-                ? 'Candidate is armable for a supervised one-shot EDXEIX transport trace. No submit was performed.'
+                ? 'Candidate is structurally ready, but v3.2.31 is holding server-side transport until manual closures/retry prevention and fresh EDXEIX form-token diagnostics are resolved. No submit was performed.'
                 : 'Candidate is blocked before transport trace. No submit was performed.',
         ];
+        if (!empty($rehearsal['ready_for_later_supervised_transport_patch']) && !$preTransportHoldBlockers) {
+            $classification = [
+                'code' => 'PRE_RIDE_TRANSPORT_TRACE_ARMABLE',
+                'message' => 'Candidate is armable for a supervised one-shot EDXEIX transport trace. No submit was performed.',
+            ];
+        }
 
         if ($transportRequested) {
             if ($blockers) {
@@ -239,7 +419,7 @@ if (!function_exists('gov_prtx_run')) {
 
         $result = [
             'ok' => !$transportRequested || ($trace !== null && empty($blockers)),
-            'version' => 'v3.2.30-supervised-pre-ride-one-shot-transport-trace',
+            'version' => 'v3.2.31-closure-retry-prevention-form-token-diagnostic',
             'started_at' => gov_prtx_now(),
             'classification' => $classification,
             'transport_requested' => $transportRequested,
@@ -258,6 +438,9 @@ if (!function_exists('gov_prtx_run')) {
                 'raw_response_body_printed' => false,
             ],
             'transport_blockers' => array_values(array_unique($blockers)),
+            'pre_transport_hold_blockers' => $preTransportHoldBlockers,
+            'form_token_diagnostic' => $formTokenDiagnostic,
+            'previous_attempt_state' => gov_prtx_previous_attempt_state((string)($packet['candidate_id'] ?? ''), (string)($packet['payload_hash'] ?? '')),
             'required_confirmation_phrase' => gov_prtx_confirmation_phrase(),
             'expected_payload_hash_required_for_transport' => $payloadHash,
             'operator_transport_packet' => [
@@ -295,7 +478,7 @@ if (!function_exists('gov_prtx_run')) {
             ],
             'next_action' => $trace !== null
                 ? 'Immediately verify in the EDXEIX portal/list. If saved, capture proof and do not retry this candidate. If not confirmed, treat as diagnostic only.'
-                : 'Review the armable packet. Perform transport only from CLI/web POST with candidate_id, exact payload hash, and exact confirmation phrase while the ride is still future-safe.',
+                : 'Review the hold blockers/form-token diagnostic. Do not POST again until a new patch integrates a fresh EDXEIX form token and the candidate is not manually closed.',
         ];
 
         if ($transportRequested) {

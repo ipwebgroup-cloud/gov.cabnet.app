@@ -1,18 +1,18 @@
-# Scope — v3.2.30 ASAP EDXEIX Automation Track
+# Scope — gov.cabnet.app v3.2.31
+
+This patch is limited to the v3 diagnostic/automation path.
 
 In scope:
-- Supervised one-candidate pre-ride EDXEIX HTTP POST trace.
-- Runtime readiness/rehearsal checks before any transport.
-- Payload hash lock and exact confirmation phrase.
-- Sanitized redirect-chain diagnostics.
-- Optional sanitized attempt metadata table.
-- Demo pre-ride email format file.
+- Candidate manual V0 closure.
+- Server-side retry prevention.
+- Latest-ready selection fix.
+- EDXEIX form-token diagnostics.
+- Documentation and handoff updates.
 
 Out of scope:
-- Unattended EDXEIX submit worker.
-- Cron submission.
+- V0 production changes.
+- Unattended EDXEIX submission.
 - AADE/myDATA changes.
-- Queue job creation.
+- Queue worker changes.
 - normalized_bookings writes.
 - live_submit.php config writes.
-- Submission of past/terminal/too-close candidates.

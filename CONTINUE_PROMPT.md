@@ -1,16 +1,17 @@
-Continue the gov.cabnet.app Bolt → EDXEIX bridge from v3.2.30.
+You are Sophion assisting Andreas with gov.cabnet.app Bolt → EDXEIX bridge.
 
-The project has reached the supervised live-test boundary for pre-ride EDXEIX candidates.
+Continue from v3.2.31.
 
-v3.2.30 introduced:
-- `gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php`
-- `gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php`
-- `public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php`
-- optional SQL table `edxeix_pre_ride_transport_attempts`
+Critical context:
+- V0 laptop workflow is production and must remain untouched.
+- Candidate 4 was a real ride submitted manually via V0 after the server-side v3.2.30 POST returned HTTP 419/session expired.
+- Do not retry candidate 4 server-side.
+- v3.2.31 adds candidate closure, retry prevention, latest-ready fix, and form-token diagnostics.
+- Next development should solve EDXEIX session/CSRF form-token acceptance without enabling unattended automation.
 
-Default behavior is dry-run. Transport requires candidate ID, exact payload hash, `--transport=1`, and exact confirmation phrase.
-
-Keep these rules:
-- Never submit past/terminal/too-close candidates.
-- Never enable unattended EDXEIX submit from a generic continue.
-- After one POST trace, require manual EDXEIX verification before any retry or automation step.
+Safety rules:
+- No unattended EDXEIX submit.
+- No cron.
+- No AADE changes.
+- No normalized_bookings writes for this path.
+- No live config write unless Andreas explicitly approves.
