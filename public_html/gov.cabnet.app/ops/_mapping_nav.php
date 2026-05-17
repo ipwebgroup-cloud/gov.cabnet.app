@@ -1,9 +1,9 @@
 <?php
 /**
- * gov.cabnet.app — Mapping navigation partial v1.1
+ * gov.cabnet.app — Mapping navigation partial v1.2
  *
  * Include-only helper for Bolt → EDXEIX mapping governance pages.
- * No DB access, no external calls, no writes.
+ * No DB access, no external calls, no writes. v1.2 adds Mapping Workbench V3 link.
  */
 
 declare(strict_types=1);
@@ -77,6 +77,7 @@ if (!function_exists('gov_mapping_nav_render')) {
             </div>
             <div class="mapping-nav-grid">
                 <?= gov_mapping_nav_link('/ops/mapping-center.php', 'Mapping Center', 'Main hub for mapping tools.', $current) ?>
+                <?= gov_mapping_nav_link('/ops/mapping-workbench-v3.php', 'Workbench V3', 'Driver + vehicle + lessor verified workflow.', $current) ?>
                 <?= gov_mapping_nav_link('/ops/mapping-health.php', 'Mapping Health', 'Read-only health dashboard.', $current) ?>
                 <?= gov_mapping_nav_link('/ops/mapping-audit.php', 'Mapping Audit', 'Failure-point audit by lessor.', $current) ?>
                 <?= gov_mapping_nav_link('/ops/mapping-exceptions.php', 'Exception Queue', 'Prioritized issues to fix.', $current) ?>

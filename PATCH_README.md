@@ -1,35 +1,70 @@
-# Patch: EDXEIX dropdown snapshot tools for mapping page
+# gov.cabnet.app patch — Mapping Workbench V3
 
 ## What changed
 
-- Updated `public_html/gov.cabnet.app/ops/mappings.php`.
-- Added a copyable EDXEIX console scraper to the mapping page.
-- Added JSON snapshot import for EDXEIX lessors, drivers, vehicles, and starting points.
-- Added local snapshot counters.
-- Added editable `EDXEIX Lessor ID` fields beside driver and vehicle EDXEIX IDs.
-- Added an additive SQL migration for snapshot tables and `edxeix_lessor_id` columns.
+Added a Version 3 mapping workflow page and wired it into the shared V3 operations interface/navigation.
+
+The new page groups:
+
+- Bolt driver
+- Bolt active vehicle
+- EDXEIX lessor/company
+- EDXEIX driver ID
+- EDXEIX vehicle ID
+- snapshot-based suggestions and validation
 
 ## Files included
 
 ```text
-public_html/gov.cabnet.app/ops/mappings.php
-gov.cabnet.app_sql/2026_05_17_edxeix_mapping_page_snapshot_tools.sql
-docs/MAPPING_PAGE_EDXEIX_SNAPSHOT_TOOL_2026_05_17.md
+public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
+public_html/gov.cabnet.app/ops/_shell.php
+public_html/gov.cabnet.app/ops/_mapping_nav.php
+public_html/gov.cabnet.app/ops/mapping-center.php
+gov.cabnet.app_sql/2026_05_17_mapping_workbench_v3.sql
+docs/MAPPING_WORKBENCH_V3_2026_05_17.md
 PATCH_README.md
 ```
 
-## Exact upload paths
+## Upload paths
+
+Upload:
 
 ```text
-/home/cabnet/public_html/gov.cabnet.app/ops/mappings.php
-/home/cabnet/gov.cabnet.app_sql/2026_05_17_edxeix_mapping_page_snapshot_tools.sql
+public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
 ```
 
-Documentation may be committed locally under:
+to:
 
 ```text
-docs/MAPPING_PAGE_EDXEIX_SNAPSHOT_TOOL_2026_05_17.md
-PATCH_README.md
+/home/cabnet/public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
+```
+
+Upload:
+
+```text
+public_html/gov.cabnet.app/ops/_shell.php
+public_html/gov.cabnet.app/ops/_mapping_nav.php
+public_html/gov.cabnet.app/ops/mapping-center.php
+```
+
+to:
+
+```text
+/home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+/home/cabnet/public_html/gov.cabnet.app/ops/_mapping_nav.php
+/home/cabnet/public_html/gov.cabnet.app/ops/mapping-center.php
+```
+
+Upload:
+
+```text
+gov.cabnet.app_sql/2026_05_17_mapping_workbench_v3.sql
+```
+
+to:
+
+```text
+/home/cabnet/gov.cabnet.app_sql/2026_05_17_mapping_workbench_v3.sql
 ```
 
 ## SQL to run
@@ -37,50 +72,52 @@ PATCH_README.md
 Run/import:
 
 ```text
-gov.cabnet.app_sql/2026_05_17_edxeix_mapping_page_snapshot_tools.sql
+/home/cabnet/gov.cabnet.app_sql/2026_05_17_mapping_workbench_v3.sql
+```
+
+## Verification commands
+
+```bash
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_shell.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/_mapping_nav.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-center.php
 ```
 
 ## Verification URLs
 
 ```text
-https://gov.cabnet.app/ops/mappings.php
-https://gov.cabnet.app/ops/mappings.php?view=unmapped
-https://gov.cabnet.app/ops/mappings.php?view=unmapped&limit=200&format=json
+https://gov.cabnet.app/ops/mapping-workbench-v3.php
+https://gov.cabnet.app/ops/mapping-workbench-v3.php?view=needs_map
+https://gov.cabnet.app/ops/mapping-workbench-v3.php?view=suggestions
+https://gov.cabnet.app/ops/mapping-workbench-v3.php?format=json&view=needs_map
+https://gov.cabnet.app/ops/mapping-center.php
 ```
 
 ## Expected result
 
-- `/ops/mappings.php` loads without PHP errors.
-- A new `EDXEIX dropdown scraper + snapshot import` section appears.
-- Snapshot counters appear after migration.
-- Driver and vehicle tables show `EDXEIX Lessor ID`.
-- Existing driver/vehicle ID editing still works with the same confirmation phrases:
-
-```text
-UPDATE DRIVER MAPPING
-UPDATE VEHICLE MAPPING
-```
-
-- Snapshot import requires this exact phrase:
-
-```text
-IMPORT EDXEIX SNAPSHOT
-```
-
-## Safety
-
-This patch does not enable live EDXEIX submission. It does not call Bolt, EDXEIX, AADE, or create queue jobs. The browser console scraper is read-only GET/select-option extraction only.
+- The V3 shell loads normally.
+- Navigation includes `Mapping Workbench V3`.
+- Mapping Center links to the new workbench.
+- The workbench shows grouped driver + active vehicle cards.
+- Snapshot counters show available EDXEIX exports after JSON import.
+- Guarded local updates require `UPDATE VERIFIED MAPPING`.
+- No Bolt, EDXEIX, AADE, live-submit, or queue-job action is performed.
 
 ## Git commit title
 
 ```text
-Add EDXEIX dropdown snapshot tools to mappings page
+Add Mapping Workbench V3 to ops interface
 ```
 
 ## Git commit description
 
 ```text
-Enhanced the Bolt to EDXEIX mapping page with a safe browser-console EDXEIX dropdown scraper, JSON snapshot import, snapshot counters, and optional EDXEIX lessor/company ID editing for driver and vehicle mappings.
+Added a Version 3 Mapping Workbench page for grouped Bolt driver, active vehicle, and EDXEIX lessor mapping.
 
-The patch is additive and guarded. It does not call Bolt, submit to EDXEIX, call AADE, create jobs, or modify live-submit gates.
+The workbench supports EDXEIX dropdown snapshot import, snapshot-based driver/vehicle suggestions, lessor validation, conflict visibility, and guarded one-shot verified mapping updates with local audit rows.
+
+Updated the shared V3 operations shell, mapping navigation partial, and Mapping Center to include the new workbench.
+
+This patch is additive and guarded. It does not call Bolt, submit to EDXEIX, call AADE, create queue jobs, or change live-submit gates.
 ```

@@ -72,6 +72,7 @@ if (function_exists('opsui_shell_begin')) {
     <p>This is the main hub for mapping governance. The goal is to prevent failures where the company, driver, and vehicle are correct but another mapped field, such as the starting point, falls back to an unsafe default.</p>
     <div>
         <?= mc2_badge('READ ONLY', 'good') ?>
+        <?= mc2_badge('V3 WORKBENCH READY', 'info') ?>
         <?= mc2_badge('NO EDXEIX CALL', 'good') ?>
         <?= mc2_badge('NO DB WRITE', 'good') ?>
         <?= mc2_badge('MAPPING GOVERNANCE', 'neutral') ?>

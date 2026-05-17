@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — shared operations UI shell v3.2.14
+ * gov.cabnet.app — shared operations UI shell v3.2.15
  *
  * Include-only helper for the unified /ops interface.
  * Presentation/helper layer only; no Bolt calls, no EDXEIX calls.
@@ -42,6 +42,9 @@
  *
  * v3.2.14:
  * - Notes controlled one-shot Maildir fixture writer support.
+ *
+ * v3.2.15:
+ * - Adds Mapping Workbench V3 navigation for verified driver/vehicle/lessor mapping workflow.
  */
 
 declare(strict_types=1);
@@ -298,6 +301,7 @@ function opsui_shell_begin(array $options = []): void
     $adminItems = [
         ['/ops/admin-control.php', 'Admin Control'],
         ['/ops/readiness-control.php', 'Readiness Control'],
+        ['/ops/mapping-workbench-v3.php', 'Mapping Workbench V3'],
         ['/ops/mapping-control.php', 'Mapping Review'],
         ['/ops/jobs-control.php', 'Jobs Review'],
         ['/ops/users-control.php', 'Users Control'],
@@ -408,6 +412,7 @@ function opsui_shell_begin(array $options = []): void
             <div class="gov-side-group-title">Admin & audit</div>
             <?= opsui_side_link('/ops/admin-control.php', 'Admin Control', $current) ?>
             <?= opsui_side_link('/ops/readiness-control.php', 'Readiness Control', $current) ?>
+            <?= opsui_side_link('/ops/mapping-workbench-v3.php', 'Mapping Workbench V3', $current) ?>
             <?= opsui_side_link('/ops/mapping-control.php', 'Mapping Review', $current) ?>
             <?= opsui_side_link('/ops/jobs-control.php', 'Jobs Review', $current) ?>
             <?= opsui_side_link('/ops/handoff-center.php', 'Handoff Center', $current) ?>
@@ -455,7 +460,7 @@ function opsui_shell_begin(array $options = []): void
             <?= opsui_is_admin($user) ? opsui_side_link('/ops/audit-log.php', 'Audit Log', $current) : '' ?>
         </div>
 
-        <div class="gov-side-note">V3.2.14 observation toolchain installed. Controlled one-shot Maildir fixture writer is available and preview-only by default. Routes were not deleted. Live EDXEIX submission remains blocked.</div>
+        <div class="gov-side-note">V3.2.15 mapping workbench navigation installed. Controlled one-shot Maildir fixture writer is available and preview-only by default. Routes were not deleted. Live EDXEIX submission remains blocked.</div>
     </aside>
 
     <div class="gov-content">
@@ -470,7 +475,7 @@ function opsui_shell_begin(array $options = []): void
                 <?= opsui_tab('/ops/pre-ride-email-v3-dashboard.php', 'V3 Control', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-tool.php', 'Pre-Ride', $current) ?>
                 <?= opsui_tab('/ops/pre-ride-email-v3-live-operator-console.php', 'Live Console', $current) ?>
-                <?= opsui_tab('/ops/mapping-control.php', 'Mapping', $current) ?>
+                <?= opsui_tab('/ops/mapping-workbench-v3.php', 'Mapping V3', $current) ?>
                 <?= opsui_tab('/ops/handoff-center.php', 'Handoff', $current) ?>
                 <?= opsui_tab('/ops/route-index.php', 'Archive', $current) ?>
                 <?= opsui_tab('/ops/profile.php', 'Profile', $current) ?>
