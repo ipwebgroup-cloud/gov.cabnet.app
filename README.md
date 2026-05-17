@@ -12,7 +12,7 @@ Current ASAP automation track:
 - Future guard is 30 minutes.
 - Historical/terminal/cancelled/mail receipt-only/test-like rows remain blocked.
 - Pre-ride future candidate diagnostics are installed as a separate path.
-- v3.2.24 adds opt-in redacted source diagnostics for Maildir parser troubleshooting.
+- v3.2.25 adds opt-in redacted source diagnostics for Maildir parser troubleshooting.
 
 ## cPanel layout
 

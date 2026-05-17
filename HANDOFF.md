@@ -1,4 +1,4 @@
-# gov.cabnet.app Handoff — 2026-05-17 v3.2.24 ASAP Automation Track
+# gov.cabnet.app Handoff — 2026-05-17 v3.2.25 ASAP Automation Track
 
 Current posture:
 
@@ -8,7 +8,7 @@ Current posture:
 - Future guard is set to 30 minutes in both server config files.
 - v3.2.22 added pre-ride future candidate diagnostics and optional sanitized metadata capture.
 - v3.2.23 added diagnostics-only fallback parsing, but latest Maildir validation still showed zero primary and fallback fields.
-- v3.2.24 adds opt-in safe source diagnostics to inspect the decoded Maildir body structure without printing/storing raw email content.
+- v3.2.25 adds opt-in HTML-label fallback extraction to inspect the decoded Maildir body structure without printing/storing raw email content.
 
 Next safest step:
 

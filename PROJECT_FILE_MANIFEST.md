@@ -1,4 +1,4 @@
-# Project File Manifest — v3.2.24 Patch
+# Project File Manifest — v3.2.25 Patch
 
 - `CONTINUE_PROMPT.md`
 - `HANDOFF.md`
@@ -6,7 +6,7 @@
 - `PROJECT_FILE_MANIFEST.md`
 - `README.md`
 - `SCOPE.md`
-- `docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.24.md`
+- `docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.25.md`
 - `gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php`
 - `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
 - `gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php`

@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX pre-ride future candidate diagnostic library v3.2.24
+ * gov.cabnet.app — EDXEIX pre-ride future candidate diagnostic library v3.2.25
  *
  * Purpose:
  * - Convert a pasted/latest Bolt pre-ride email into a sanitized future EDXEIX candidate preview.
@@ -8,6 +8,7 @@
  * - Optionally capture candidate metadata into the additive edxeix_pre_ride_candidates table.
  * - v3.2.23 adds a diagnostics-only fallback label parser for Maildir bodies whose labels are not line-start normalized.
  * - v3.2.24 adds opt-in safe source diagnostics so empty Maildir parses can be inspected without exposing raw email bodies.
+ * - v3.2.25 teaches the diagnostics-only fallback parser to clean <p>/<strong> HTML label rows before extraction.
  *
  * Safety contract:
  * - Default mode is dry-run / analysis only.
@@ -488,13 +489,18 @@ if (!function_exists('gov_prc_fallback_extract_label_map')) {
         $diagnostics = [
             'fallback_label_hits' => 0,
             'fallback_labels' => [],
+            'fallback_html_cleanup_applied' => false,
+            'fallback_html_cleanup_reason' => '',
         ];
 
         $body = str_replace(["\r\n", "\r"], "\n", $text);
-        if (stripos($body, '<br') !== false || stripos($body, '<html') !== false || stripos($body, '<div') !== false || stripos($body, '<td') !== false) {
+        $hasHtmlLabelRows = preg_match('/<\s*\/?\s*(br|html|body|div|p|strong|b|span|td|th|tr|table|section|img)\b/i', $body) === 1;
+        if ($hasHtmlLabelRows) {
+            $diagnostics['fallback_html_cleanup_applied'] = true;
+            $diagnostics['fallback_html_cleanup_reason'] = 'html_label_rows_detected';
             $body = preg_replace('/<\s*br\s*\/?\s*>/i', "\n", $body) ?? $body;
             $body = preg_replace('/<\s*\/\s*(p|div|tr|table|section)\s*>/i', "\n", $body) ?? $body;
-            $body = preg_replace('/<\s*\/\s*(td|th|span|strong|b)\s*>/i', ': ', $body) ?? $body;
+            $body = preg_replace('/<\s*\/\s*(td|th|span|strong|b)\s*>/i', ' ', $body) ?? $body;
             $body = strip_tags($body);
         }
         $body = html_entity_decode($body, ENT_QUOTES | ENT_HTML5, 'UTF-8');

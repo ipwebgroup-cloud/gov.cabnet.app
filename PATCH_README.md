@@ -1,12 +1,12 @@
-# gov.cabnet.app Patch — v3.2.24 Pre-Ride Source Diagnostics
+# gov.cabnet.app Patch — EDXEIX Pre-Ride Candidate v3.2.25
 
 Generated for Andreas on 2026-05-17.
 
 ## What changed
 
-Adds opt-in safe source diagnostics to the pre-ride future EDXEIX candidate workflow after v3.2.23 showed the selected latest Maildir message had zero parsed labels and zero fallback labels.
+This patch fixes the next diagnostics blocker found in v3.2.24: the Maildir source contains the expected Bolt pre-ride labels, but they are wrapped in `<p dir="ltr"><strong>Label: ...` HTML rows. The diagnostics-only fallback parser now cleans `<p>/<strong>` HTML label rows before extracting values.
 
-The new diagnostic output helps identify whether the selected Maildir body is encoded, malformed, unexpected, or not a usable Bolt pre-ride email, while redacting/truncating line values.
+No production V0 parser file is modified. The change stays inside the pre-ride EDXEIX candidate diagnostic library.
 
 ## Files included
 
@@ -16,7 +16,7 @@ The new diagnostic output helps identify whether the selected Maildir body is en
 - `PROJECT_FILE_MANIFEST.md`
 - `README.md`
 - `SCOPE.md`
-- `docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.24.md`
+- `docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.25.md`
 - `gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php`
 - `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
 - `gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php`
@@ -26,6 +26,8 @@ The new diagnostic output helps identify whether the selected Maildir body is en
 
 ## Exact upload paths
 
+Upload/replace:
+
 ```text
 /home/cabnet/CONTINUE_PROMPT.md
 /home/cabnet/HANDOFF.md
@@ -33,7 +35,7 @@ The new diagnostic output helps identify whether the selected Maildir body is en
 /home/cabnet/PROJECT_FILE_MANIFEST.md
 /home/cabnet/README.md
 /home/cabnet/SCOPE.md
-/home/cabnet/docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.24.md
+/home/cabnet/docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.25.md
 /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php
 /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
 /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
@@ -55,33 +57,29 @@ php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
 php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
-```
 
-Safe source diagnostic:
-
-```bash
 php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1
-```
-
-Integrated diagnostic:
-
-```bash
 php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75 --pre-ride-latest=1 --pre-ride-debug-source=1
 ```
 
 ## Expected result
 
-- Syntax checks pass.
-- EDXEIX transport remains false/not performed.
-- Pre-ride candidate remains blocked unless a parseable, future-safe, mapped email exists.
-- JSON includes `source_debug` with redacted structural clues.
+The pre-ride candidate output should now show fallback HTML cleanup and label extraction, for example:
+
+```text
+parser_fallback.used: true
+parser_fallback.diagnostics.fallback_html_cleanup_applied: true
+parser_fallback.diagnostics.fallback_label_hits: greater than 0
+```
+
+If the source email is not at least +30 minutes in the future or mapping is incomplete, it must still remain blocked.
 
 ## Git commit title
 
-Add safe pre-ride source diagnostics
+Harden pre-ride HTML label extraction
 
 ## Git commit description
 
-Adds opt-in redacted source diagnostics for pre-ride Maildir candidate parsing after v3.2.23 validation showed zero primary and fallback parsed fields. The diagnostics report line/label structure, phrase/colon hits, and redacted/truncated preview lines without storing or exposing raw email body content.
+Fixes the diagnostics-only pre-ride EDXEIX candidate fallback parser so Maildir messages with `<p>/<strong>` HTML label rows can be cleaned and parsed. This follows v3.2.24 validation showing expected labels were present but not extractable by the fallback parser. Existing production V0 parser behavior remains untouched.
 
 No SQL changes. No live EDXEIX submit, AADE call, queue job, normalized booking write, or production V0 route change.
