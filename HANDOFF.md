@@ -1,36 +1,32 @@
-# gov.cabnet.app Handoff — 2026-05-17 v3.2.22 ASAP Automation Track
+# gov.cabnet.app Handoff — 2026-05-17 v3.2.23 ASAP Automation Track
 
-Current project posture after v3.2.21 server validation and v3.2.22 patch generation:
+Current posture:
 
 - Stack remains plain PHP + mysqli/MariaDB with cPanel/manual upload workflow.
 - Production V0 remains unaffected.
-- EDXEIX live submission remains blocked unless Andreas explicitly authorizes a supervised one-shot live-submit diagnostic for a real eligible future candidate.
-- v3.2.21 diagnostic validation passed on server:
-  - PHP syntax checks passed.
-  - `transport_performed = false`.
-  - EDXEIX session file exists, cookie present, CSRF present, no placeholders.
-  - `future_start_guard_minutes` is now 30 in both server config files.
-  - `configured_future_guard_minutes = 30`, `effective_future_guard_minutes = 30`, `future_guard_floor_applied = false`.
-  - No safe candidate exists in the latest 75 normalized booking rows.
-- Queue 2398 one-shot automatic live-submit test remains closed: HTTP 302 was returned, but no remote/reference ID was captured and no saved EDXEIX contract was confirmed.
-- Existing `bolt_mail` receipt-only rows remain blocked from EDXEIX automation.
-- AADE/myDATA receipt issuing remains live production and duplicate-protected.
-- Mercedes-Benz Sprinter / EMT8640 remains permanently Admin Excluded: no invoicing, no AADE/myDATA receipt/invoice, no driver email, no voucher/receipt-copy email, and no automated EDXEIX processing.
+- EDXEIX live submission remains blocked unless Andreas explicitly authorizes a supervised one-shot diagnostic.
+- v3.2.21 candidate diagnostics were validated: no stale booking selected, no transport performed, +30 minute future guard active.
+- Server config now has `future_start_guard_minutes => 30` in both `bolt.php` and `config.php`.
+- v3.2.22 pre-ride future candidate path was installed and syntax-validated.
+- Additive table `edxeix_pre_ride_candidates` was installed successfully after the first command with placeholder DB credentials failed and the real DB command succeeded.
+- `--write=1` captured sanitized candidate metadata as candidate_id `1`; raw email body was not stored.
+- First v3.2.22 Maildir test loaded a message but the primary parser returned empty fields, so the candidate was correctly blocked.
 
-v3.2.22 patch purpose:
+v3.2.23 next patch:
 
-- Add a separate `bolt_pre_ride_email` future candidate path.
-- Parse pre-ride email data into a sanitized EDXEIX candidate preview.
-- Apply +30 minute future guard, mapping checks, and Admin Excluded vehicle blocks.
-- Optionally capture sanitized candidate metadata into an additive `edxeix_pre_ride_candidates` table.
-- Keep all behavior dry-run/read-only unless `--write=1` is explicitly used for metadata capture.
-- Do not submit to EDXEIX, call AADE, create queue jobs, or mutate `normalized_bookings`.
+- Adds a diagnostics-only fallback label parser inside `edxeix_pre_ride_candidate_lib.php`.
+- Leaves `BoltPreRideEmailParser.php` untouched to avoid changing production V0/manual pre-ride behavior.
+- Adds `candidate.parser_fallback` diagnostics to show whether fallback parsing was used.
+- Still performs no EDXEIX HTTP transport, AADE call, queue job, or normalized booking write.
 
-Next safest major step:
+Next safest verification:
 
-1. Upload v3.2.22 patch files.
-2. Run PHP syntax checks.
-3. Optionally run the additive SQL migration for `edxeix_pre_ride_candidates`.
-4. Run dry-run pre-ride candidate diagnostics with latest Maildir email.
-5. When a real future pre-ride email exists and classifies as `PRE_RIDE_READY_CANDIDATE`, capture sanitized metadata with `--write=1` only if approved.
-6. Prepare the next supervised one-shot readiness patch only after a ready future pre-ride candidate exists.
+```bash
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1
+```

@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — CLI pre-ride future EDXEIX candidate diagnostic v3.2.22
+ * gov.cabnet.app — CLI pre-ride future EDXEIX candidate diagnostic v3.2.23
  *
  * Default: dry-run parse/readiness only. No EDXEIX, no AADE, no queue jobs.
  * Optional --write=1 stores sanitized candidate metadata only if the additive table exists.
@@ -50,7 +50,7 @@ $class = is_array($result['classification'] ?? null) ? $result['classification']
 $candidate = is_array($result['candidate'] ?? null) ? $result['candidate'] : [];
 $writeResult = is_array($result['write'] ?? null) ? $result['write'] : [];
 
-echo "gov.cabnet.app — Pre-Ride Candidate Diagnostic v3.2.22\n";
+echo "gov.cabnet.app — Pre-Ride Candidate Diagnostic v3.2.23\n";
 echo "Classification: " . (string)($class['code'] ?? '') . "\n";
 echo "Message: " . (string)($class['message'] ?? '') . "\n";
 

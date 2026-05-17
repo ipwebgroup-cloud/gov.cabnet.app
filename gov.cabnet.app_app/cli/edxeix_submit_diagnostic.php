@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.22
+ * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.23
  *
  * Default: dry-run analysis only. No EDXEIX HTTP transport.
  * Transport requires --transport=1 and the exact server-only confirmation phrase.
@@ -55,7 +55,7 @@ if ($json) {
 $analysis = is_array($result['analysis'] ?? null) ? $result['analysis'] : [];
 $class = is_array($result['classification'] ?? null) ? $result['classification'] : [];
 
-echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.22\n";
+echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.23\n";
 echo "Started: " . (string)($result['started_at'] ?? '') . "\n";
 echo "Booking ID: " . (string)($analysis['booking_id'] ?? '') . "\n";
 echo "Order reference: " . (string)($analysis['order_reference'] ?? '') . "\n";

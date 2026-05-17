@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX submit diagnostic library v3.2.22
+ * gov.cabnet.app — EDXEIX submit diagnostic library v3.2.23
  *
  * Purpose:
  * - Keep EDXEIX automation progress on the ASAP track without enabling unattended live submit.
@@ -268,7 +268,7 @@ if (!function_exists('gov_edxdiag_curl_step')) {
 
         $headers = [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-Agent: gov.cabnet.app EDXEIX submit diagnostic v3.2.22',
+            'User-Agent: gov.cabnet.app EDXEIX submit diagnostic v3.2.23',
             'Cookie: ' . $cookie,
         ];
 

@@ -1,11 +1,12 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX pre-ride future candidate diagnostic library v3.2.22
+ * gov.cabnet.app — EDXEIX pre-ride future candidate diagnostic library v3.2.23
  *
  * Purpose:
  * - Convert a pasted/latest Bolt pre-ride email into a sanitized future EDXEIX candidate preview.
  * - Keep receipt-only Bolt mail rows blocked while allowing a separate pre-ride candidate path.
  * - Optionally capture candidate metadata into the additive edxeix_pre_ride_candidates table.
+ * - v3.2.23 adds a diagnostics-only fallback label parser for Maildir bodies whose labels are not line-start normalized.
  *
  * Safety contract:
  * - Default mode is dry-run / analysis only.
@@ -339,6 +340,275 @@ if (!function_exists('gov_prc_payload_summary')) {
     }
 }
 
+
+if (!function_exists('gov_prc_fallback_normalize_key')) {
+    function gov_prc_fallback_normalize_key(string $key): string
+    {
+        $key = function_exists('mb_strtolower') ? mb_strtolower(trim($key), 'UTF-8') : strtolower(trim($key));
+        $key = str_replace(['–', '—', '_'], '-', $key);
+        $key = str_replace('-', ' ', $key);
+        $key = preg_replace('/\s+/', ' ', $key) ?? $key;
+        return trim($key);
+    }
+}
+
+if (!function_exists('gov_prc_fallback_clean_value')) {
+    function gov_prc_fallback_clean_value(string $value): string
+    {
+        $value = trim($value);
+        $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = str_replace("\xC2\xA0", ' ', $value);
+        $value = preg_replace('/[\t ]+/', ' ', $value) ?? $value;
+        $value = preg_replace('/\n{2,}/', "\n", $value) ?? $value;
+        $value = trim($value);
+        // Keep the value compact for mapping/readiness; do not store raw mail blocks.
+        if (strlen($value) > 600) {
+            $value = substr($value, 0, 600);
+        }
+        return trim($value);
+    }
+}
+
+if (!function_exists('gov_prc_fallback_label_aliases')) {
+    /** @return array<string,array<int,string>> */
+    function gov_prc_fallback_label_aliases(): array
+    {
+        return [
+            'operator' => ['operator'],
+            'customer_name' => ['customer name', 'customer', 'client name', 'client', 'passenger name', 'passenger', 'rider name'],
+            'customer_phone' => ['customer mobile', 'customer phone', 'customer telephone', 'mobile phone', 'mobile', 'phone', 'telephone'],
+            'driver_name' => ['driver name', 'driver'],
+            'vehicle_plate' => ['vehicle plate', 'licence plate', 'license plate', 'vehicle', 'plate'],
+            'pickup_address' => ['pickup address', 'pick up address', 'pick-up address', 'pickup', 'pick up', 'pick-up', 'from'],
+            'dropoff_address' => ['drop off address', 'drop-off address', 'dropoff address', 'drop off', 'drop-off', 'dropoff', 'destination', 'to'],
+            'start_time_text' => ['ride start time', 'start time'],
+            'estimated_pickup_time_text' => ['estimated pick up time', 'estimated pick-up time', 'estimated pickup time', 'pickup time'],
+            'estimated_end_time_text' => ['estimated end time', 'estimated finish time', 'estimated drop off time', 'estimated drop-off time', 'end time'],
+            'estimated_price_text' => ['estimated price', 'estimated fare', 'price', 'fare'],
+            'order_reference' => ['order reference', 'order uuid', 'order id', 'ride id', 'trip id', 'booking id'],
+        ];
+    }
+}
+
+if (!function_exists('gov_prc_fallback_extract_label_map')) {
+    /** @return array<string,string> */
+    function gov_prc_fallback_extract_label_map(string $text, ?array &$diagnostics = null): array
+    {
+        $diagnostics = [
+            'fallback_label_hits' => 0,
+            'fallback_labels' => [],
+        ];
+
+        $body = str_replace(["\r\n", "\r"], "\n", $text);
+        if (stripos($body, '<br') !== false || stripos($body, '<html') !== false || stripos($body, '<div') !== false || stripos($body, '<td') !== false) {
+            $body = preg_replace('/<\s*br\s*\/?\s*>/i', "\n", $body) ?? $body;
+            $body = preg_replace('/<\s*\/\s*(p|div|tr|table|section)\s*>/i', "\n", $body) ?? $body;
+            $body = preg_replace('/<\s*\/\s*(td|th|span|strong|b)\s*>/i', ': ', $body) ?? $body;
+            $body = strip_tags($body);
+        }
+        $body = html_entity_decode($body, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $body = str_replace("\xC2\xA0", ' ', $body);
+        $body = preg_replace('/[\t ]+/', ' ', $body) ?? $body;
+
+        $allLabels = [];
+        foreach (gov_prc_fallback_label_aliases() as $aliases) {
+            foreach ($aliases as $label) {
+                $allLabels[] = $label;
+            }
+        }
+        usort($allLabels, static fn(string $a, string $b): int => strlen($b) <=> strlen($a));
+        $escaped = array_map(static fn(string $label): string => preg_quote($label, '/'), array_values(array_unique($allLabels)));
+        $pattern = '/(?<![\p{L}0-9])(' . implode('|', $escaped) . ')\s*:\s*/iu';
+
+        if (preg_match_all($pattern, $body, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+            return [];
+        }
+
+        $map = [];
+        $count = count($matches[0]);
+        $diagnostics['fallback_label_hits'] = $count;
+        for ($i = 0; $i < $count; $i++) {
+            $label = gov_prc_fallback_normalize_key((string)$matches[1][$i][0]);
+            $start = (int)$matches[0][$i][1] + strlen((string)$matches[0][$i][0]);
+            $end = ($i + 1 < $count) ? (int)$matches[0][$i + 1][1] : strlen($body);
+            if ($end <= $start) { continue; }
+            $value = gov_prc_fallback_clean_value(substr($body, $start, $end - $start));
+            if ($label !== '' && $value !== '' && !isset($map[$label])) {
+                $map[$label] = $value;
+                $diagnostics['fallback_labels'][] = $label;
+            }
+        }
+
+        $diagnostics['fallback_labels'] = array_values(array_unique($diagnostics['fallback_labels']));
+        return $map;
+    }
+}
+
+if (!function_exists('gov_prc_fallback_pick')) {
+    /** @param array<string,string> $map @param array<int,string> $aliases */
+    function gov_prc_fallback_pick(array $map, array $aliases): string
+    {
+        foreach ($aliases as $alias) {
+            $key = gov_prc_fallback_normalize_key($alias);
+            if (isset($map[$key]) && trim($map[$key]) !== '') {
+                return trim($map[$key]);
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('gov_prc_fallback_parse_datetime')) {
+    /** @return array{date:string,time:string,datetime_local:string,timezone:string} */
+    function gov_prc_fallback_parse_datetime(string $text): array
+    {
+        $empty = ['date' => '', 'time' => '', 'datetime_local' => '', 'timezone' => ''];
+        $text = trim($text);
+        if ($text === '') { return $empty; }
+
+        $date = '';
+        $time = '';
+        $timezone = '';
+        if (preg_match('/(\d{4})-(\d{2})-(\d{2})\D+(\d{1,2}:\d{2}(?::\d{2})?)\s*([A-Z]{2,5})?/i', $text, $m) === 1) {
+            $date = $m[1] . '-' . $m[2] . '-' . $m[3];
+            $time = $m[4];
+            $timezone = isset($m[5]) ? strtoupper((string)$m[5]) : '';
+        } elseif (preg_match('/(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})\D+(\d{1,2}:\d{2}(?::\d{2})?)\s*([A-Z]{2,5})?/i', $text, $m) === 1) {
+            $date = sprintf('%04d-%02d-%02d', (int)$m[3], (int)$m[2], (int)$m[1]);
+            $time = $m[4];
+            $timezone = isset($m[5]) ? strtoupper((string)$m[5]) : '';
+        }
+
+        if ($date === '' || $time === '') { return $empty; }
+        if (preg_match('/^\d{1,2}:\d{2}$/', $time) === 1) { $time .= ':00'; }
+        if (preg_match('/^(\d):/', $time) === 1) { $time = '0' . $time; }
+        return ['date' => $date, 'time' => $time, 'datetime_local' => $date . ' ' . $time, 'timezone' => $timezone];
+    }
+}
+
+if (!function_exists('gov_prc_fallback_price_amount')) {
+    function gov_prc_fallback_price_amount(string $text): string
+    {
+        if (preg_match('/([0-9]+(?:[,.][0-9]{1,2})?)/', $text, $m) !== 1) { return ''; }
+        $amount = str_replace(',', '.', $m[1]);
+        return str_contains($amount, '.') ? rtrim(rtrim($amount, '0'), '.') : $amount;
+    }
+}
+
+if (!function_exists('gov_prc_fallback_price_currency')) {
+    function gov_prc_fallback_price_currency(string $text): string
+    {
+        return (str_contains($text, '€') || preg_match('/\bEUR\b/i', $text) === 1) ? 'EUR' : '';
+    }
+}
+
+if (!function_exists('gov_prc_fallback_fields_from_text')) {
+    /** @return array{fields:array<string,string>,missing_required:array<int,string>,diagnostics:array<string,mixed>} */
+    function gov_prc_fallback_fields_from_text(string $text): array
+    {
+        $diagnostics = [];
+        $map = gov_prc_fallback_extract_label_map($text, $diagnostics);
+        $aliases = gov_prc_fallback_label_aliases();
+        $fields = [];
+        foreach ($aliases as $field => $fieldAliases) {
+            $fields[$field] = gov_prc_fallback_pick($map, $fieldAliases);
+        }
+
+        $fields['customer_phone'] = str_replace([' ', '-', '(', ')'], '', (string)($fields['customer_phone'] ?? ''));
+        $fields['vehicle_plate'] = gov_prc_normalize_plate((string)($fields['vehicle_plate'] ?? ''));
+
+        $pickupDateTime = gov_prc_fallback_parse_datetime((string)(($fields['estimated_pickup_time_text'] ?? '') ?: ($fields['start_time_text'] ?? '')));
+        $startDateTime = gov_prc_fallback_parse_datetime((string)($fields['start_time_text'] ?? ''));
+        $endDateTime = gov_prc_fallback_parse_datetime((string)($fields['estimated_end_time_text'] ?? ''));
+
+        $fields['pickup_date'] = $pickupDateTime['date'];
+        $fields['pickup_time'] = $pickupDateTime['time'];
+        $fields['pickup_datetime_local'] = $pickupDateTime['datetime_local'];
+        $fields['pickup_timezone'] = $pickupDateTime['timezone'];
+        $fields['start_date'] = $startDateTime['date'];
+        $fields['start_time'] = $startDateTime['time'];
+        $fields['start_datetime_local'] = $startDateTime['datetime_local'];
+        $fields['start_timezone'] = $startDateTime['timezone'];
+        $fields['end_date'] = $endDateTime['date'];
+        $fields['end_time'] = $endDateTime['time'];
+        $fields['end_datetime_local'] = $endDateTime['datetime_local'];
+        $fields['end_timezone'] = $endDateTime['timezone'];
+        $fields['estimated_price_amount'] = gov_prc_fallback_price_amount((string)($fields['estimated_price_text'] ?? ''));
+        $fields['estimated_price_currency'] = gov_prc_fallback_price_currency((string)($fields['estimated_price_text'] ?? ''));
+
+        $required = [
+            'customer_name' => 'Customer',
+            'customer_phone' => 'Customer mobile',
+            'driver_name' => 'Driver',
+            'vehicle_plate' => 'Vehicle',
+            'pickup_address' => 'Pickup',
+            'dropoff_address' => 'Drop-off',
+            'pickup_datetime_local' => 'Pickup datetime',
+            'estimated_end_time_text' => 'Estimated end time',
+        ];
+        $missing = [];
+        foreach ($required as $field => $label) {
+            if (trim((string)($fields[$field] ?? '')) === '') { $missing[] = $label; }
+        }
+
+        return ['fields' => $fields, 'missing_required' => $missing, 'diagnostics' => $diagnostics];
+    }
+}
+
+if (!function_exists('gov_prc_merge_parser_with_fallback')) {
+    /** @return array<string,mixed> */
+    function gov_prc_merge_parser_with_fallback(array $parsed, string $sourceText): array
+    {
+        $fields = is_array($parsed['fields'] ?? null) ? $parsed['fields'] : [];
+        $missing = is_array($parsed['missing_required'] ?? null) ? $parsed['missing_required'] : [];
+        $nonEmpty = 0;
+        foreach ($fields as $value) {
+            if (trim((string)$value) !== '') { $nonEmpty++; }
+        }
+
+        // Use fallback when the line-based parser found very little. This is diagnostic-only
+        // and does not alter the production V0 pre-ride tool parser file.
+        if (!empty($parsed['ok']) || ($nonEmpty >= 4 && count($missing) <= 2)) {
+            $parsed['_candidate_fallback'] = ['used' => false, 'reason' => 'primary_parser_sufficient'];
+            return $parsed;
+        }
+
+        $fallback = gov_prc_fallback_fields_from_text($sourceText);
+        $fallbackFields = $fallback['fields'];
+        $fallbackNonEmpty = 0;
+        foreach ($fallbackFields as $value) {
+            if (trim((string)$value) !== '') { $fallbackNonEmpty++; }
+        }
+
+        if ($fallbackNonEmpty <= $nonEmpty) {
+            $parsed['_candidate_fallback'] = [
+                'used' => false,
+                'reason' => 'fallback_not_better',
+                'primary_non_empty_fields' => $nonEmpty,
+                'fallback_non_empty_fields' => $fallbackNonEmpty,
+                'diagnostics' => $fallback['diagnostics'],
+            ];
+            return $parsed;
+        }
+
+        $warnings = is_array($parsed['warnings'] ?? null) ? $parsed['warnings'] : [];
+        $warnings[] = 'Diagnostics fallback label parser was used because the primary parser found too few fields.';
+        $parsed['fields'] = $fallbackFields;
+        $parsed['missing_required'] = $fallback['missing_required'];
+        $parsed['ok'] = count($fallback['missing_required']) === 0;
+        $parsed['warnings'] = array_values(array_unique($warnings));
+        $parsed['confidence'] = count($fallback['missing_required']) === 0 ? 'medium' : 'low';
+        $parsed['_candidate_fallback'] = [
+            'used' => true,
+            'reason' => 'primary_parser_sparse',
+            'primary_non_empty_fields' => $nonEmpty,
+            'fallback_non_empty_fields' => $fallbackNonEmpty,
+            'diagnostics' => $fallback['diagnostics'],
+        ];
+        return $parsed;
+    }
+}
+
 if (!function_exists('gov_prc_analyze_text')) {
     /**
      * @param array<string,mixed> $source
@@ -357,8 +627,10 @@ if (!function_exists('gov_prc_analyze_text')) {
             ];
         }
 
+        $sourceText = (string)($source['email_text'] ?? '');
         $parser = new BoltPreRideEmailParser();
-        $parsed = $parser->parse((string)($source['email_text'] ?? ''));
+        $parsed = $parser->parse($sourceText);
+        $parsed = gov_prc_merge_parser_with_fallback($parsed, $sourceText);
         $fields = is_array($parsed['fields'] ?? null) ? $parsed['fields'] : [];
         $mapping = gov_prc_mapping_lookup($db, $fields);
         $adminExclusion = gov_prc_admin_exclusion_status($db, (string)($fields['vehicle_plate'] ?? ''));
@@ -441,6 +713,7 @@ if (!function_exists('gov_prc_analyze_text')) {
             'payload_summary' => gov_prc_payload_summary($payload),
             'payload_preview' => $payload,
             'parsed_fields' => $fields,
+            'parser_fallback' => is_array($parsed['_candidate_fallback'] ?? null) ? $parsed['_candidate_fallback'] : ['used' => false],
         ];
 
         return [

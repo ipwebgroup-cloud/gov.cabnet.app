@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Pre-Ride → EDXEIX Candidate Diagnostic v3.2.22
+ * gov.cabnet.app — Pre-Ride → EDXEIX Candidate Diagnostic v3.2.23
  *
  * Dry-run/read-only by default. Pasted/latest pre-ride email becomes a sanitized candidate preview.
  * No EDXEIX transport, no AADE, no queue jobs, and no normalized booking writes.
@@ -46,7 +46,7 @@ try {
 
 opsui_shell_begin([
     'title' => 'Pre-Ride EDXEIX Candidate',
-    'page_title' => 'Pre-Ride → EDXEIX Candidate v3.2.22',
+    'page_title' => 'Pre-Ride → EDXEIX Candidate v3.2.23',
     'subtitle' => 'Parse a Bolt pre-ride email into a future EDXEIX candidate preview. No live submit.',
     'breadcrumbs' => 'Operations / EDXEIX / Pre-Ride Candidate',
     'active_section' => 'EDXEIX',

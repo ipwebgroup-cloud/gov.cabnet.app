@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build and harden a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX preflight/queue/readiness pipeline.
+Build and harden a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX diagnostic/queue workflow.
 
 ## In scope now
 
@@ -12,24 +12,27 @@ Build and harden a safe Bolt Fleet API / pre-ride email → normalized local rea
 - Map Bolt drivers/vehicles to EDXEIX IDs.
 - Build EDXEIX payload previews.
 - Block terminal/cancelled/old orders.
-- Require a +30 minute future guard before any order/candidate can be considered submission-safe.
+- Require a +30 minute future guard before any order or pre-ride email can be considered EDXEIX-safe.
 - Stage local jobs only when explicitly requested.
 - Maintain readiness/audit pages.
-- Keep current submit behavior dry-run, local-only, preflight-only, or read-only.
-- Diagnose EDXEIX submit redirects without treating HTTP 302 as proof of saved contract.
-- Parse Bolt pre-ride emails into a separate dry-run `bolt_pre_ride_email` future candidate preview.
-- Optionally capture sanitized pre-ride candidate metadata in `edxeix_pre_ride_candidates` after additive SQL migration.
+- Keep current behavior dry-run, local-only, preflight-only, or read-only.
+- Parse pre-ride emails into separate `bolt_pre_ride_email` candidate diagnostics without changing production V0 behavior.
+- Capture sanitized pre-ride candidate metadata only when explicitly requested with `--write=1`.
+
+## v3.2.23 ASAP track
+
+- Add diagnostics-only fallback parsing for Maildir pre-ride candidates whose labels are present but not line-start normalized.
+- Keep the production parser file untouched.
+- Continue blocking candidates until all future guard, parser, mapping, and exclusion checks pass.
 
 ## Out of scope until explicit approval
 
-- Unattended automatic EDXEIX submission.
+- Automatic EDXEIX submission.
 - Cron-enabled submission workers.
-- Live form POSTs to EDXEIX except a supervised one-shot diagnostic explicitly approved by Andreas.
-- Treating `bolt_mail` receipt-only rows as EDXEIX candidates.
-- Creating EDXEIX submission jobs from pre-ride emails without a future readiness patch and approval.
-- Storing raw pre-ride email bodies.
+- Unsupervised live form POSTs to EDXEIX.
+- Treating receipt-only Bolt mail rows as EDXEIX candidates.
 - Committing production credentials, cookies, API keys, real SQL dumps, or runtime sessions.
 
-## Current automation blocker
+## Current live-test blocker
 
-No real future EDXEIX-ready candidate exists in the latest normalized Bolt rows. The ASAP path is now to use the pre-ride email stream as a separate future candidate source, while keeping receipt-only mail rows blocked.
+A real future pre-ride email or real future Bolt trip must pass parser, mapping, exclusion, duplicate, and +30 minute future guard checks before a supervised one-shot EDXEIX transport diagnostic can be considered.
