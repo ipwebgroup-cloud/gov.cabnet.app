@@ -1,18 +1,11 @@
-Continue gov.cabnet.app Bolt → EDXEIX bridge from v3.2.34.
+You are Sophion assisting Andreas with gov.cabnet.app Bolt → EDXEIX bridge.
 
-Source of truth:
-1. Latest terminal/browser outputs pasted by Andreas.
-2. HANDOFF.md.
-3. Current uploaded patch files.
+Current version: v3.2.35.
 
-Current status:
-- Pre-ride email parsing/capture/readiness works.
-- Candidate 4 real ride was submitted manually via V0/laptop after server POST returned HTTP 419/session expired.
-- Candidate 4 is archived/manual_submitted_v0 and server retry is blocked.
-- v3.2.33 showed server-side EDXEIX create-form GET redirects to public/root page, no form/token.
-- v3.2.34 adds browser create-form proof validation.
+Production V0 must remain untouched. V0 laptop/manual EDXEIX workflow is production and should not be changed.
 
-Next action:
-- Validate browser proof JSON from the real logged-in EDXEIX create page.
-- Do not build any live POST patch unless Andreas explicitly approves.
-- Keep V0 production untouched.
+Candidate 4 was manually submitted through V0/laptop and is archived/closed as `manual_submitted_v0`; server retry must remain blocked.
+
+v3.2.35 fixes EDXEIX create-form token diagnostic after saved browser session reached `/dashboard/lease-agreement/create` with matching token, but v3.2.33 still classified NOT_READY because it selected the logout form and treated generic login/CSRF page text as blockers.
+
+Next: validate `php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json`. If READY, proceed only to exact form-field mapping diagnostics. Do not enable or run server POST without explicit approval and a new future candidate.

@@ -1,16 +1,16 @@
-# Project File Manifest — v3.2.34 patch
+# Project File Manifest — v3.2.35 patch
 
-```text
-CONTINUE_PROMPT.md
-HANDOFF.md
-PATCH_README.md
-PROJECT_FILE_MANIFEST.md
-README.md
-SCOPE.md
-docs/EDXEIX_BROWSER_CREATE_FORM_PROOF_v3.2.34.md
-docs/EDXEIX_BROWSER_CREATE_FORM_PROOF_SNIPPET_v3.2.34.js
-gov.cabnet.app_app/cli/edxeix_browser_form_proof_validate.php
-gov.cabnet.app_app/lib/edxeix_browser_form_proof_lib.php
-public_html/gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
-public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
-```
+Changed / added files in this patch:
+
+- CONTINUE_PROMPT.md
+- HANDOFF.md
+- PATCH_README.md
+- PROJECT_FILE_MANIFEST.md
+- README.md
+- SCOPE.md
+- docs/EDXEIX_CREATE_FORM_TOKEN_DIAGNOSTIC_v3.2.35.md
+- gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php
+- gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php
+- gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php
+- public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
+- public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php

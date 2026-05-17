@@ -1,20 +1,21 @@
 # Scope — gov.cabnet.app Bolt → EDXEIX Bridge
 
-## ASAP automation track
+## Current ASAP track
 
-The current ASAP track is moving from server-side pre-ride candidate readiness toward a safe EDXEIX submission model.
+Move toward safe EDXEIX automation while preserving Production V0.
 
-v3.2.34 scope:
+## v3.2.35 scope
 
-- Browser create-form proof from the logged-in EDXEIX session.
-- Validate form/token visibility without exposing secrets.
-- Confirm real form fields before browser-assisted automation design.
+- Read-only create-form token diagnostic classification fix.
+- Select the actual lease-agreement form instead of the logout form.
+- Accept EDXEIX field aliases: `starting_point_id` for starting point and `lessee[name]`/`lessee[type]` for lessee.
+- Treat generic login/CSRF text signals as informational if the authenticated create form, token, and expected fields are present.
 
-Out of scope:
+## Out of scope
 
-- Unattended submit.
-- Cron.
-- AADE/myDATA changes.
-- V0 production changes.
-- Raw credentials/cookies/token capture.
-- Server-side retry for manually closed candidates.
+- No EDXEIX POST.
+- No AADE/myDATA call.
+- No queue job.
+- No normalized_bookings write.
+- No live config write.
+- No V0 production changes.

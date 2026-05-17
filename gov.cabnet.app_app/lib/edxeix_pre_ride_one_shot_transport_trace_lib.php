@@ -1,7 +1,7 @@
 <?php
 /**
  * gov.cabnet.app — Supervised pre-ride one-shot EDXEIX transport trace.
- * v3.2.33
+ * v3.2.35
  *
  * Purpose:
  * - Perform exactly one explicitly approved HTTP POST trace for one captured,
@@ -114,7 +114,7 @@ if (!function_exists('gov_prtx_previous_attempt_state')) {
                 $out['last_first_http_status'] = (int)($last['first_http_status'] ?? 0);
                 $out['last_final_http_status'] = (int)($last['final_http_status'] ?? 0);
             }
-            // v3.2.33: after any performed server POST trace, require manual review / closure before another POST.
+            // v3.2.35: after any performed server POST trace, require manual review / closure before another POST.
             $out['retry_blocked'] = $out['performed_count'] > 0;
             return $out;
         } catch (Throwable $e) {
@@ -176,12 +176,128 @@ if (!function_exists('gov_prtx_create_form_url')) {
     }
 }
 
+if (!function_exists('gov_prtx_form_field_names_from_fragment')) {
+    /** @return array<string,mixed> */
+    function gov_prtx_form_field_names_from_fragment(string $fragment): array
+    {
+        $out = [
+            'input_names' => [],
+            'hidden_names' => [],
+            'select_names' => [],
+            'textarea_names' => [],
+            'input_count' => 0,
+            'hidden_count' => 0,
+            'select_count' => 0,
+            'textarea_count' => 0,
+        ];
+        if (preg_match_all('/<input\b[^>]*>/i', $fragment, $matches)) {
+            $names = [];
+            $hidden = [];
+            foreach ($matches[0] as $tag) {
+                $name = gov_prtx_html_attr((string)$tag, 'name');
+                if ($name === '') { continue; }
+                $names[] = $name;
+                $type = strtolower(gov_prtx_html_attr((string)$tag, 'type'));
+                if ($type === 'hidden') { $hidden[] = $name; }
+            }
+            $out['input_names'] = array_values(array_unique($names));
+            $out['hidden_names'] = array_values(array_unique($hidden));
+        }
+        if (preg_match_all('/<select\b[^>]*>/i', $fragment, $matches)) {
+            $names = [];
+            foreach ($matches[0] as $tag) {
+                $name = gov_prtx_html_attr((string)$tag, 'name');
+                if ($name !== '') { $names[] = $name; }
+            }
+            $out['select_names'] = array_values(array_unique($names));
+        }
+        if (preg_match_all('/<textarea\b[^>]*>/i', $fragment, $matches)) {
+            $names = [];
+            foreach ($matches[0] as $tag) {
+                $name = gov_prtx_html_attr((string)$tag, 'name');
+                if ($name !== '') { $names[] = $name; }
+            }
+            $out['textarea_names'] = array_values(array_unique($names));
+        }
+        $out['input_count'] = count($out['input_names']);
+        $out['hidden_count'] = count($out['hidden_names']);
+        $out['select_count'] = count($out['select_names']);
+        $out['textarea_count'] = count($out['textarea_names']);
+        return $out;
+    }
+}
+
+if (!function_exists('gov_prtx_field_present_with_aliases')) {
+    /** @param array<int,string> $names @param array<int,string> $aliases */
+    function gov_prtx_field_present_with_aliases(array $names, array $aliases): bool
+    {
+        foreach ($aliases as $alias) {
+            if (in_array($alias, $names, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+if (!function_exists('gov_prtx_expected_field_report')) {
+    /** @param array<int,string> $names @return array{present:array<int,string>,missing:array<int,string>,aliases:array<string,array<int,string>>} */
+    function gov_prtx_expected_field_report(array $names): array
+    {
+        $aliases = [
+            'lessor' => ['lessor'],
+            'driver' => ['driver'],
+            'vehicle' => ['vehicle'],
+            // EDXEIX create form uses starting_point_id, while older bridge payloads may also carry starting_point.
+            'starting_point' => ['starting_point', 'starting_point_id'],
+            'boarding_point' => ['boarding_point'],
+            'disembark_point' => ['disembark_point'],
+            // EDXEIX form uses lessee[name] plus lessee[type], not a flat lessee field.
+            'lessee' => ['lessee', 'lessee[name]', 'lessee[type]'],
+            'started_at' => ['started_at'],
+            'ended_at' => ['ended_at'],
+            'price' => ['price'],
+        ];
+        $present = [];
+        $missing = [];
+        foreach ($aliases as $canonical => $fieldAliases) {
+            if (gov_prtx_field_present_with_aliases($names, $fieldAliases)) {
+                $present[] = $canonical;
+            } else {
+                $missing[] = $canonical;
+            }
+        }
+        return ['present' => $present, 'missing' => $missing, 'aliases' => $aliases];
+    }
+}
+
+if (!function_exists('gov_prtx_form_candidate_score')) {
+    /** @param array<int,string> $names */
+    function gov_prtx_form_candidate_score(array $names, string $action): int
+    {
+        $report = gov_prtx_expected_field_report($names);
+        $score = count($report['present']) * 10;
+        foreach (['_token', 'lessor', 'driver', 'vehicle', 'starting_point_id', 'boarding_point', 'disembark_point', 'started_at', 'ended_at', 'price'] as $important) {
+            if (in_array($important, $names, true)) { $score += 2; }
+        }
+        $lowerAction = strtolower($action);
+        if (strpos($lowerAction, 'logout') !== false) { $score -= 100; }
+        if (strpos($lowerAction, 'lease-agreement') !== false) { $score += 8; }
+        if (strpos($lowerAction, 'create') !== false || $action === '') { $score += 2; }
+        return $score;
+    }
+}
+
 if (!function_exists('gov_prtx_extract_form_summary')) {
     /** @return array<string,mixed> */
     function gov_prtx_extract_form_summary(string $body, string $finalUrl): array
     {
         $summary = [
             'form_present' => false,
+            'form_count' => 0,
+            'selected_form_index' => -1,
+            'selected_form_score' => 0,
+            'selected_form_reason' => '',
             'form_method' => '',
             'form_action' => '',
             'form_action_safe' => '',
@@ -197,6 +313,8 @@ if (!function_exists('gov_prtx_extract_form_summary')) {
             'textarea_names' => [],
             'required_expected_fields_present' => [],
             'required_expected_fields_missing' => [],
+            'expected_field_aliases' => [],
+            'candidate_forms' => [],
         ];
 
         $token = gov_prtx_extract_form_token($body);
@@ -205,67 +323,121 @@ if (!function_exists('gov_prtx_extract_form_summary')) {
             $summary['token_hash_16'] = substr(hash('sha256', $token), 0, 16);
         }
 
-        $formTag = '';
-        if (preg_match('/<form\b[^>]*>/i', $body, $m)) {
-            $formTag = (string)$m[0];
-            $summary['form_present'] = true;
-            $method = strtoupper(gov_prtx_html_attr($formTag, 'method'));
-            $summary['form_method'] = $method !== '' ? $method : 'GET';
-            $action = gov_prtx_html_attr($formTag, 'action');
+        $forms = [];
+        if (preg_match_all('/<form\b[^>]*>.*?<\/form>/is', $body, $matches)) {
+            $forms = $matches[0];
+        }
+        if (!$forms && preg_match_all('/<form\b[^>]*>/i', $body, $matches)) {
+            $forms = $matches[0];
+        }
+        $summary['form_count'] = count($forms);
+
+        $best = null;
+        foreach ($forms as $idx => $formHtml) {
+            $tag = '';
+            if (preg_match('/<form\b[^>]*>/i', (string)$formHtml, $m)) { $tag = (string)$m[0]; }
+            $method = strtoupper(gov_prtx_html_attr($tag, 'method'));
+            $method = $method !== '' ? $method : 'GET';
+            $action = gov_prtx_html_attr($tag, 'action');
             if ($action !== '' && function_exists('gov_edxdiag_resolve_url')) {
                 $action = gov_edxdiag_resolve_url($finalUrl, $action);
+            } elseif ($action === '') {
+                $action = $finalUrl;
             }
-            $summary['form_action'] = $action;
-            $summary['form_action_safe'] = function_exists('gov_edxdiag_safe_url') ? gov_edxdiag_safe_url($action) : $action;
+            $fields = gov_prtx_form_field_names_from_fragment((string)$formHtml);
+            $allNames = array_values(array_unique(array_merge($fields['input_names'], $fields['select_names'], $fields['textarea_names'])));
+            $expected = gov_prtx_expected_field_report($allNames);
+            $score = gov_prtx_form_candidate_score($allNames, $action);
+            $candidate = [
+                'index' => $idx,
+                'score' => $score,
+                'method' => $method,
+                'action_safe' => function_exists('gov_edxdiag_safe_url') ? gov_edxdiag_safe_url($action) : $action,
+                'field_count' => count($allNames),
+                'expected_present_count' => count($expected['present']),
+                'expected_missing_count' => count($expected['missing']),
+                'looks_like_logout' => strpos(strtolower($action), 'logout') !== false,
+            ];
+            $summary['candidate_forms'][] = $candidate;
+            if ($best === null || $score > (int)$best['score']) {
+                $best = array_merge($candidate, [
+                    'tag' => $tag,
+                    'method_raw' => $method,
+                    'action_raw' => $action,
+                    'fields' => $fields,
+                    'all_names' => $allNames,
+                    'expected' => $expected,
+                ]);
+            }
         }
 
-        if (preg_match_all('/<input\b[^>]*>/i', $body, $matches)) {
-            $names = [];
-            $hidden = [];
-            foreach ($matches[0] as $tag) {
-                $name = gov_prtx_html_attr((string)$tag, 'name');
-                if ($name === '') { continue; }
-                $names[] = $name;
-                $type = strtolower(gov_prtx_html_attr((string)$tag, 'type'));
-                if ($type === 'hidden') { $hidden[] = $name; }
-            }
-            $summary['input_names'] = array_values(array_unique($names));
-            $summary['input_count'] = count($summary['input_names']);
-            $summary['hidden_names'] = array_values(array_unique($hidden));
-            $summary['hidden_count'] = count($summary['hidden_names']);
+        // If the page has no explicit form wrapper or parsing failed, still summarize global fields.
+        if ($best === null) {
+            $fields = gov_prtx_form_field_names_from_fragment($body);
+            $allNames = array_values(array_unique(array_merge($fields['input_names'], $fields['select_names'], $fields['textarea_names'])));
+            $expected = gov_prtx_expected_field_report($allNames);
+            $best = [
+                'index' => -1,
+                'score' => gov_prtx_form_candidate_score($allNames, $finalUrl),
+                'method_raw' => '',
+                'action_raw' => '',
+                'fields' => $fields,
+                'all_names' => $allNames,
+                'expected' => $expected,
+            ];
         }
 
-        if (preg_match_all('/<select\b[^>]*>/i', $body, $matches)) {
-            $names = [];
-            foreach ($matches[0] as $tag) {
-                $name = gov_prtx_html_attr((string)$tag, 'name');
-                if ($name !== '') { $names[] = $name; }
-            }
-            $summary['select_names'] = array_values(array_unique($names));
-            $summary['select_count'] = count($summary['select_names']);
-        }
+        $fields = $best['fields'];
+        $summary['form_present'] = count($forms) > 0 || count($best['all_names']) > 0;
+        $summary['selected_form_index'] = (int)$best['index'];
+        $summary['selected_form_score'] = (int)$best['score'];
+        $summary['selected_form_reason'] = $best['index'] >= 0 ? 'highest_expected_field_score' : 'global_field_fallback';
+        $summary['form_method'] = (string)$best['method_raw'];
+        $summary['form_action'] = (string)$best['action_raw'];
+        $summary['form_action_safe'] = function_exists('gov_edxdiag_safe_url') ? gov_edxdiag_safe_url((string)$best['action_raw']) : (string)$best['action_raw'];
+        $summary['input_names'] = $fields['input_names'];
+        $summary['input_count'] = $fields['input_count'];
+        $summary['hidden_names'] = $fields['hidden_names'];
+        $summary['hidden_count'] = $fields['hidden_count'];
+        $summary['select_names'] = $fields['select_names'];
+        $summary['select_count'] = $fields['select_count'];
+        $summary['textarea_names'] = $fields['textarea_names'];
+        $summary['textarea_count'] = $fields['textarea_count'];
+        $summary['required_expected_fields_present'] = $best['expected']['present'];
+        $summary['required_expected_fields_missing'] = $best['expected']['missing'];
+        $summary['expected_field_aliases'] = $best['expected']['aliases'];
 
-        if (preg_match_all('/<textarea\b[^>]*>/i', $body, $matches)) {
-            $names = [];
-            foreach ($matches[0] as $tag) {
-                $name = gov_prtx_html_attr((string)$tag, 'name');
-                if ($name !== '') { $names[] = $name; }
-            }
-            $summary['textarea_names'] = array_values(array_unique($names));
-            $summary['textarea_count'] = count($summary['textarea_names']);
-        }
-
-        $all = array_values(array_unique(array_merge($summary['input_names'], $summary['select_names'], $summary['textarea_names'])));
-        $expected = ['lessor', 'driver', 'vehicle', 'starting_point', 'boarding_point', 'disembark_point', 'lessee', 'started_at', 'ended_at', 'price'];
-        foreach ($expected as $field) {
-            if (in_array($field, $all, true)) {
-                $summary['required_expected_fields_present'][] = $field;
-            } else {
-                $summary['required_expected_fields_missing'][] = $field;
-            }
+        // Token may be outside the selected form in some Laravel layouts; still report global token hash.
+        if (!$summary['token_field_present'] && in_array('_token', $summary['input_names'], true)) {
+            $summary['token_field_present'] = true;
         }
 
         return $summary;
+    }
+}
+
+if (!function_exists('gov_prtx_create_form_context_ready')) {
+    /** @param array<string,mixed> $out */
+    function gov_prtx_create_form_context_ready(array $out): bool
+    {
+        $summary = is_array($out['form_summary'] ?? null) ? $out['form_summary'] : [];
+        $finalUrl = strtolower((string)($out['final_url'] ?? ''));
+        $present = is_array($summary['required_expected_fields_present'] ?? null) ? $summary['required_expected_fields_present'] : [];
+        $missing = is_array($summary['required_expected_fields_missing'] ?? null) ? $summary['required_expected_fields_missing'] : [];
+        $critical = ['lessor', 'driver', 'vehicle', 'starting_point', 'boarding_point', 'disembark_point', 'lessee', 'started_at', 'ended_at', 'price'];
+        $criticalPresent = true;
+        foreach ($critical as $field) {
+            if (!in_array($field, $present, true)) {
+                $criticalPresent = false;
+                break;
+            }
+        }
+        return !empty($out['performed'])
+            && (int)($out['status'] ?? 0) >= 200 && (int)($out['status'] ?? 0) < 300
+            && !empty($out['token_present'])
+            && !empty($summary['form_present'])
+            && $criticalPresent
+            && strpos($finalUrl, '/dashboard/lease-agreement/create') !== false;
     }
 }
 
@@ -280,7 +452,7 @@ if (!function_exists('gov_prtx_form_get_step')) {
         $headers = [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Cookie: ' . $cookie,
-            'User-Agent: gov.cabnet.app EDXEIX create-form token diagnostic v3.2.33',
+            'User-Agent: gov.cabnet.app EDXEIX create-form token diagnostic v3.2.35',
         ];
         if ($referer !== '') {
             $headers[] = 'Referer: ' . $referer;
@@ -400,19 +572,24 @@ if (!function_exists('gov_prtx_form_token_diagnostic')) {
             $out['token_matches_session_csrf'] = $token !== '' && $sessionCsrf !== '' && hash_equals($token, $sessionCsrf);
             $out['form_summary'] = gov_prtx_extract_form_summary($body, $finalUrl);
             $signals = is_array($out['body_fingerprint']['signals'] ?? null) ? $out['body_fingerprint']['signals'] : [];
-            $out['ok'] = $out['performed']
-                && $out['status'] >= 200 && $out['status'] < 300
+            $out['create_form_context_ready'] = gov_prtx_create_form_context_ready($out);
+            $out['ok'] = !empty($out['create_form_context_ready'])
                 && $out['token_present']
-                && !empty($out['form_summary']['form_present'])
-                && empty($signals['login'])
-                && empty($signals['csrf']);
+                && $out['token_matches_session_csrf'];
 
             if (!$out['token_present']) { $out['warnings'][] = 'form_token_not_found'; }
             if (empty($out['form_summary']['form_present'])) { $out['warnings'][] = 'create_form_not_found'; }
-            if (!empty($signals['login'])) { $out['warnings'][] = 'create_form_get_looks_like_login_or_session_page'; }
-            if (!empty($signals['csrf'])) { $out['warnings'][] = 'create_form_get_contains_csrf_or_session_signal'; }
+            if (!empty($out['form_summary']['required_expected_fields_missing'])) { $out['warnings'][] = 'create_form_required_fields_missing'; }
             if ($out['token_present'] && !$out['token_matches_session_csrf']) { $out['warnings'][] = 'form_token_differs_from_saved_session_csrf'; }
             if ($out['status'] >= 300 && $out['status'] < 400) { $out['warnings'][] = 'create_form_final_response_is_redirect'; }
+            if (empty($out['create_form_context_ready'])) {
+                if (!empty($signals['login'])) { $out['warnings'][] = 'create_form_page_has_login_text_signal'; }
+                if (!empty($signals['csrf'])) { $out['warnings'][] = 'create_form_page_has_csrf_text_signal'; }
+            } else {
+                if (!empty($signals['login']) || !empty($signals['csrf'])) {
+                    $out['warnings'][] = 'content_text_signals_present_but_authenticated_create_form_ready';
+                }
+            }
             return $out;
         } catch (Throwable $e) {
             $out['warnings'][] = 'form_token_diagnostic_exception: ' . $e->getMessage();
@@ -440,7 +617,7 @@ if (!function_exists('gov_prtx_pre_transport_hold_blockers')) {
         if (empty($formDiag['ok'])) {
             $blockers[] = 'edxeix_form_token_diagnostic_not_ready';
         }
-        // v3.2.33 is intentionally a safe hold/retry-prevention patch. A later patch may integrate a freshly fetched form token.
+        // v3.2.35 is intentionally a safe hold/retry-prevention patch. A later patch may integrate a freshly fetched form token.
         $blockers[] = 'transport_disabled_pending_fresh_form_token_integration_patch';
         return array_values(array_unique($blockers));
     }
@@ -574,7 +751,7 @@ if (!function_exists('gov_prtx_run')) {
         $classification = [
             'code' => !empty($rehearsal['ready_for_later_supervised_transport_patch']) ? 'PRE_RIDE_TRANSPORT_TRACE_HELD_FOR_SESSION_REFRESH' : 'PRE_RIDE_TRANSPORT_TRACE_BLOCKED',
             'message' => !empty($rehearsal['ready_for_later_supervised_transport_patch'])
-                ? 'Candidate is structurally ready, but v3.2.33 is holding server-side transport until manual closures/retry prevention and fresh EDXEIX form-token diagnostics are resolved. No submit was performed.'
+                ? 'Candidate is structurally ready, but v3.2.35 is holding server-side transport until manual closures/retry prevention and fresh EDXEIX form-token diagnostics are resolved. No submit was performed.'
                 : 'Candidate is blocked before transport trace. No submit was performed.',
         ];
         if (!empty($rehearsal['ready_for_later_supervised_transport_patch']) && !$preTransportHoldBlockers) {
@@ -617,7 +794,7 @@ if (!function_exists('gov_prtx_run')) {
 
         $result = [
             'ok' => !$transportRequested || ($trace !== null && empty($blockers)),
-            'version' => 'v3.2.33-create-form-token-diagnostic',
+            'version' => 'v3.2.35-create-form-token-diagnostic',
             'started_at' => gov_prtx_now(),
             'classification' => $classification,
             'transport_requested' => $transportRequested,

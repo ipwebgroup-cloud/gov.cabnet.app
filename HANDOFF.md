@@ -1,32 +1,27 @@
-# gov.cabnet.app — HANDOFF v3.2.34
+# HANDOFF — gov.cabnet.app Bolt → EDXEIX Bridge
+
+Current patch: v3.2.35 — EDXEIX create-form token diagnostic classification fix.
 
 ## Current state
 
-The pre-ride candidate pipeline works through parsing, mapping, capture, readiness, rehearsal, one-shot transport trace, closure, and retry prevention.
-
-Candidate 4 was a real ride. The server-side one-shot transport trace attempted one POST and EDXEIX returned HTTP 419 / session expired. Andreas then submitted that real ride manually via V0/laptop. Candidate 4 is now archived as `MANUALLY_SUBMITTED_VIA_V0` and server retry is blocked.
-
-v3.2.33 proved that server-side GET to the authenticated EDXEIX create form redirects to the public/root page and cannot see the hidden form token.
-
-v3.2.34 adds a safe browser create-form proof path. It verifies what the logged-in browser can see without exposing secrets.
-
-## Safety posture
-
-- V0 production remains untouched.
-- No unattended EDXEIX submission.
-- No EDXEIX POST in v3.2.34.
-- No AADE/myDATA call.
-- No queue job.
-- No normalized booking write.
-- No live config write.
-- No raw cookies, raw CSRF, raw token, raw HTML, or field values are accepted or printed.
+- Production V0 laptop/manual EDXEIX workflow remains operational and untouched.
+- Candidate 4 was manually submitted through V0/laptop and archived as `manual_submitted_v0`.
+- Server-side retry for candidate 4 is blocked by closure/retry-prevention.
+- v3.2.33 proved the saved server session can now reach `/dashboard/lease-agreement/create` and sees a matching hidden token, but classified it as not ready due to false-positive text signals and wrong form selection.
+- v3.2.35 fixes diagnostic form selection and expected field aliases.
 
 ## Next safest step
 
-Run the browser proof from the logged-in EDXEIX create form and paste the sanitized JSON into:
+Validate:
 
-```text
-https://gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json
 ```
 
-If it returns `BROWSER_CREATE_FORM_PROOF_READY`, the next safe development step is a browser-assisted fill/submit design that still defaults to manual/operator control.
+Expected with valid saved session:
+
+```text
+EDXEIX_CREATE_FORM_TOKEN_READY
+```
+
+Do not perform another server-side EDXEIX POST until a later patch maps the exact form field names and only for a new future candidate.

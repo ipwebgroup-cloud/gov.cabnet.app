@@ -1,7 +1,7 @@
 # gov.cabnet.app
 
-Plain PHP/mysqli/cPanel Bolt → EDXEIX bridge.
+Plain PHP / mysqli / MariaDB bridge for Bolt pre-ride and EDXEIX readiness diagnostics.
 
-Current patch: v3.2.34 browser create-form proof diagnostic.
+Current patch package: v3.2.35 — read-only EDXEIX create-form token diagnostic classification fix.
 
-This patch is read-only/no-secret and does not affect V0 production.
+Production V0 remains separate and untouched.
