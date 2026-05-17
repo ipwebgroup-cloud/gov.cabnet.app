@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Ops supervised pre-ride one-shot EDXEIX transport trace v3.2.31.
+ * gov.cabnet.app — Ops supervised pre-ride one-shot EDXEIX transport trace v3.2.33.
  * Default GET is dry-run. Actual HTTP POST requires typed confirmation and hash lock.
  */
 
@@ -81,7 +81,7 @@ $performed = !empty($result['transport_performed']);
 <div class="wrap">
   <section class="card hero <?= $performed ? 'warn' : ($armable ? 'ok' : '') ?>">
     <h1>Pre-Ride One-Shot EDXEIX Transport Trace</h1>
-    <p class="muted">v3.2.32 — closure/retry-prevention and EDXEIX form-token diagnostic. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. No repeat POST while held.</p>
+    <p class="muted">v3.2.33 — create-form token diagnostic and retry prevention. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. No repeat POST while held.</p>
     <p><strong>Classification:</strong> <span class="pill <?= $performed ? 'warn' : ($armable ? 'ok' : 'bad') ?>"><?= prtx_h($classCode) ?></span></p>
     <p><?= prtx_h($classMsg) ?></p>
   </section>
@@ -94,6 +94,7 @@ $performed = !empty($result['transport_performed']);
       <a class="btn secondary" href="/ops/pre-ride-transport-rehearsal.php?candidate_id=<?= prtx_h($candidateId ?: ($packet['candidate_id'] ?? '')) ?>">Rehearsal</a>
       <a class="btn secondary" href="/ops/pre-ride-readiness-watch.php?auto_refresh=30">Readiness watch</a>
       <a class="btn secondary" href="/ops/pre-ride-candidate-closure.php?candidate_id=<?= prtx_h($candidateId ?: ($packet['candidate_id'] ?? '')) ?>">Closure / V0 manual mark</a>
+      <a class="btn secondary" href="/ops/edxeix-create-form-token-diagnostic.php">Create-form token diagnostic</a>
     </form>
   </section>
 
@@ -141,7 +142,7 @@ $performed = !empty($result['transport_performed']);
   <section class="card <?= $armable && !$performed ? 'hero warn' : '' ?>">
     <h2>Supervised one-shot POST</h2>
     <div class="notice">
-      v3.2.31 is a safety hold after the 419 session/CSRF test. Use this page for diagnostics only. Mark V0 manual submissions through the closure page, then wait for the next fresh-token transport patch before any new POST.
+      v3.2.33 is a safety hold after the 419 session/CSRF test. Use this page for diagnostics only. Mark V0 manual submissions through the closure page, then wait for the next fresh-token transport patch before any new POST.
     </div>
     <form method="post" style="margin-top:12px">
       <input type="hidden" name="candidate_id" value="<?= prtx_h($packet['candidate_id'] ?? $candidateId) ?>">
@@ -150,7 +151,7 @@ $performed = !empty($result['transport_performed']);
         <textarea name="confirmation_phrase" rows="2" placeholder="<?= prtx_h(gov_prtx_confirmation_phrase()) ?>"></textarea>
       </label>
       <p class="muted">Required phrase: <code><?= prtx_h(gov_prtx_confirmation_phrase()) ?></code></p>
-      <button class="btn danger" type="submit" name="submit_transport" value="1" <?= $armable && !$performed ? '' : 'disabled' ?>>POST disabled in v3.2.31 safety hold</button>
+      <button class="btn danger" type="submit" name="submit_transport" value="1" <?= $armable && !$performed ? '' : 'disabled' ?>>POST disabled in v3.2.33 token-diagnostic hold</button>
     </form>
   </section>
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env php
 <?php
 /**
- * gov.cabnet.app — CLI supervised pre-ride one-shot EDXEIX transport trace v3.2.31.
- * Default is dry-run/armable packet. v3.2.31 is diagnostic/hold mode after the 419 test. Any later HTTP POST requires a new approved patch plus --transport=1,
+ * gov.cabnet.app — CLI supervised pre-ride one-shot EDXEIX transport trace v3.2.33.
+ * Default is dry-run/armable packet. v3.2.33 is create-form token diagnostic/hold mode after the 419 test. Any later HTTP POST requires a new approved patch plus --transport=1,
  * --candidate-id=N, --expected-payload-hash=HASH, and exact --confirm phrase.
  */
 
@@ -30,7 +30,7 @@ foreach (array_slice($argv, 1) as $arg) {
         echo "Usage:\n";
         echo "  php pre_ride_one_shot_transport_trace.php --candidate-id=N --json\n";
         echo "  php pre_ride_one_shot_transport_trace.php --candidate-id=N --transport=1 --expected-payload-hash=HASH --confirm='" . gov_prtx_confirmation_phrase() . "' --json\n";
-        echo "\nDefault is dry-run/armable packet. v3.2.31 will report hold blockers/form-token diagnostics and will not perform another POST.\n";
+        echo "\nDefault is dry-run/armable packet. v3.2.33 will report hold blockers/form-token diagnostics and will not perform another POST.\n";
         exit(0);
     }
 }

@@ -1,12 +1,18 @@
-# Scope — gov.cabnet.app Bolt → EDXEIX Bridge
+# Scope — v3.2.33
 
-Current ASAP track: pre-ride email to EDXEIX readiness and supervised diagnostics while V0 remains production fallback.
+ASAP automation track remains diagnostic-first.
 
-Latest: v3.2.32 fixes manual V0 closure timestamp handling.
+In scope:
+- Read-only EDXEIX create-form GET diagnostic.
+- Token hash reporting without exposing raw tokens.
+- Form action/method/field summary.
+- Redirect-chain fingerprinting.
+- Existing retry prevention and V0 manual-closure hold.
 
-Out of scope unless explicitly approved:
-- unattended EDXEIX submission
-- cron live submit
-- AADE/myDATA changes
-- V0 production route changes
-- destructive SQL
+Out of scope:
+- V0 production changes.
+- Automatic EDXEIX submission.
+- AADE/myDATA changes.
+- Queue jobs.
+- Cron.
+- Live config writes.

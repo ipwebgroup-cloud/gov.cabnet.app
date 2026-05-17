@@ -1,3 +1,3 @@
-# gov.cabnet.app
+# gov.cabnet.app — v3.2.33
 
-Plain PHP/mysqli Bolt → EDXEIX bridge. Current patch: v3.2.32 closure timestamp fix.
+Read-only EDXEIX create-form token diagnostic. V0 production remains untouched.

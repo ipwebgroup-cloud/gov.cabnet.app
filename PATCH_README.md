@@ -1,38 +1,49 @@
-# gov.cabnet.app Patch v3.2.32 — Fix manual V0 closure submitted_at default
+# Patch README — gov-edxeix-create-form-token-diagnostic-v3.2.33
 
 ## What changed
 
-Fixes the v3.2.31 manual candidate closure CLI/web library so an empty `submitted_at` defaults to current server time instead of sending an empty string to MariaDB.
+Adds a read-only EDXEIX create-form token diagnostic after the v3.2.30 HTTP 419 result. The diagnostic fetches `/dashboard/lease-agreement/create`, follows redirects safely, fingerprints the final body, extracts only hashed token diagnostics, summarizes form fields, and keeps server-side transport on hold.
 
-## Files included
+## Upload paths
 
-- gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_closure_lib.php
-- gov.cabnet.app_app/cli/pre_ride_candidate_mark_manual.php
-- public_html/gov.cabnet.app/ops/pre-ride-candidate-closure.php
-- gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php
-- gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php
-- public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
-- docs/EDXEIX_PRE_RIDE_CANDIDATE_CLOSURE_v3.2.32.md
-- HANDOFF.md
-- CONTINUE_PROMPT.md
-- README.md
-- SCOPE.md
-- PROJECT_FILE_MANIFEST.md
+```text
+/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php
+/home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
+/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
+/home/cabnet/docs/EDXEIX_CREATE_FORM_TOKEN_DIAGNOSTIC_v3.2.33.md
+/home/cabnet/PATCH_README.md
+/home/cabnet/HANDOFF.md
+/home/cabnet/CONTINUE_PROMPT.md
+/home/cabnet/SCOPE.md
+/home/cabnet/README.md
+/home/cabnet/PROJECT_FILE_MANIFEST.md
+```
 
 ## SQL
 
-None. The v3.2.31 closure table is already installed.
+None.
 
-## Verification
+## Verify
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_closure_lib.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_mark_manual.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-candidate-closure.php
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
+
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json
 ```
 
-Then rerun the candidate 4 manual V0 mark command.
+## URLs
+
+```text
+https://gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
+https://gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
+```
 
 ## Safety
 
-No EDXEIX transport, AADE call, queue job, normalized booking write, live config write, cron, or V0 production change.
+No EDXEIX POST, AADE call, queue job, normalized booking write, live config write, cron, or V0 production change.

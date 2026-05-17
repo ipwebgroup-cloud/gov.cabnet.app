@@ -1,5 +1,13 @@
-Continue gov.cabnet.app Bolt → EDXEIX bridge from v3.2.32.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge from v3.2.33.
 
-Priority: keep V0 production untouched. Candidate 4 was manually submitted through V0/laptop after server-side v3.2.30 POST returned HTTP 419/session expired. v3.2.31 added closure/retry prevention but manual closure failed because submitted_at was empty. v3.2.32 fixes the closure timestamp default.
+V0 production/laptop workflow must remain untouched.
 
-Next: verify v3.2.32, mark candidate 4 as manual_submitted_v0, confirm server retry is blocked, then work on EDXEIX fresh form-token/session diagnostics.
+Current focus: server-side EDXEIX session/CSRF/form-token diagnostics. Candidate 4 is archived as manually submitted via V0 and must not be retried. v3.2.33 adds a read-only diagnostic for `/dashboard/lease-agreement/create` to determine whether the server session can fetch a valid create form token.
+
+Next command to request from Andreas:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json
+```
+
+No EDXEIX POST unless explicitly approved again for a new real eligible future candidate.
