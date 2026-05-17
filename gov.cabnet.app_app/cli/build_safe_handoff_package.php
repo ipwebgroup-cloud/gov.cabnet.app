@@ -10,6 +10,7 @@
  * - Does not call AADE.
  * - Does not expose real config values.
  * - Stores generated ZIPs under the private app folder by default.
+ * - Builds DB-free packages by default; database audit export requires --include-db.
  */
 
 declare(strict_types=1);
@@ -58,7 +59,8 @@ Usage:
   php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php [options]
 
 Options:
-  --no-db                 Build package without DATABASE_EXPORT.sql.
+  --include-db            Include DATABASE_EXPORT.sql. Private audit only; never commit.
+  --no-db                 Backward-compatible no-op; DB-free is now the default.
   --output-dir=PATH       Private output directory. Default: /home/cabnet/gov.cabnet.app_app/var/handoff-packages
   --keep-days=N           Remove generated packages older than N days. Default: 7.
   --cleanup               Only cleanup old packages, then exit.
@@ -68,14 +70,15 @@ Options:
 Examples:
   php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php
 
-  php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --no-db
+  php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --include-db
 
   php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json
 
 Safety:
   The ZIP includes sanitized config placeholders only. Real files from
   /home/cabnet/gov.cabnet.app_config are not copied.
-  If DATABASE_EXPORT.sql is included, treat the ZIP as private operational data.
+  DB-free is the default. If DATABASE_EXPORT.sql is included with --include-db,
+  treat the ZIP as private operational data and do not commit it.
 
 TXT;
 }
@@ -128,7 +131,7 @@ if (gov_cli_has_flag($argv, 'help')) {
 }
 
 $json = gov_cli_has_flag($argv, 'json');
-$includeDb = !gov_cli_has_flag($argv, 'no-db');
+$includeDb = gov_cli_has_flag($argv, 'include-db');
 $outputDir = gov_cli_arg_value($argv, 'output-dir', $appRoot . '/var/handoff-packages');
 $outputDir = rtrim((string)$outputDir, DIRECTORY_SEPARATOR);
 $keepDaysRaw = gov_cli_arg_value($argv, 'keep-days', '7');
@@ -212,7 +215,9 @@ try {
         echo "Size: " . number_format((float)$result['zip_size_bytes']) . " bytes\n";
         echo "SHA256: {$result['zip_sha256']}\n";
         echo "Includes database export: " . ($includeDb ? 'YES' : 'NO') . "\n";
-        echo "\nTreat this ZIP as private operational material.\n";
+        echo $includeDb
+            ? "\nTreat this ZIP as private operational material. Do not commit the SQL export.\n"
+            : "\nDB-free package created. Validate before committing.\n";
     }
 
     exit(0);

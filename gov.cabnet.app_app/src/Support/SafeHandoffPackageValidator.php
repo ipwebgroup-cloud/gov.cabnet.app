@@ -13,6 +13,7 @@
  * - Does not write database rows.
  * - Does not extract the ZIP.
  * - Does not scan or print DATABASE_EXPORT.sql content.
+ * - Flags runtime locks, receipt attachments, and cPanel backup/broken files.
  */
 
 declare(strict_types=1);
@@ -106,6 +107,16 @@ final class SafeHandoffPackageValidator
                 ? 'DATABASE_EXPORT.sql is present; treat package as private operational material.'
                 : 'DATABASE_EXPORT.sql is not present.';
 
+            $nameLower = strtolower((string)$out['zip_name']);
+            $looksDbFree = str_contains($nameLower, '_no_db') || str_contains($nameLower, 'git_safe_continuity_');
+            $looksPrivateDbAudit = str_contains($nameLower, '_with_db')
+                || str_contains($nameLower, 'with_db_audit')
+                || str_contains($nameLower, 'private_operational');
+            if ($out['has_database_export'] && $looksDbFree && !$looksPrivateDbAudit) {
+                $out['dangerous_entries'][] = 'DATABASE_EXPORT.sql (unexpected in DB-free package name)';
+                $out['warnings'][] = 'DB-free package appears to contain DATABASE_EXPORT.sql.';
+            }
+
             if ($out['has_real_config_directory']) {
                 $out['warnings'][] = 'Real config directory is present in ZIP. This package should not be used.';
             }
@@ -137,6 +148,8 @@ final class SafeHandoffPackageValidator
         $badSegments = [
             '/.git/', '/cache/', '/tmp/', '/temp/', '/sessions/', '/session/', '/mail/', '/maildir/',
             '/logs/', '/log/', '/backup/', '/backups/', '/access-logs/', '/.cpanel/', '/.trash/',
+            '/storage/artifacts/', '/storage/cache/', '/storage/logs/', '/storage/runtime/', '/storage/locks/',
+            '/storage/receipt_attachments/', '/storage/receipt-attachments/', '/storage/uploads/', '/var/handoff-packages/',
         ];
         foreach ($badSegments as $segment) {
             if (str_contains('/' . $lower, $segment)) {
@@ -148,7 +161,11 @@ final class SafeHandoffPackageValidator
             return true;
         }
 
-        if (preg_match('/\.(log|bak|backup|old|tmp|swp|swo)$/i', $base)) {
+        if (preg_match('/\.(log|bak|backup|old|tmp|lock|swp|swo)$/i', $base)) {
+            return true;
+        }
+
+        if (preg_match('/(broken_[0-9]{8}|parse_broken|parse_error_guard_backup|noop_backup|before_[a-z0-9_]*[0-9]{8}|backup_[0-9]{8})/i', $base)) {
             return true;
         }
 

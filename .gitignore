@@ -49,14 +49,23 @@ Thumbs.db
 /public_html/gov.cabnet.app/bolt_time_columns_fix.php
 /public_html/gov.cabnet.app/ops/index.html
 
-# Private Sophion/live-site audit outputs (local only; do not commit)
-/GOV_LIVE_ROUTE_DB_DEBLOAT_AUDIT_*.md
-/GOV_LIVE_ROUTE_DB_DEBLOAT_AUDIT_*.json
-/live_route_inventory_*.csv
-/live_route_inventory_*.json
-/gov_live_route_db_debloat_audit_*.zip
-/gov_cabnet_git_safe_continuity_*.zip
-/gov_cabnet_git_safe_with_db_audit_*.zip
-/private_audit_do_not_commit_*/
+# Safe handoff / audit package hardening
 /DATABASE_EXPORT.sql
-/cabnet_gov*.sql
+/GIT_SAFE_WITH_DB_AUDIT_NOTICE.md
+/GIT_SAFE_CONTINUITY_NOTICE.md
+/gov.cabnet.app_app/storage/locks/*
+!/gov.cabnet.app_app/storage/locks/.gitkeep
+/gov.cabnet.app_app/storage/receipt_attachments/*
+!/gov.cabnet.app_app/storage/receipt_attachments/.gitkeep
+/gov.cabnet.app_app/storage/receipt-attachments/*
+!/gov.cabnet.app_app/storage/receipt-attachments/.gitkeep
+*.lock
+*.broken_*
+*.parse_broken_*
+*.parse_error_guard_backup_*
+*.noop_backup_*
+*.before_*
+*broken_20*
+*backup_20*
+*before_20*
+

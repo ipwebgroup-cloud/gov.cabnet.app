@@ -114,7 +114,8 @@ $recentPackages = hpcli_recent_packages($outputDir);
 
 $cmdBuild = 'php ' . $cliPath;
 $cmdBuildJson = 'php ' . $cliPath . ' --json';
-$cmdNoDb = 'php ' . $cliPath . ' --no-db';
+$cmdWithDb = 'php ' . $cliPath . ' --include-db';
+$cmdWithDbJson = 'php ' . $cliPath . ' --include-db --json';
 $cmdCleanup = 'php ' . $cliPath . ' --cleanup --keep-days=7';
 
 opsui_shell_begin([
@@ -177,14 +178,17 @@ opsui_shell_begin([
     <h2>Copy/paste commands</h2>
     <p class="small">Run these from SSH or cPanel Terminal. The generated ZIP remains private under <code><?= hpcli_h($outputDir) ?></code>.</p>
 
-    <h3>Build full package with database export</h3>
+    <h3>Build DB-free package</h3>
     <textarea readonly style="width:100%;min-height:54px;font-family:Consolas,Menlo,monospace;"><?= hpcli_h($cmdBuild) ?></textarea>
 
-    <h3>Build full package and print JSON</h3>
+    <h3>Build DB-free package and print JSON</h3>
     <textarea readonly style="width:100%;min-height:54px;font-family:Consolas,Menlo,monospace;"><?= hpcli_h($cmdBuildJson) ?></textarea>
 
-    <h3>Build package without database export</h3>
-    <textarea readonly style="width:100%;min-height:54px;font-family:Consolas,Menlo,monospace;"><?= hpcli_h($cmdNoDb) ?></textarea>
+    <h3>Build private DB audit package</h3>
+    <textarea readonly style="width:100%;min-height:54px;font-family:Consolas,Menlo,monospace;"><?= hpcli_h($cmdWithDb) ?></textarea>
+
+    <h3>Build private DB audit package and print JSON</h3>
+    <textarea readonly style="width:100%;min-height:54px;font-family:Consolas,Menlo,monospace;"><?= hpcli_h($cmdWithDbJson) ?></textarea>
 
     <h3>Cleanup old generated packages</h3>
     <textarea readonly style="width:100%;min-height:54px;font-family:Consolas,Menlo,monospace;"><?= hpcli_h($cmdCleanup) ?></textarea>
@@ -221,7 +225,8 @@ opsui_shell_begin([
         <ul class="list">
             <li>The CLI does not copy real config files from <code>gov.cabnet.app_config</code>.</li>
             <li>Sanitized config placeholders are generated under <code>gov.cabnet.app_config_examples/</code>.</li>
-            <li>If database export is included, the ZIP is private operational material.</li>
+            <li>CLI package generation is DB-free by default.</li>
+            <li>Database export requires <code>--include-db</code>; that ZIP is private operational material.</li>
             <li>Do not commit <code>DATABASE_EXPORT.sql</code> unless you intentionally sanitize it first.</li>
         </ul>
     </div>

@@ -1,117 +1,93 @@
-# gov.cabnet.app patch — Admin Excluded Sprinter mapping labels
+# gov.cabnet.app Patch — Safe Handoff Package Privacy Hardening
+
+Generated for Andreas on 2026-05-17.
 
 ## What changed
 
-This patch marks Mercedes-Benz Sprinter / EMT8640 as `Admin Excluded` wherever it appears in the mapping section and strengthens the central exemption detector.
+This patch refreshes the project handoff state and hardens safe handoff package generation/validation so DB-free Git-safe packages do not accidentally contain private audit/runtime material.
 
-Operational rule preserved:
+Key changes:
 
-- No invoicing.
-- No AADE/myDATA invoice/receipt.
-- No driver email.
-- No voucher / receipt-copy email.
-- No automated EDXEIX processing.
+- Updated `HANDOFF.md` and `CONTINUE_PROMPT.md` from stale queue 1590/v3.2.15 wording to the current queue 2398 closed-test safe blocked posture.
+- Added `.gitignore` protection for root `DATABASE_EXPORT.sql`, runtime locks, receipt attachment PDFs, and cPanel backup/broken files.
+- Updated `SafeHandoffPackageBuilder` so database exports are excluded by default unless explicitly requested.
+- Updated CLI package builder so DB-free is the default; private DB audit export now requires `--include-db`.
+- Updated `SafeHandoffPackageValidator` to flag receipt attachments, runtime locks, storage artifacts, backup/broken files, and accidental database exports.
+- Added documentation: `docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md`.
 
 ## Files included
 
-```text
-gov.cabnet.app_app/src/Domain/VehicleExemptionService.php
-public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
-public_html/gov.cabnet.app/ops/mappings.php
-public_html/gov.cabnet.app/ops/mapping-center.php
-public_html/gov.cabnet.app/ops/_mapping_nav.php
-docs/ADMIN_EXCLUDED_SPRINTER_MAPPING_LABELS_2026_05_17.md
-PATCH_README.md
-```
+- `.gitignore`
+- `HANDOFF.md`
+- `CONTINUE_PROMPT.md`
+- `PATCH_README.md`
+- `docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md`
+- `gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php`
+- `gov.cabnet.app_app/src/Support/SafeHandoffPackageValidator.php`
+- `gov.cabnet.app_app/cli/build_safe_handoff_package.php`
+- `public_html/gov.cabnet.app/ops/handoff-package-cli.php`
 
-## Upload paths
+## Exact upload paths
 
-Upload:
-
-```text
-gov.cabnet.app_app/src/Domain/VehicleExemptionService.php
-```
-
-to:
+Upload/replace:
 
 ```text
-/home/cabnet/gov.cabnet.app_app/src/Domain/VehicleExemptionService.php
+/home/cabnet/.gitignore
+/home/cabnet/HANDOFF.md
+/home/cabnet/CONTINUE_PROMPT.md
+/home/cabnet/PATCH_README.md
+/home/cabnet/docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md
+/home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+/home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageValidator.php
+/home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php
+/home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-cli.php
 ```
 
-Upload:
+For local GitHub Desktop repo, extract this ZIP at the repository root. The ZIP root mirrors the repo/live layout directly and has no wrapper folder.
 
-```text
-public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
-public_html/gov.cabnet.app/ops/mappings.php
-public_html/gov.cabnet.app/ops/mapping-center.php
-public_html/gov.cabnet.app/ops/_mapping_nav.php
-```
+## SQL to run
 
-to:
-
-```text
-/home/cabnet/public_html/gov.cabnet.app/ops/
-```
-
-Upload:
-
-```text
-docs/ADMIN_EXCLUDED_SPRINTER_MAPPING_LABELS_2026_05_17.md
-```
-
-to the repository docs folder.
-
-## SQL
-
-No SQL is required.
+None.
 
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Domain/VehicleExemptionService.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-workbench-v3.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mappings.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/mapping-center.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/_mapping_nav.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
+php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageValidator.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-cli.php
+
+php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json
+php /home/cabnet/gov.cabnet.app_app/cli/validate_safe_handoff_package.php --latest --json
+```
+
+Optional private DB audit package command, only when explicitly needed:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --include-db --json
 ```
 
 ## Verification URLs
 
 ```text
-https://gov.cabnet.app/ops/mapping-workbench-v3.php?view=needs_map&q=EMT8640
-https://gov.cabnet.app/ops/mapping-workbench-v3.php?view=needs_map&q=Sprinter
-https://gov.cabnet.app/ops/mappings.php?q=EMT8640
-https://gov.cabnet.app/ops/mappings.php?q=Sprinter
-https://gov.cabnet.app/ops/mapping-workbench-v3.php?format=json&q=EMT8640
-https://gov.cabnet.app/ops/mappings.php?format=json&q=EMT8640
+https://gov.cabnet.app/ops/handoff-center.php
+https://gov.cabnet.app/ops/handoff-package-validator.php
+https://gov.cabnet.app/ops/handoff-package-tools.php
 ```
 
 ## Expected result
 
-Rows for EMT8640 / Mercedes-Benz Sprinter show a red `Admin Excluded` label.
-
-Sanitized JSON includes:
-
-```json
-"admin_excluded": true
-```
-
-## Safety
-
-This patch does not call Bolt, submit to EDXEIX, call AADE, create queue jobs, change live-submit gates, delete data, or expose secrets.
+- Normal CLI package generation creates a `_no_db.zip` package.
+- Validator reports no dangerous entries for DB-free packages.
+- DB-free packages do not contain `DATABASE_EXPORT.sql`, receipt PDFs, runtime `.lock` files, storage artifacts, backup/broken PHP copies, or temporary package residue.
+- DB audit packages are still possible only when explicitly requested and must remain private operational material.
 
 ## Git commit title
 
-```text
-Show Admin Excluded Sprinter in mapping pages
-```
+Safe-harden handoff package exports
 
 ## Git commit description
 
-```text
-Marked Mercedes-Benz Sprinter / EMT8640 as Admin Excluded across mapping pages and expanded the central vehicle exemption service to detect the Sprinter model/name in addition to the existing EMT8640 plate and Bolt vehicle identifier.
+Refreshes the project handoff state after the queue 2398 closed test and hardens safe handoff package generation/validation. DB-free packages are now the default for CLI generation, database export requires explicit `--include-db`, and the builder/validator now exclude or flag runtime locks, receipt attachments, storage artifacts, backup/broken files, and accidental database exports.
 
-The mapping workbench and legacy mapping editor now display Admin Excluded badges and include admin_excluded metadata in sanitized JSON outputs.
-
-This preserves the permanent operational rule: no invoicing, no AADE receipt/invoice, no driver email, no voucher/receipt-copy email, and no automated EDXEIX processing for this vehicle.
-```
+No SQL changes. No Bolt, EDXEIX, or AADE calls. No live-submit behavior enabled.
