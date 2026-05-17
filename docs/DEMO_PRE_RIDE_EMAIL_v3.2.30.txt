@@ -1,0 +1,17 @@
+DEMO ONLY — replace date/time values with a real future Bolt pre-ride email time before any live test.
+The v3.2.30 transport trace will block this sample if pickup is less than 30 minutes in the future or already past.
+
+Operator: Fleet Mykonos LUXLIMO Ι Κ Ε||MYKONOS CAB
+
+Customer: Alina Alekhina
+Customer mobile: +37253504645
+
+Driver: Filippos Giannakopoulos
+Vehicle: EMX6874
+
+Pickup: Psarrou 846 00, Греция
+Drop-off: Mykonos Airport , Mykonos Airport (JMK)
+Start time: 2026-05-17 13:45:11 EEST
+Estimated pick-up time: 2026-05-17 13:51:11 EEST
+Estimated end time: 2026-05-17 14:22:11 EEST
+Estimated price: 40.00 - 44.00 eur

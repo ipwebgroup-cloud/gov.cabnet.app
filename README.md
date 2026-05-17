@@ -1,5 +1,5 @@
-# gov.cabnet.app — Bolt to EDXEIX Bridge
+# gov.cabnet.app — v3.2.30 Patch
 
-This patch set continues the ASAP automation track while preserving the default safety posture.
+Supervised pre-ride one-shot EDXEIX transport trace.
 
-v3.2.29 adds a read-only pre-ride transport rehearsal packet. It does not submit to EDXEIX.
+Default mode is dry-run. Actual EDXEIX POST requires explicit candidate ID, exact payload hash, transport flag, and exact confirmation phrase.

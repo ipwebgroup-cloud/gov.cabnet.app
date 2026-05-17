@@ -1,22 +1,18 @@
-# gov.cabnet.app Scope — ASAP Automation Track
+# Scope — v3.2.30 ASAP EDXEIX Automation Track
 
-## Included through v3.2.29
+In scope:
+- Supervised one-candidate pre-ride EDXEIX HTTP POST trace.
+- Runtime readiness/rehearsal checks before any transport.
+- Payload hash lock and exact confirmation phrase.
+- Sanitized redirect-chain diagnostics.
+- Optional sanitized attempt metadata table.
+- Demo pre-ride email format file.
 
-- Pre-ride Maildir readiness watch.
-- Future-only pre-ride candidate parsing.
-- Diagnostics-only HTML fallback parser.
-- Sanitized metadata capture.
-- One-shot readiness packet.
-- Read-only transport rehearsal packet.
-
-## Still excluded
-
-- Unattended EDXEIX live submit.
-- Cron-based submit worker.
-- Automatic retries.
-- Live transport without explicit one-candidate approval.
-- Any submission of historical/cancelled/terminal/past/receipt-only rows.
-
-## Current ASAP next gate
-
-The project can proceed to a supervised one-shot transport trace only after explicit approval for one real eligible future pre-ride candidate.
+Out of scope:
+- Unattended EDXEIX submit worker.
+- Cron submission.
+- AADE/myDATA changes.
+- Queue job creation.
+- normalized_bookings writes.
+- live_submit.php config writes.
+- Submission of past/terminal/too-close candidates.

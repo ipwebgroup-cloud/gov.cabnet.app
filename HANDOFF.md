@@ -1,39 +1,21 @@
-# gov.cabnet.app HANDOFF — v3.2.29 Pre-Ride Transport Rehearsal
+# HANDOFF — gov.cabnet.app v3.2.30
 
-## Current state
+Current ASAP track:
 
-The pre-ride automation path now has:
+- v3.2.26 fixed pre-ride Maildir HTML fallback parsing.
+- v3.2.27 added one-shot readiness packet.
+- v3.2.28 added readiness watch.
+- v3.2.29 added read-only transport rehearsal.
+- v3.2.30 adds supervised one-candidate EDXEIX HTTP POST trace.
 
-1. Maildir pre-ride detection.
-2. Diagnostics-only fallback parser for HTML label rows.
-3. Sanitized candidate capture into `edxeix_pre_ride_candidates`.
-4. One-shot readiness packet.
-5. Readiness watch page/CLI.
-6. v3.2.29 read-only transport rehearsal packet.
+v3.2.30 is not unattended automation. It requires explicit candidate ID, exact payload hash, transport flag, and confirmation phrase.
 
-## Safety posture
-
-Live EDXEIX transport remains disabled.
-
-No automatic or unattended submission is enabled.
-
-Historical, cancelled, terminal, expired, invalid, or past Bolt rows remain blocked.
-
-Receipt-only Bolt mail rows remain blocked from EDXEIX.
-
-## Latest safe commands
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_readiness_watch.php --json --capture-ready
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_transport_rehearsal.php --latest-ready=1 --json
-```
-
-## Next sensitive step
-
-The next patch would be a supervised one-shot EDXEIX transport trace for one real eligible future pre-ride candidate only.
-
-Do not build or enable that unless Andreas explicitly approves with:
+Confirmation phrase:
 
 ```text
-Sophion, prepare the supervised pre-ride one-shot EDXEIX transport trace patch. I understand this is for one real eligible future ride only.
+I UNDERSTAND POST THIS ONE PRE-RIDE CANDIDATE TO EDXEIX
 ```
+
+The previously rehearsed candidate 2 was valid only while >30 minutes before pickup. Past/too-close candidates must remain blocked.
+
+Never retry a candidate after confirmed success. Verify EDXEIX manually after any POST trace.

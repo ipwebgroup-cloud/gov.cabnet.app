@@ -1,22 +1,16 @@
-You are Sophion assisting Andreas with the gov.cabnet.app Bolt → EDXEIX bridge project.
+Continue the gov.cabnet.app Bolt → EDXEIX bridge from v3.2.30.
 
-Project stack: plain PHP, mysqli/MariaDB, cPanel/manual upload. Do not introduce frameworks, Composer, Node, or heavy dependencies.
+The project has reached the supervised live-test boundary for pre-ride EDXEIX candidates.
 
-Current state: v3.2.29 adds a read-only pre-ride transport rehearsal packet.
+v3.2.30 introduced:
+- `gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php`
+- `gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php`
+- optional SQL table `edxeix_pre_ride_transport_attempts`
 
-Safe verification commands:
+Default behavior is dry-run. Transport requires candidate ID, exact payload hash, `--transport=1`, and exact confirmation phrase.
 
-```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_transport_rehearsal_lib.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_transport_rehearsal.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-transport-rehearsal.php
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_transport_rehearsal.php --latest-ready=1 --json
-```
-
-Live EDXEIX transport remains disabled. Do not enable live submit unless Andreas explicitly approves a one-real-future-candidate supervised test.
-
-Required explicit approval phrase before the live-test transport patch:
-
-```text
-Sophion, prepare the supervised pre-ride one-shot EDXEIX transport trace patch. I understand this is for one real eligible future ride only.
-```
+Keep these rules:
+- Never submit past/terminal/too-close candidates.
+- Never enable unattended EDXEIX submit from a generic continue.
+- After one POST trace, require manual EDXEIX verification before any retry or automation step.
