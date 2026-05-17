@@ -1,76 +1,86 @@
-# PATCH README — Ioannis Kounter EDXEIX Mapping
+# Patch: EDXEIX dropdown snapshot tools for mapping page
 
 ## What changed
 
-This package adds one SQL migration to map the verified Ioannis Kounter EDXEIX IDs:
-
-```text
-Lessor/company: 2183 ΚΟΥΝΤΕΡ ΙΩΑΝΝΗΣ
-Driver:         7329 ΚΟΥΝΤΕΡ ΙΩΑΝΝΗΣ
-Vehicle:        3160 XZA3232 / ΧΖΑ3232
-Alt vehicle:    13191 XRM5435 / ΧΡΜ5435
-```
+- Updated `public_html/gov.cabnet.app/ops/mappings.php`.
+- Added a copyable EDXEIX console scraper to the mapping page.
+- Added JSON snapshot import for EDXEIX lessors, drivers, vehicles, and starting points.
+- Added local snapshot counters.
+- Added editable `EDXEIX Lessor ID` fields beside driver and vehicle EDXEIX IDs.
+- Added an additive SQL migration for snapshot tables and `edxeix_lessor_id` columns.
 
 ## Files included
 
 ```text
-gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql
-docs/KOUNTER_EDXEIX_MAPPING_PATCH_2026_05_16.md
+public_html/gov.cabnet.app/ops/mappings.php
+gov.cabnet.app_sql/2026_05_17_edxeix_mapping_page_snapshot_tools.sql
+docs/MAPPING_PAGE_EDXEIX_SNAPSHOT_TOOL_2026_05_17.md
 PATCH_README.md
 ```
 
 ## Exact upload paths
 
-Upload/run this SQL file on the server:
-
 ```text
-/home/cabnet/gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql
+/home/cabnet/public_html/gov.cabnet.app/ops/mappings.php
+/home/cabnet/gov.cabnet.app_sql/2026_05_17_edxeix_mapping_page_snapshot_tools.sql
 ```
 
-For GitHub Desktop/local repo, extract the package at the repo root so the files land here:
+Documentation may be committed locally under:
 
 ```text
-gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql
-docs/KOUNTER_EDXEIX_MAPPING_PATCH_2026_05_16.md
+docs/MAPPING_PAGE_EDXEIX_SNAPSHOT_TOOL_2026_05_17.md
 PATCH_README.md
 ```
 
 ## SQL to run
 
-Run:
+Run/import:
 
-```sql
-SOURCE /home/cabnet/gov.cabnet.app_sql/2026_05_16_kounter_driver_vehicle_lessor_mapping.sql;
+```text
+gov.cabnet.app_sql/2026_05_17_edxeix_mapping_page_snapshot_tools.sql
 ```
-
-If using phpMyAdmin, open/import the same SQL file.
 
 ## Verification URLs
 
 ```text
+https://gov.cabnet.app/ops/mappings.php
 https://gov.cabnet.app/ops/mappings.php?view=unmapped
 https://gov.cabnet.app/ops/mappings.php?view=unmapped&limit=200&format=json
 ```
 
 ## Expected result
 
+- `/ops/mappings.php` loads without PHP errors.
+- A new `EDXEIX dropdown scraper + snapshot import` section appears.
+- Snapshot counters appear after migration.
+- Driver and vehicle tables show `EDXEIX Lessor ID`.
+- Existing driver/vehicle ID editing still works with the same confirmation phrases:
+
 ```text
-Ioannis Kounter is mapped as driver 7329 under lessor 2183.
-XZA3232 is mapped as vehicle 3160 under lessor 2183.
-XRM5435 is mapped as vehicle 13191 under lessor 2183.
-No EDXEIX submission is enabled by this patch.
+UPDATE DRIVER MAPPING
+UPDATE VEHICLE MAPPING
 ```
+
+- Snapshot import requires this exact phrase:
+
+```text
+IMPORT EDXEIX SNAPSHOT
+```
+
+## Safety
+
+This patch does not enable live EDXEIX submission. It does not call Bolt, EDXEIX, AADE, or create queue jobs. The browser console scraper is read-only GET/select-option extraction only.
 
 ## Git commit title
 
 ```text
-Add Ioannis Kounter EDXEIX mapping
+Add EDXEIX dropdown snapshot tools to mappings page
 ```
 
 ## Git commit description
 
 ```text
-Added verified SQL mapping for Ioannis Kounter, including EDXEIX lessor/company, driver, and vehicle IDs.
+Enhanced the Bolt to EDXEIX mapping page with a safe browser-console EDXEIX dropdown scraper, JSON snapshot import, snapshot counters, and optional EDXEIX lessor/company ID editing for driver and vehicle mappings.
 
-This is an idempotent database mapping patch only. It does not change live-submit gates, call EDXEIX, call Bolt, call AADE, or create submission jobs.
+The patch is additive and guarded. It does not call Bolt, submit to EDXEIX, call AADE, create jobs, or modify live-submit gates.
 ```
