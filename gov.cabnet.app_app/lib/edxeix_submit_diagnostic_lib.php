@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX submit diagnostic library v3.2.21
+ * gov.cabnet.app — EDXEIX submit diagnostic library v3.2.22
  *
  * Purpose:
  * - Keep EDXEIX automation progress on the ASAP track without enabling unattended live submit.
@@ -20,6 +20,9 @@
 declare(strict_types=1);
 
 require_once '/home/cabnet/gov.cabnet.app_app/lib/edxeix_live_submit_gate.php';
+
+$__govEdxDiagPreRideLib = '/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php';
+if (is_file($__govEdxDiagPreRideLib)) { require_once $__govEdxDiagPreRideLib; }
 
 if (!function_exists('gov_edxdiag_now')) {
     function gov_edxdiag_now(): string
@@ -265,7 +268,7 @@ if (!function_exists('gov_edxdiag_curl_step')) {
 
         $headers = [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-Agent: gov.cabnet.app EDXEIX submit diagnostic v3.2.21',
+            'User-Agent: gov.cabnet.app EDXEIX submit diagnostic v3.2.22',
             'Cookie: ' . $cookie,
         ];
 
@@ -647,6 +650,26 @@ if (!function_exists('gov_edxdiag_run')) {
             || trim((string)($liveConfig['allowed_order_reference'] ?? '')) !== '';
         $safeCandidateReport = $candidateReport;
         unset($safeCandidateReport['_selected_row']);
+        $preRideCandidateReport = null;
+        $preRideRequested = !empty($options['pre_ride_latest'])
+            || trim((string)($options['pre_ride_email_file'] ?? '')) !== ''
+            || trim((string)($options['pre_ride_email_text'] ?? '')) !== '';
+        if ($preRideRequested && function_exists('gov_prc_run')) {
+            $preRideCandidateReport = gov_prc_run([
+                'latest_mail' => !empty($options['pre_ride_latest']),
+                'email_file' => (string)($options['pre_ride_email_file'] ?? ''),
+                'email_text' => (string)($options['pre_ride_email_text'] ?? ''),
+                'write' => false,
+            ]);
+        } elseif ($preRideRequested) {
+            $preRideCandidateReport = [
+                'ok' => false,
+                'classification' => [
+                    'code' => 'PRE_RIDE_CANDIDATE_LIB_UNAVAILABLE',
+                    'message' => 'Pre-ride candidate library is not installed.',
+                ],
+            ];
+        }
 
         if (!$booking) {
             return [
@@ -660,7 +683,10 @@ if (!function_exists('gov_edxdiag_run')) {
                 ],
                 'session_summary' => gov_edxdiag_safe_session_summary($liveConfig),
                 'candidate_report' => $safeCandidateReport,
-                'next_action' => 'Wait for or create a real future Bolt trip, then rerun dry-run diagnostics before any one-shot transport.',
+                'pre_ride_candidate_report' => $preRideCandidateReport,
+                'next_action' => is_array($preRideCandidateReport)
+                    ? gov_edxdiag_pre_ride_next_action($preRideCandidateReport)
+                    : 'Wait for or create a real future Bolt trip, then rerun dry-run diagnostics before any one-shot transport.',
             ];
         }
 
@@ -731,10 +757,29 @@ if (!function_exists('gov_edxdiag_run')) {
             'transport_blockers' => $transportBlockers,
             'session_summary' => gov_edxdiag_safe_session_summary($liveConfig),
             'candidate_report' => $safeCandidateReport,
+            'pre_ride_candidate_report' => $preRideCandidateReport,
             'analysis' => $safeAnalysis,
             'trace' => $trace,
             'next_action' => gov_edxdiag_next_action((string)($classification['code'] ?? '')),
         ];
+    }
+}
+
+
+if (!function_exists('gov_edxdiag_pre_ride_next_action')) {
+    function gov_edxdiag_pre_ride_next_action(array $preRideCandidateReport): string
+    {
+        $code = (string)($preRideCandidateReport['classification']['code'] ?? '');
+        if ($code === 'PRE_RIDE_READY_CANDIDATE') {
+            return 'Pre-ride future candidate is ready in dry-run. Review it, capture metadata with the pre-ride candidate CLI/page if approved, then prepare the next supervised one-shot readiness step.';
+        }
+        if ($code === 'PRE_RIDE_CANDIDATE_BLOCKED') {
+            return 'Pre-ride email was parsed but remains blocked. Fix the candidate blockers before any EDXEIX transport.';
+        }
+        if ($code === 'NO_PRE_RIDE_EMAIL_SOURCE') {
+            return 'No pre-ride email source was loaded. Wait for or paste the next real future Bolt pre-ride email.';
+        }
+        return 'Continue dry-run/preflight analysis. Do not enable unattended submit worker yet.';
     }
 }
 

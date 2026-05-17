@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.21
+ * gov.cabnet.app — CLI EDXEIX submit diagnostic v3.2.22
  *
  * Default: dry-run analysis only. No EDXEIX HTTP transport.
  * Transport requires --transport=1 and the exact server-only confirmation phrase.
@@ -19,6 +19,8 @@ $orderReference = trim((string)gov_edxdiag_cli_value($argv, 'order-reference', '
 $confirm = (string)gov_edxdiag_cli_value($argv, 'confirm', '');
 $candidateLimit = (int)gov_edxdiag_cli_value($argv, 'limit', '75');
 $listCandidates = gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'list-candidates', '0'));
+$preRideLatest = gov_edxdiag_bool(gov_edxdiag_cli_value($argv, 'pre-ride-latest', '0'));
+$preRideEmailFile = trim((string)gov_edxdiag_cli_value($argv, 'pre-ride-email-file', ''));
 
 try {
     $result = gov_edxdiag_run([
@@ -29,6 +31,8 @@ try {
         'confirmation_phrase' => $confirm,
         'candidate_limit' => $candidateLimit,
         'list_candidates' => $listCandidates,
+        'pre_ride_latest' => $preRideLatest,
+        'pre_ride_email_file' => $preRideEmailFile,
     ]);
 } catch (Throwable $e) {
     $result = [
@@ -51,7 +55,7 @@ if ($json) {
 $analysis = is_array($result['analysis'] ?? null) ? $result['analysis'] : [];
 $class = is_array($result['classification'] ?? null) ? $result['classification'] : [];
 
-echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.21\n";
+echo "gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.22\n";
 echo "Started: " . (string)($result['started_at'] ?? '') . "\n";
 echo "Booking ID: " . (string)($analysis['booking_id'] ?? '') . "\n";
 echo "Order reference: " . (string)($analysis['order_reference'] ?? '') . "\n";
@@ -85,6 +89,34 @@ if ($candidateReport) {
             if ($rowBlockers) {
                 echo "    blockers: " . implode(', ', $rowBlockers) . "\n";
             }
+        }
+    }
+}
+
+
+$preRideReport = is_array($result['pre_ride_candidate_report'] ?? null) ? $result['pre_ride_candidate_report'] : [];
+if ($preRideReport) {
+    $preClass = is_array($preRideReport['classification'] ?? null) ? $preRideReport['classification'] : [];
+    $preCandidate = is_array($preRideReport['candidate'] ?? null) ? $preRideReport['candidate'] : [];
+    echo "Pre-ride candidate report:
+";
+    echo "- Classification: " . (string)($preClass['code'] ?? '') . "
+";
+    echo "- Message: " . (string)($preClass['message'] ?? '') . "
+";
+    if ($preCandidate) {
+        echo "- Pickup: " . (string)($preCandidate['pickup_datetime'] ?? '') . "
+";
+        echo "- Driver: " . (string)($preCandidate['driver_name'] ?? '') . "
+";
+        echo "- Vehicle: " . (string)($preCandidate['vehicle_plate'] ?? '') . "
+";
+        echo "- Ready: " . (!empty($preCandidate['ready_for_edxeix']) ? 'YES' : 'NO') . "
+";
+        $preBlockers = is_array($preCandidate['safety_blockers'] ?? null) ? $preCandidate['safety_blockers'] : [];
+        if ($preBlockers) {
+            echo "  blockers: " . implode(', ', $preBlockers) . "
+";
         }
     }
 }

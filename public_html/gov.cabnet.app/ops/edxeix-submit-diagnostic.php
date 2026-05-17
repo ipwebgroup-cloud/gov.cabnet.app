@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.21
+ * gov.cabnet.app — EDXEIX Submit Diagnostic v3.2.22
  *
  * Web UI is dry-run/read-only only. It never performs EDXEIX transport.
  */
@@ -27,6 +27,7 @@ function edxdiag_badge(bool $ok, string $yes = 'YES', string $no = 'NO'): string
 
 $bookingId = trim((string)($_GET['booking_id'] ?? ''));
 $orderRef = trim((string)($_GET['order_reference'] ?? ''));
+$preRideLatest = !empty($_GET['pre_ride_latest']);
 $result = null;
 $error = null;
 
@@ -36,6 +37,7 @@ try {
         'order_reference' => $orderRef,
         'transport' => false,
         'follow_redirects' => true,
+        'pre_ride_latest' => $preRideLatest,
     ]);
 } catch (Throwable $e) {
     $error = $e->getMessage();
@@ -43,7 +45,7 @@ try {
 
 opsui_shell_begin([
     'title' => 'EDXEIX Submit Diagnostic',
-    'page_title' => 'EDXEIX Submit Diagnostic v3.2.21',
+    'page_title' => 'EDXEIX Submit Diagnostic v3.2.22',
     'subtitle' => 'Dry-run submit-readiness and redirect-trace command center. Web mode performs no EDXEIX HTTP transport.',
     'breadcrumbs' => 'Operations / EDXEIX / Submit Diagnostic',
     'active_section' => 'EDXEIX',
@@ -57,12 +59,16 @@ $session = is_array($result['session_summary'] ?? null) ? $result['session_summa
 $payloadSummary = is_array($analysis['payload_summary'] ?? null) ? $analysis['payload_summary'] : [];
 $candidateReport = is_array($result['candidate_report'] ?? null) ? $result['candidate_report'] : [];
 $candidateRows = is_array($candidateReport['rows'] ?? null) ? $candidateReport['rows'] : [];
+$preRideReport = is_array($result['pre_ride_candidate_report'] ?? null) ? $result['pre_ride_candidate_report'] : [];
+$preRideClass = is_array($preRideReport['classification'] ?? null) ? $preRideReport['classification'] : [];
+$preRideCandidate = is_array($preRideReport['candidate'] ?? null) ? $preRideReport['candidate'] : [];
 $diagnosticSafetyBlockers = is_array($analysis['diagnostic_safety_blockers'] ?? null) ? $analysis['diagnostic_safety_blockers'] : [];
 $liveBlockers = is_array($analysis['live_blockers'] ?? null) ? $analysis['live_blockers'] : [];
 $technicalBlockers = is_array($analysis['technical_blockers'] ?? null) ? $analysis['technical_blockers'] : [];
 $fields = is_array($payloadSummary['fields'] ?? null) ? $payloadSummary['fields'] : [];
 $cliBase = 'php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json';
 $cliCandidates = 'php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75';
+$cliPreRide = 'php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75 --pre-ride-latest=1';
 if (($analysis['booking_id'] ?? '') !== '') {
     $cliBase .= ' --booking-id=' . escapeshellarg((string)$analysis['booking_id']);
 }
@@ -118,8 +124,33 @@ $cliTransport = $cliBase . ' --transport=1 --confirm=' . escapeshellarg('I UNDER
     <form method="get" class="gov-form-grid">
         <label>Booking ID<br><input type="text" name="booking_id" value="<?php echo edxdiag_h($bookingId); ?>" placeholder="normalized_bookings.id"></label>
         <label>Order reference<br><input type="text" name="order_reference" value="<?php echo edxdiag_h($orderRef); ?>" placeholder="Bolt/order reference"></label>
+        <label style="display:flex;gap:.45rem;align-items:center;margin-top:1.35rem;"><input type="checkbox" name="pre_ride_latest" value="1" <?php echo $preRideLatest ? 'checked' : ''; ?>> Include latest pre-ride email candidate</label>
         <div><button type="submit" class="gov-button">Analyze dry-run</button></div>
     </form>
+</div>
+
+
+<div class="gov-card">
+    <h2>Latest pre-ride email candidate</h2>
+    <?php if (!$preRideLatest): ?>
+        <p>Not loaded. Add <code>?pre_ride_latest=1</code> or use the lookup checkbox to include the latest Maildir pre-ride candidate.</p>
+        <p><a class="gov-button" href="?pre_ride_latest=1">Analyze latest pre-ride email</a> <a class="gov-button" href="/ops/pre-ride-edxeix-candidate.php">Open pre-ride candidate tool</a></p>
+    <?php elseif (!$preRideReport): ?>
+        <p>Pre-ride candidate report unavailable.</p>
+    <?php else: ?>
+        <table class="gov-table">
+            <tbody>
+            <tr><th>Classification</th><td><?php echo edxdiag_h($preRideClass['code'] ?? ''); ?></td></tr>
+            <tr><th>Message</th><td><?php echo edxdiag_h($preRideClass['message'] ?? ''); ?></td></tr>
+            <tr><th>Pickup</th><td><?php echo edxdiag_h($preRideCandidate['pickup_datetime'] ?? ''); ?></td></tr>
+            <tr><th>Driver</th><td><?php echo edxdiag_h($preRideCandidate['driver_name'] ?? ''); ?></td></tr>
+            <tr><th>Vehicle</th><td><?php echo edxdiag_h($preRideCandidate['vehicle_plate'] ?? ''); ?></td></tr>
+            <tr><th>Ready</th><td><?php echo edxdiag_badge(!empty($preRideCandidate['ready_for_edxeix'])); ?></td></tr>
+            <tr><th>Safety blockers</th><td><code><?php echo edxdiag_h(implode(', ', is_array($preRideCandidate['safety_blockers'] ?? null) ? $preRideCandidate['safety_blockers'] : [])); ?></code></td></tr>
+            </tbody>
+        </table>
+        <p><a class="gov-button" href="/ops/pre-ride-edxeix-candidate.php?latest_mail=1">Review in pre-ride candidate tool</a></p>
+    <?php endif; ?>
 </div>
 
 <div class="gov-card">
@@ -198,6 +229,8 @@ $cliTransport = $cliBase . ' --transport=1 --confirm=' . escapeshellarg('I UNDER
     <h2>CLI commands</h2>
     <p>Candidate discovery, no EDXEIX transport:</p>
     <pre><code><?php echo edxdiag_h($cliCandidates); ?></code></pre>
+    <p>Candidate discovery plus latest pre-ride email candidate, no EDXEIX transport:</p>
+    <pre><code><?php echo edxdiag_h($cliPreRide); ?></code></pre>
     <p>Dry-run diagnostic, no EDXEIX transport:</p>
     <pre><code><?php echo edxdiag_h($cliBase); ?></code></pre>
     <p>Supervised one-shot transport trace command. This remains blocked unless server-only live gates are enabled for a real eligible future trip:</p>

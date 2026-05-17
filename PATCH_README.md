@@ -1,100 +1,119 @@
-# gov.cabnet.app Patch — EDXEIX Submit Diagnostic v3.2.21
+# gov.cabnet.app Patch — EDXEIX Pre-Ride Future Candidate Capture v3.2.22
 
 Generated for Andreas on 2026-05-17.
 
 ## What changed
 
-This patch updates the EDXEIX submit diagnostic after server validation of v3.2.20.
-
-v3.2.20 installed correctly and performed no EDXEIX transport, but its default dry-run selected an old finished/test-like booking and showed the current future guard as `0 min`. v3.2.21 keeps the ASAP automation track safe by adding candidate discovery and a diagnostic +30 minute guard floor.
+This patch adds a separate pre-ride email candidate path so the project can move toward full EDXEIX automation ASAP without affecting production V0.
 
 Key changes:
 
-- Adds candidate discovery to the CLI and web diagnostic page.
-- Stops default analysis from falling back to arbitrary stale rows.
-- Auto-selects only a real future Bolt candidate that passes diagnostic readiness filters.
-- Adds `--list-candidates=1 --limit=75` support.
-- Adds `candidate_report` to JSON output.
-- Adds diagnostic safety blockers separate from live-gate blockers.
-- Applies +30 minute minimum diagnostic future guard even if current config is lower.
-- Blocks diagnostic transport unless a booking/order is explicitly selected or server-only one-shot config selects it.
-- Updates scope, handoff, continue prompt, README, manifest, and diagnostic documentation.
+- Adds dry-run parsing of Bolt pre-ride emails into sanitized `bolt_pre_ride_email` EDXEIX candidate previews.
+- Keeps existing `bolt_mail` receipt-only rows blocked.
+- Applies the +30 minute future guard.
+- Resolves driver, vehicle, lessor, and starting point using existing EDXEIX mapping lookup.
+- Blocks Admin Excluded vehicles, including the permanent EMT8640 safety rule.
+- Adds an optional additive SQL table for sanitized pre-ride candidate metadata.
+- Adds CLI and `/ops/` UI tools for pre-ride candidate readiness.
+- Updates the EDXEIX submit diagnostic to optionally include the latest pre-ride candidate with `--pre-ride-latest=1`.
+
+No live EDXEIX submit is enabled. No AADE/myDATA behavior is changed. No production V0 route is replaced.
 
 ## Files included
 
-- `SCOPE.md`
-- `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
-- `README.md`
-- `PROJECT_FILE_MANIFEST.md`
+- `HANDOFF.md`
 - `PATCH_README.md`
+- `PROJECT_FILE_MANIFEST.md`
+- `README.md`
+- `SCOPE.md`
+- `docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.22.md`
 - `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.21.md`
-- `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
 - `gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php`
+- `gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php`
+- `gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php`
+- `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
+- `gov.cabnet.app_sql/2026_05_17_edxeix_pre_ride_candidates.sql`
 - `public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php`
+- `public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php`
 
 ## Exact upload paths
 
 Upload/replace:
 
 ```text
-/home/cabnet/SCOPE.md
-/home/cabnet/HANDOFF.md
 /home/cabnet/CONTINUE_PROMPT.md
-/home/cabnet/README.md
-/home/cabnet/PROJECT_FILE_MANIFEST.md
+/home/cabnet/HANDOFF.md
 /home/cabnet/PATCH_README.md
+/home/cabnet/PROJECT_FILE_MANIFEST.md
+/home/cabnet/README.md
+/home/cabnet/SCOPE.md
+/home/cabnet/docs/EDXEIX_PRE_RIDE_CANDIDATE_v3.2.22.md
 /home/cabnet/docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.21.md
-/home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
 /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
+/home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
+/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php
+/home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
+/home/cabnet/gov.cabnet.app_sql/2026_05_17_edxeix_pre_ride_candidates.sql
 /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
+/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
 ```
 
 For local GitHub Desktop repo, extract this ZIP at the repository root. The ZIP root mirrors the repo/live layout directly and has no wrapper folder.
 
 ## SQL to run
 
-None.
+Optional but recommended before using `--write=1` candidate capture:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < /home/cabnet/gov.cabnet.app_sql/2026_05_17_edxeix_pre_ride_candidates.sql
+```
+
+This migration is additive only. It creates `edxeix_pre_ride_candidates` if it does not exist. It does not alter production V0 tables.
 
 ## Verification commands
 
 ```bash
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_candidate_lib.php
 php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php
 php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
 
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75 --pre-ride-latest=1
 ```
 
-Optional dry-run for a selected booking:
+Optional capture after SQL is installed:
 
 ```bash
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --booking-id=BOOKING_ID --json
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --write=1
 ```
 
-Do not run transport unless explicitly authorized for a real future candidate.
-
-## Verification URL
+## Verification URLs
 
 ```text
-https://gov.cabnet.app/ops/edxeix-submit-diagnostic.php
+https://gov.cabnet.app/ops/pre-ride-edxeix-candidate.php
+https://gov.cabnet.app/ops/edxeix-submit-diagnostic.php?pre_ride_latest=1
 ```
 
 ## Expected result
 
 - Syntax checks pass.
-- CLI returns `candidate_report`.
-- If no real future Bolt candidate exists, classification is `NO_SAFE_CANDIDATE_AVAILABLE`.
-- If configured guard is below +30, output shows `future_guard_floor_applied: true` and diagnostic safety blocker `configured_future_guard_below_30_minimum`.
-- Web page shows candidate discovery and diagnostic safety blockers.
-- No EDXEIX HTTP transport is performed by default.
+- Existing EDXEIX submit diagnostic remains dry-run/read-only.
+- Pre-ride candidate page can parse pasted/latest pre-ride email.
+- Latest pre-ride candidate may classify as `PRE_RIDE_READY_CANDIDATE` only if it is future, mapped, not excluded, and has required fields.
+- No EDXEIX transport is performed.
+- No AADE calls occur.
+- No queue jobs are created.
+- No normalized bookings are created or changed.
+- Optional `--write=1` stores sanitized metadata only and never stores the raw email body.
 
 ## Git commit title
 
-Harden EDXEIX diagnostic candidate discovery
+Add pre-ride EDXEIX candidate diagnostics
 
 ## Git commit description
 
-Improves the EDXEIX submit diagnostic after v3.2.20 server validation by adding candidate discovery, preventing stale default booking selection, applying a +30 minute diagnostic future-guard floor, requiring explicit booking/order selection for any transport trace, and exposing candidate_report plus diagnostic safety blockers in CLI and ops UI output.
-
-No SQL changes. No unattended submit behavior enabled. Web mode remains dry-run/read-only.
+Adds a separate dry-run pre-ride email candidate path for EDXEIX automation readiness. Pre-ride emails can now be parsed into sanitized future candidate previews with +30 minute guard, mapping readiness checks, Admin Excluded vehicle blocking, CLI/web diagnostics, and optional additive metadata capture in `edxeix_pre_ride_candidates`. Existing receipt-only Bolt mail rows remain blocked. No live EDXEIX submit, AADE behavior, production V0 route, queue job, or normalized booking behavior is changed.

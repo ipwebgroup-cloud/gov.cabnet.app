@@ -1,12 +1,10 @@
 # gov.cabnet.app — Bolt → EDXEIX Integration
 
-Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness/diagnostic workflow.
+Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX preflight/queue workflow.
 
 ## Current safety posture
 
-No unattended EDXEIX submission is enabled by this repository package.
-
-Current work is limited to:
+No unattended live EDXEIX submission is enabled by this repository package. Current work is limited to:
 
 - Bolt reference sync
 - Bolt order sync
@@ -15,11 +13,11 @@ Current work is limited to:
 - EDXEIX payload preview/preflight
 - local queue visibility
 - readiness audit
-- dry-run/local audit behavior by default
-- EDXEIX submit diagnostics and redirect classification
-- candidate discovery for real future Bolt trips
+- dry-run/local audit behavior
+- EDXEIX submit redirect diagnostics
+- dry-run pre-ride email future candidate diagnostics
 
-Live EDXEIX submission must remain disabled unless a real eligible future Bolt trip exists, preflight passes, diagnostic candidate discovery confirms eligibility, and Andreas explicitly requests a supervised one-shot live-submit diagnostic.
+Live EDXEIX submission must remain disabled unless a real eligible future candidate exists and the owner explicitly requests a supervised live-submit update.
 
 ## cPanel layout
 
@@ -39,7 +37,7 @@ public_html/gov.cabnet.app/      Public endpoints and operations UI
 gov.cabnet.app_app/              Private app library, source, CLI, storage placeholders
 gov.cabnet.app_config/           Config examples only; real config ignored
 gov.cabnet.app_sql/              Schema/migration SQL, sanitized where needed
-docs/                            Scope, deployment, security, and recommendations
+docs/                            Scope, deployment, security, diagnostics, and recommendations
 ```
 
 ## Key public endpoints
@@ -58,15 +56,21 @@ docs/                            Scope, deployment, security, and recommendation
 /ops/readiness.php
 /ops/submit.php
 /ops/edxeix-submit-diagnostic.php
+/ops/pre-ride-edxeix-candidate.php
+/ops/pre-ride-email-tool.php
 ```
 
-## Current EDXEIX diagnostic posture
+## Current validated status
 
-- Queue 2398 supervised automatic POST test is closed and unconfirmed.
-- HTTP 302 alone is not proof of saved EDXEIX contract.
-- v3.2.21 diagnostic adds candidate discovery and a +30 minute minimum diagnostic future guard.
-- Diagnostic web mode is dry-run/read-only and never POSTs to EDXEIX.
-- Diagnostic CLI transport remains blocked unless all live gates and diagnostic gates pass for an explicitly selected real future booking.
+- Bolt API connection works.
+- Bolt reference sync works.
+- Bolt order sync works.
+- Readiness audit works and reports read-only behavior.
+- Real historical Bolt orders are blocked from EDXEIX submission because they are terminal/cancelled and not at least +30 minutes in the future.
+- v3.2.21 diagnostics confirmed no safe normalized booking candidate in the latest 75 rows.
+- `future_start_guard_minutes` is 30 in live config.
+- EDXEIX session diagnostic shows session file, cookie, and CSRF present, but no live submit is enabled.
+- v3.2.22 adds dry-run pre-ride email future candidate diagnostics without changing production V0.
 
 ## Initial install notes
 
@@ -74,5 +78,18 @@ docs/                            Scope, deployment, security, and recommendation
 2. Copy `gov.cabnet.app_config/bolt.php.example` to `gov.cabnet.app_config/bolt.php` on the server if using the Bolt override loader.
 3. Fill real secrets only on the server. Never commit them.
 4. Import the schema/migrations needed for the target environment.
-5. Run `/bolt_readiness_audit.php`, `/ops/readiness.php`, and `/ops/edxeix-submit-diagnostic.php`.
-6. Do not enable live submit behavior until a real future Bolt ride passes preflight and diagnostic discovery.
+5. Run `/bolt_readiness_audit.php` and `/ops/readiness.php`.
+6. Do not enable live submit behavior until a real future candidate passes preflight.
+
+## v3.2.22 pre-ride candidate commands
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75 --pre-ride-latest=1
+```
+
+Optional metadata capture after additive SQL migration:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --write=1
+```

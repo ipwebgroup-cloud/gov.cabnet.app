@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build and harden a safe Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness/submit-diagnostic pipeline, moving toward full automation only after confirmed proof that EDXEIX accepts and saves a real future trip.
+Build and harden a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX preflight/queue/readiness pipeline.
 
 ## In scope now
 
@@ -12,33 +12,24 @@ Build and harden a safe Bolt Fleet API → normalized local bookings → EDXEIX 
 - Map Bolt drivers/vehicles to EDXEIX IDs.
 - Build EDXEIX payload previews.
 - Block terminal/cancelled/old orders.
-- Require a +30 minute minimum future guard before any order can be considered submit-diagnostic safe.
+- Require a +30 minute future guard before any order/candidate can be considered submission-safe.
 - Stage local jobs only when explicitly requested.
 - Maintain readiness/audit pages.
-- Maintain dry-run/local audit behavior by default.
-- Run EDXEIX submit diagnostics to classify HTTP 302/redirect behavior without treating redirect as proof.
-- Discover real future Bolt candidates and show why each candidate is or is not eligible.
-- Use browser-extension/operator proof capture only as a fallback/helper layer when EDXEIX browser state is required.
-
-## ASAP automation track
-
-1. Keep server-side queue/preflight as the automation brain.
-2. Use v3.2.21 candidate discovery to find only real future Bolt candidates.
-3. Correct any mapping/config/session blockers visible in the diagnostic.
-4. When a real future candidate exists, run dry-run diagnostics against that explicit booking.
-5. Only after explicit approval, run one supervised diagnostic transport trace.
-6. Classify the final EDXEIX result and verify saved contract/list proof.
-7. Promote to one-shot controlled live submit only after proof is reliable.
-8. Promote to unattended worker only after repeated proof and duplicate protection are confirmed.
+- Keep current submit behavior dry-run, local-only, preflight-only, or read-only.
+- Diagnose EDXEIX submit redirects without treating HTTP 302 as proof of saved contract.
+- Parse Bolt pre-ride emails into a separate dry-run `bolt_pre_ride_email` future candidate preview.
+- Optionally capture sanitized pre-ride candidate metadata in `edxeix_pre_ride_candidates` after additive SQL migration.
 
 ## Out of scope until explicit approval
 
 - Unattended automatic EDXEIX submission.
-- Cron-enabled live submission workers.
-- Live form POSTs to EDXEIX without one-shot authorization.
-- Treating HTTP 302 alone as success.
+- Cron-enabled submission workers.
+- Live form POSTs to EDXEIX except a supervised one-shot diagnostic explicitly approved by Andreas.
+- Treating `bolt_mail` receipt-only rows as EDXEIX candidates.
+- Creating EDXEIX submission jobs from pre-ride emails without a future readiness patch and approval.
+- Storing raw pre-ride email bodies.
 - Committing production credentials, cookies, API keys, real SQL dumps, or runtime sessions.
 
-## Current live-test blocker
+## Current automation blocker
 
-A real Bolt ride must be scheduled sufficiently in the future before a true live-safe EDXEIX candidate can exist. The diagnostic now enforces a +30 minute minimum guard even if current config is lower.
+No real future EDXEIX-ready candidate exists in the latest normalized Bolt rows. The ASAP path is now to use the pre-ride email stream as a separate future candidate source, while keeping receipt-only mail rows blocked.
