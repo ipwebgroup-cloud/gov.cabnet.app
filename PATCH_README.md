@@ -1,49 +1,82 @@
-# Patch README — gov-edxeix-create-form-token-diagnostic-v3.2.33
+# gov.cabnet.app — v3.2.34 Browser Create-Form Proof Patch
 
-## What changed
+## Summary
 
-Adds a read-only EDXEIX create-form token diagnostic after the v3.2.30 HTTP 419 result. The diagnostic fetches `/dashboard/lease-agreement/create`, follows redirects safely, fingerprints the final body, extracts only hashed token diagnostics, summarizes form fields, and keeps server-side transport on hold.
+Adds a no-secret browser create-form proof workflow after v3.2.33 proved the server-side session cannot load the authenticated EDXEIX create form.
+
+## Safety
+
+- No EDXEIX POST.
+- No AADE/myDATA call.
+- No queue job.
+- No normalized booking write.
+- No live config write.
+- No V0 production change.
+- No raw cookie, raw CSRF, raw token, raw HTML, or field values are accepted or printed.
+
+## Files
+
+```text
+docs/EDXEIX_BROWSER_CREATE_FORM_PROOF_v3.2.34.md
+docs/EDXEIX_BROWSER_CREATE_FORM_PROOF_SNIPPET_v3.2.34.js
+gov.cabnet.app_app/lib/edxeix_browser_form_proof_lib.php
+gov.cabnet.app_app/cli/edxeix_browser_form_proof_validate.php
+public_html/gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
+public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
+CONTINUE_PROMPT.md
+HANDOFF.md
+README.md
+SCOPE.md
+PROJECT_FILE_MANIFEST.md
+PATCH_README.md
+```
 
 ## Upload paths
 
 ```text
-/home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php
-/home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php
-/home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php
-/home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
+/home/cabnet/docs/EDXEIX_BROWSER_CREATE_FORM_PROOF_v3.2.34.md
+/home/cabnet/docs/EDXEIX_BROWSER_CREATE_FORM_PROOF_SNIPPET_v3.2.34.js
+/home/cabnet/gov.cabnet.app_app/lib/edxeix_browser_form_proof_lib.php
+/home/cabnet/gov.cabnet.app_app/cli/edxeix_browser_form_proof_validate.php
+/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
 /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
-/home/cabnet/docs/EDXEIX_CREATE_FORM_TOKEN_DIAGNOSTIC_v3.2.33.md
-/home/cabnet/PATCH_README.md
-/home/cabnet/HANDOFF.md
 /home/cabnet/CONTINUE_PROMPT.md
-/home/cabnet/SCOPE.md
+/home/cabnet/HANDOFF.md
 /home/cabnet/README.md
+/home/cabnet/SCOPE.md
 /home/cabnet/PROJECT_FILE_MANIFEST.md
+/home/cabnet/PATCH_README.md
 ```
 
 ## SQL
 
 None.
 
-## Verify
+## Verification
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_pre_ride_one_shot_transport_trace_lib.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/pre_ride_one_shot_transport_trace.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_browser_form_proof_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_browser_form_proof_validate.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
 php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
-
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json
 ```
 
-## URLs
+Open:
 
 ```text
-https://gov.cabnet.app/ops/edxeix-create-form-token-diagnostic.php
-https://gov.cabnet.app/ops/pre-ride-one-shot-transport-trace.php
+https://gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
 ```
 
-## Safety
+## Git commit title
+
+```text
+Add EDXEIX browser create-form proof diagnostic
+```
+
+## Git commit description
+
+```text
+Adds v3.2.34 no-secret browser create-form proof tooling after v3.2.33 showed the server-side session redirects away from the authenticated EDXEIX create form. The browser proof validates form/token presence and field names from the logged-in browser without sending cookies, raw CSRF tokens, raw form tokens, raw HTML, or form values.
 
 No EDXEIX POST, AADE call, queue job, normalized booking write, live config write, cron, or V0 production change.
+```

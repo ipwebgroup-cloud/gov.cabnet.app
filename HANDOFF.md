@@ -1,19 +1,32 @@
-# HANDOFF — gov.cabnet.app Bolt → EDXEIX bridge v3.2.33
+# gov.cabnet.app — HANDOFF v3.2.34
 
-Current state:
-- V0 laptop/manual production remains the operational fallback and is untouched.
-- Candidate 4 was marked `manual_submitted_v0` and archived in v3.2.32.
-- Server-side retry prevention is active.
-- v3.2.30 proved server POST reached EDXEIX but received HTTP 419/session expired.
-- v3.2.33 adds a read-only create-form token diagnostic for `/dashboard/lease-agreement/create`.
+## Current state
 
-Next safe step:
-Run:
+The pre-ride candidate pipeline works through parsing, mapping, capture, readiness, rehearsal, one-shot transport trace, closure, and retry prevention.
 
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_create_form_token_diagnostic.php --json
+Candidate 4 was a real ride. The server-side one-shot transport trace attempted one POST and EDXEIX returned HTTP 419 / session expired. Andreas then submitted that real ride manually via V0/laptop. Candidate 4 is now archived as `MANUALLY_SUBMITTED_VIA_V0` and server retry is blocked.
+
+v3.2.33 proved that server-side GET to the authenticated EDXEIX create form redirects to the public/root page and cannot see the hidden form token.
+
+v3.2.34 adds a safe browser create-form proof path. It verifies what the logged-in browser can see without exposing secrets.
+
+## Safety posture
+
+- V0 production remains untouched.
+- No unattended EDXEIX submission.
+- No EDXEIX POST in v3.2.34.
+- No AADE/myDATA call.
+- No queue job.
+- No normalized booking write.
+- No live config write.
+- No raw cookies, raw CSRF, raw token, raw HTML, or field values are accepted or printed.
+
+## Next safest step
+
+Run the browser proof from the logged-in EDXEIX create form and paste the sanitized JSON into:
+
+```text
+https://gov.cabnet.app/ops/edxeix-browser-create-form-proof.php
 ```
 
-Then inspect whether the diagnostic reaches the create form, finds `_token`, and sees required field names.
-
-Do not retry POST until a later patch integrates a fresh form token and Andreas explicitly approves a new one-candidate live trace.
+If it returns `BROWSER_CREATE_FORM_PROOF_READY`, the next safe development step is a browser-assisted fill/submit design that still defaults to manual/operator control.

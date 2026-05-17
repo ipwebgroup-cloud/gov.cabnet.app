@@ -82,10 +82,10 @@ $steps = is_array($diag['steps'] ?? null) ? $diag['steps'] : [];
 <div class="wrap">
   <section class="card hero <?= $ok ? 'ok' : '' ?>">
     <h1>EDXEIX Create Form Token Diagnostic</h1>
-    <p class="muted">v3.2.33 — read-only GET of the EDXEIX create form. No EDXEIX POST, no AADE call, no queue job, no normalized booking write, no live config write.</p>
+    <p class="muted">v3.2.34 — read-only GET of the EDXEIX create form. No EDXEIX POST, no AADE call, no queue job, no normalized booking write, no live config write.</p>
     <p><strong>Classification:</strong> <span class="pill <?= $ok ? 'ok' : 'bad' ?>"><?= edxf_h($result['classification']['code'] ?? 'UNKNOWN') ?></span></p>
     <p><?= edxf_h($result['classification']['message'] ?? '') ?></p>
-    <p><a class="btn" href="/ops/edxeix-create-form-token-diagnostic.php">Refresh diagnostic</a> <a class="btn secondary" href="/ops/pre-ride-one-shot-transport-trace.php">Transport trace page</a></p>
+    <p><a class="btn" href="/ops/edxeix-create-form-token-diagnostic.php">Refresh diagnostic</a> <a class="btn secondary" href="/ops/edxeix-browser-create-form-proof.php">Browser form proof</a> <a class="btn secondary" href="/ops/pre-ride-one-shot-transport-trace.php">Transport trace page</a></p>
   </section>
 
   <section class="card">

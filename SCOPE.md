@@ -1,18 +1,20 @@
-# Scope — v3.2.33
+# Scope — gov.cabnet.app Bolt → EDXEIX Bridge
 
-ASAP automation track remains diagnostic-first.
+## ASAP automation track
 
-In scope:
-- Read-only EDXEIX create-form GET diagnostic.
-- Token hash reporting without exposing raw tokens.
-- Form action/method/field summary.
-- Redirect-chain fingerprinting.
-- Existing retry prevention and V0 manual-closure hold.
+The current ASAP track is moving from server-side pre-ride candidate readiness toward a safe EDXEIX submission model.
+
+v3.2.34 scope:
+
+- Browser create-form proof from the logged-in EDXEIX session.
+- Validate form/token visibility without exposing secrets.
+- Confirm real form fields before browser-assisted automation design.
 
 Out of scope:
-- V0 production changes.
-- Automatic EDXEIX submission.
-- AADE/myDATA changes.
-- Queue jobs.
+
+- Unattended submit.
 - Cron.
-- Live config writes.
+- AADE/myDATA changes.
+- V0 production changes.
+- Raw credentials/cookies/token capture.
+- Server-side retry for manually closed candidates.
