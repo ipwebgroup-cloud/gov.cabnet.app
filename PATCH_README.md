@@ -1,46 +1,51 @@
-# gov.cabnet.app Patch — Safe Handoff Package Privacy Hardening
+# gov.cabnet.app Patch — EDXEIX Submit Diagnostic v3.2.20
 
 Generated for Andreas on 2026-05-17.
 
 ## What changed
 
-This patch refreshes the project handoff state and hardens safe handoff package generation/validation so DB-free Git-safe packages do not accidentally contain private audit/runtime material.
+This patch keeps the project on the ASAP full-automation track by adding a safe diagnostic layer for the queue 2398 blocker: EDXEIX returned HTTP 302, but no remote/reference ID was captured and no saved contract was confirmed.
 
 Key changes:
 
-- Updated `HANDOFF.md` and `CONTINUE_PROMPT.md` from stale queue 1590/v3.2.15 wording to the current queue 2398 closed-test safe blocked posture.
-- Added `.gitignore` protection for root `DATABASE_EXPORT.sql`, runtime locks, receipt attachment PDFs, and cPanel backup/broken files.
-- Updated `SafeHandoffPackageBuilder` so database exports are excluded by default unless explicitly requested.
-- Updated CLI package builder so DB-free is the default; private DB audit export now requires `--include-db`.
-- Updated `SafeHandoffPackageValidator` to flag receipt attachments, runtime locks, storage artifacts, backup/broken files, and accidental database exports.
-- Added documentation: `docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md`.
+- Adds a private EDXEIX submit diagnostic library that can analyze a selected booking through the existing live-submit gate.
+- Adds a CLI diagnostic tool that defaults to dry-run/read-only.
+- Adds a dry-run `/ops/` diagnostic page for operator visibility and copy/paste terminal commands.
+- Adds safe redirect-chain tracing and classification for supervised CLI transport diagnostics.
+- Updates `SCOPE.md` so the immediate ASAP track is diagnostic redirect tracing, success proof, then controlled one-shot testing.
+- Updates `HANDOFF.md`, `CONTINUE_PROMPT.md`, `README.md`, and `PROJECT_FILE_MANIFEST.md` to preserve continuity.
+- Adds `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md`.
+
+No unattended live submission is enabled. The web page never POSTs to EDXEIX.
 
 ## Files included
 
-- `.gitignore`
 - `HANDOFF.md`
 - `CONTINUE_PROMPT.md`
 - `PATCH_README.md`
-- `docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md`
-- `gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php`
-- `gov.cabnet.app_app/src/Support/SafeHandoffPackageValidator.php`
-- `gov.cabnet.app_app/cli/build_safe_handoff_package.php`
-- `public_html/gov.cabnet.app/ops/handoff-package-cli.php`
+- `PROJECT_FILE_MANIFEST.md`
+- `README.md`
+- `SCOPE.md`
+- `docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md`
+- `gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php`
+- `gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php`
+- `public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php`
 
 ## Exact upload paths
 
 Upload/replace:
 
 ```text
-/home/cabnet/.gitignore
 /home/cabnet/HANDOFF.md
 /home/cabnet/CONTINUE_PROMPT.md
 /home/cabnet/PATCH_README.md
-/home/cabnet/docs/SAFE_HANDOFF_PACKAGE_PRIVACY_HARDENING_2026_05_17.md
-/home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
-/home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageValidator.php
-/home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php
-/home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-cli.php
+/home/cabnet/PROJECT_FILE_MANIFEST.md
+/home/cabnet/README.md
+/home/cabnet/SCOPE.md
+/home/cabnet/docs/EDXEIX_SUBMIT_DIAGNOSTIC_v3.2.20.md
+/home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
+/home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
+/home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
 ```
 
 For local GitHub Desktop repo, extract this ZIP at the repository root. The ZIP root mirrors the repo/live layout directly and has no wrapper folder.
@@ -52,42 +57,47 @@ None.
 ## Verification commands
 
 ```bash
-php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageBuilder.php
-php -l /home/cabnet/gov.cabnet.app_app/src/Support/SafeHandoffPackageValidator.php
-php -l /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php
-php -l /home/cabnet/public_html/gov.cabnet.app/ops/handoff-package-cli.php
+php -l /home/cabnet/gov.cabnet.app_app/lib/edxeix_submit_diagnostic_lib.php
+php -l /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
+php -l /home/cabnet/public_html/gov.cabnet.app/ops/edxeix-submit-diagnostic.php
 
-php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --json
-php /home/cabnet/gov.cabnet.app_app/cli/validate_safe_handoff_package.php --latest --json
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json
 ```
 
-Optional private DB audit package command, only when explicitly needed:
+Optional dry-run for a selected booking:
 
 ```bash
-php /home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php --include-db --json
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --booking-id=BOOKING_ID --json
+```
+
+Supervised transport trace command for later only, after Andreas explicitly authorizes a real eligible future booking and server-only one-shot gates are enabled:
+
+```bash
+php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --booking-id=BOOKING_ID --transport=1 --confirm='I UNDERSTAND SUBMIT LIVE TO EDXEIX' --json
 ```
 
 ## Verification URLs
 
 ```text
-https://gov.cabnet.app/ops/handoff-center.php
-https://gov.cabnet.app/ops/handoff-package-validator.php
-https://gov.cabnet.app/ops/handoff-package-tools.php
+https://gov.cabnet.app/ops/edxeix-submit-diagnostic.php
+https://gov.cabnet.app/ops/live-submit-readiness.php
+https://gov.cabnet.app/ops/edxeix-final-submit-gate.php
 ```
 
 ## Expected result
 
-- Normal CLI package generation creates a `_no_db.zip` package.
-- Validator reports no dangerous entries for DB-free packages.
-- DB-free packages do not contain `DATABASE_EXPORT.sql`, receipt PDFs, runtime `.lock` files, storage artifacts, backup/broken PHP copies, or temporary package residue.
-- DB audit packages are still possible only when explicitly requested and must remain private operational material.
+- Web diagnostic loads inside `/ops/` and clearly says it is dry-run/read-only.
+- CLI dry-run returns JSON with booking analysis, session summary, blockers, payload field names, and classification `DRY_RUN_DIAGNOSTIC_ONLY`.
+- No EDXEIX HTTP POST occurs unless `--transport=1` is used and all server-only live-submit gates are already enabled for one selected booking.
+- If transport is requested while gates are disabled, result is `TRANSPORT_BLOCKED_BY_SAFETY_GATE`.
+- No cookies, CSRF tokens, raw EDXEIX HTML, or raw payload values are printed.
 
 ## Git commit title
 
-Safe-harden handoff package exports
+Add EDXEIX submit diagnostic tracing
 
 ## Git commit description
 
-Refreshes the project handoff state after the queue 2398 closed test and hardens safe handoff package generation/validation. DB-free packages are now the default for CLI generation, database export requires explicit `--include-db`, and the builder/validator now exclude or flag runtime locks, receipt attachments, storage artifacts, backup/broken files, and accidental database exports.
+Adds dry-run EDXEIX submit diagnostics and a gated CLI redirect-chain trace tool so HTTP 302 can be classified before moving toward full automation. Updates scope, handoff, README, manifest, and documentation for the ASAP automation track while keeping unattended live submission disabled.
 
-No SQL changes. No Bolt, EDXEIX, or AADE calls. No live-submit behavior enabled.
+No SQL changes. No unattended worker. No live-submit behavior enabled by default.

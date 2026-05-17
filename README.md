@@ -4,7 +4,7 @@ Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API → normalized loca
 
 ## Current safety posture
 
-No live EDXEIX submission is enabled by this repository package. Current work is limited to:
+No unattended live EDXEIX submission is enabled by this repository package. Current work is limited to:
 
 - Bolt reference sync
 - Bolt order sync
@@ -13,9 +13,12 @@ No live EDXEIX submission is enabled by this repository package. Current work is
 - EDXEIX payload preview/preflight
 - local queue visibility
 - readiness audit
-- dry-run/local audit behavior only
+- dry-run/local audit behavior
+- submit diagnostic tracing preparation
 
-Live EDXEIX submission must remain disabled unless a real eligible future Bolt trip exists and the owner explicitly requests a live submit update.
+Live EDXEIX submission must remain disabled unless a real eligible future Bolt trip exists and the owner explicitly requests a one-shot live submit diagnostic/update.
+
+HTTP 302 from EDXEIX must not be treated as saved/confirmed by itself. Queue 2398 returned HTTP 302, but no remote/reference ID was captured and no saved EDXEIX contract was confirmed.
 
 ## cPanel layout
 
@@ -48,11 +51,21 @@ docs/                            Scope, deployment, security, and recommendation
 /bolt_stage_edxeix_jobs.php
 /bolt_readiness_audit.php
 /bolt_submission_worker.php
+/edxeix-extension-payload.php
 /ops/index.php
 /ops/bolt-live.php
 /ops/jobs.php
 /ops/readiness.php
 /ops/submit.php
+/ops/edxeix-submit-diagnostic.php
+```
+
+## Key CLI tools
+
+```text
+/home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php
+/home/cabnet/gov.cabnet.app_app/cli/build_safe_handoff_package.php
+/home/cabnet/gov.cabnet.app_app/cli/validate_safe_handoff_package.php
 ```
 
 ## Current validated status
@@ -62,8 +75,9 @@ docs/                            Scope, deployment, security, and recommendation
 - Bolt order sync works.
 - Database schema fixes for dedupe/defaults/decimal/null time columns have been applied in the working server line.
 - Readiness audit works and reports read-only behavior.
-- Real historical Bolt orders are blocked from EDXEIX submission because they are terminal/cancelled and not at least +30 minutes in the future.
-- Queue was clean at the latest validation point: zero local jobs and zero recent attempts.
+- Real historical Bolt orders are blocked from EDXEIX submission because they are terminal/cancelled and not sufficiently in the future.
+- Queue 2398 one-shot test is closed as not confirmed / not saved.
+- Next automation step is EDXEIX submit redirect-chain diagnostics, not unattended live submission.
 
 ## Initial install notes
 
@@ -72,16 +86,17 @@ docs/                            Scope, deployment, security, and recommendation
 3. Fill real secrets only on the server. Never commit them.
 4. Import the schema/migrations needed for the target environment.
 5. Run `/bolt_readiness_audit.php` and `/ops/readiness.php`.
-6. Do not enable live submit behavior until a real future Bolt ride passes preflight.
+6. Run `/ops/edxeix-submit-diagnostic.php` dry-run before any new supervised test.
+7. Do not enable live submit behavior until a real future Bolt ride passes preflight and Andreas explicitly authorizes a one-shot diagnostic.
 
-## Suggested first Git commit
+## Suggested commit for v3.2.20
 
 ```text
-Initial sanitized gov.cabnet.app Bolt EDXEIX bridge
+Add EDXEIX submit diagnostic tracing
 ```
 
 Description:
 
 ```text
-Adds the sanitized cPanel project structure for the gov.cabnet.app Bolt → EDXEIX bridge, including public endpoints, private PHP libraries, SQL schema/migrations, operations UI, readiness audit, dry-run worker, docs, config examples, and repository ignore rules. Real credentials, sessions, logs, data dumps, and temporary public utility scripts are excluded.
+Adds dry-run EDXEIX submit diagnostics and a gated CLI redirect-chain trace tool so HTTP 302 can be classified before moving toward full automation. Updates scope, handoff, README, manifest, and documentation for the ASAP automation track while keeping unattended live submission disabled.
 ```
