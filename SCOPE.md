@@ -1,23 +1,16 @@
-# Scope — gov.cabnet.app Bolt → EDXEIX Bridge
+# Scope — v3.2.37
 
-## Current ASAP track
+In scope:
+- Strict candidate identity lock for supervised one-shot EDXEIX POST.
+- Recent candidate listing.
+- Transport payload alignment to EDXEIX nested lessee fields.
+- Sanitized validation-return capture.
+- Retry prevention for already attempted/closed candidates.
 
-Move toward safe EDXEIX automation while preserving Production V0.
-
-## v3.2.36 scope
-
-- Fetch authenticated EDXEIX create form immediately before a supervised one-shot POST.
-- Extract fresh hidden `_token` internally only.
-- Inject fresh token into the existing one-shot transport trace.
-- Keep candidate 4 closed/manual V0 submitted and retry-blocked.
-- Require explicit candidate ID, exact payload hash, exact confirmation phrase, no previous server attempt, no closure, future guard, and valid create-form context.
-
-## Out of scope
-
-- No unattended automation.
-- No cron.
-- No AADE/myDATA call.
-- No queue job.
-- No normalized_bookings write.
-- No live config write.
-- No V0 production changes.
+Out of scope:
+- V0 production changes.
+- Unattended submit workers.
+- Cron jobs.
+- AADE/myDATA changes.
+- Normalized booking writes.
+- Live config writes.

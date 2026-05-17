@@ -1,6 +1,6 @@
 <?php
 /**
- * gov.cabnet.app — Ops supervised pre-ride one-shot EDXEIX transport trace v3.2.36.
+ * gov.cabnet.app — Ops supervised pre-ride one-shot EDXEIX transport trace v3.2.37.
  * Default GET is dry-run. Actual HTTP POST requires typed confirmation and hash lock.
  */
 
@@ -43,6 +43,10 @@ $options = [
     'follow_redirects' => true,
     'expected_payload_hash' => (string)($_POST['expected_payload_hash'] ?? ''),
     'confirmation_phrase' => (string)($_POST['confirmation_phrase'] ?? ''),
+    'expected_customer' => (string)($_POST['expected_customer'] ?? ''),
+    'expected_driver' => (string)($_POST['expected_driver'] ?? ''),
+    'expected_vehicle' => (string)($_POST['expected_vehicle'] ?? ''),
+    'expected_pickup' => (string)($_POST['expected_pickup'] ?? ''),
 ];
 
 try {
@@ -64,6 +68,8 @@ $classMsg = (string)($result['classification']['message'] ?? '');
 $packet = is_array($result['operator_transport_packet'] ?? null) ? $result['operator_transport_packet'] : [];
 $payload = is_array($packet['payload_preview'] ?? null) ? $packet['payload_preview'] : [];
 $trace = is_array($result['trace'] ?? null) ? $result['trace'] : null;
+$identity = is_array($result['identity_lock'] ?? null) ? $result['identity_lock'] : [];
+$validation = is_array($trace['validation_summary'] ?? null) ? $trace['validation_summary'] : [];
 $armable = $classCode === 'PRE_RIDE_TRANSPORT_TRACE_ARMABLE' && empty($result['transport_blockers']);
 $performed = !empty($result['transport_performed']);
 ?><!doctype html>
@@ -81,7 +87,7 @@ $performed = !empty($result['transport_performed']);
 <div class="wrap">
   <section class="card hero <?= $performed ? 'warn' : ($armable ? 'ok' : '') ?>">
     <h1>Pre-Ride One-Shot EDXEIX Transport Trace</h1>
-    <p class="muted">v3.2.36 — fresh create-form token integration and retry prevention. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. Fresh token is fetched before a supervised one-shot POST.</p>
+    <p class="muted">v3.2.37 — strict identity lock, validation capture, fresh token integration, and retry prevention. Default is dry-run. No AADE call, no queue job, no normalized booking write, no live config write. Fresh token is fetched before a supervised one-shot POST. Strict expected customer/driver/vehicle/pickup identity is required for transport.</p>
     <p><strong>Classification:</strong> <span class="pill <?= $performed ? 'warn' : ($armable ? 'ok' : 'bad') ?>"><?= prtx_h($classCode) ?></span></p>
     <p><?= prtx_h($classMsg) ?></p>
   </section>
@@ -139,10 +145,29 @@ $performed = !empty($result['transport_performed']);
     </tbody></table>
   </section>
 
+  <section class="card">
+    <h2>Strict identity lock</h2>
+    <p class="muted">v3.2.37 blocks transport unless the expected customer, driver, vehicle, and pickup datetime exactly match this candidate. This prevents latest-mail confusion.</p>
+    <?php if (!empty($identity['checks'])): ?>
+    <table class="table"><thead><tr><th>Field</th><th>Expected</th><th>Actual candidate</th><th>Match</th></tr></thead><tbody>
+      <?php foreach ($identity['checks'] as $check): ?>
+      <tr>
+        <td><?= prtx_h($check['field'] ?? '') ?></td>
+        <td><?= prtx_h($check['expected'] ?? '') ?></td>
+        <td><?= prtx_h($check['actual'] ?? '') ?></td>
+        <td><?= prtx_bool_badge(!empty($check['match'])) ?></td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody></table>
+    <?php else: ?>
+    <p class="muted">Identity expectations are required only when submitting transport.</p>
+    <?php endif; ?>
+  </section>
+
   <section class="card <?= $armable && !$performed ? 'hero warn' : '' ?>">
     <h2>Supervised one-shot POST</h2>
     <div class="notice">
-      v3.2.36 fetches a fresh EDXEIX create-form token immediately before a supervised one-shot POST. Use only for a new future candidate that is not manually closed and has no previous server attempt. Candidate 4 remains closed and blocked.
+      v3.2.37 fetches a fresh EDXEIX create-form token immediately before a supervised one-shot POST. Use only for a new future candidate that is not manually closed and has no previous server attempt. Candidate 4 remains closed and blocked.
     </div>
     <form method="post" style="margin-top:12px">
       <input type="hidden" name="candidate_id" value="<?= prtx_h($packet['candidate_id'] ?? $candidateId) ?>">
@@ -159,6 +184,11 @@ $performed = !empty($result['transport_performed']);
   <section class="card hero warn">
     <h2>Transport trace result — verification required</h2>
     <p>One HTTP POST trace was performed. This is not proof of saved contract until confirmed in the EDXEIX portal/list.</p>
+    <?php if ($validation): ?>
+      <h3>Validation summary</h3>
+      <p><strong>Returned to create form:</strong> <?= prtx_bool_badge(!empty($validation['returned_to_create_form'])) ?></p>
+      <?= prtx_array_lines($validation['validation_text_lines'] ?? []) ?>
+    <?php endif; ?>
     <pre class="code"><?= prtx_h(json_encode($trace, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
   </section>
   <?php endif; ?>

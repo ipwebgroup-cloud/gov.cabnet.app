@@ -1,7 +1,5 @@
-# gov.cabnet.app
+# gov.cabnet.app — Bolt → EDXEIX bridge
 
-Plain PHP / mysqli / MariaDB bridge for Bolt pre-ride and EDXEIX readiness diagnostics.
+Current patch: v3.2.37 strict candidate identity lock and validation capture.
 
-Current patch package: v3.2.36 — fresh EDXEIX create-form token integration for the supervised one-shot transport trace.
-
-Production V0 remains separate and untouched.
+Use only explicit candidate IDs for supervised EDXEIX transport tests. Do not POST from latest-mail/latest-ready selection. V0 production remains untouched.

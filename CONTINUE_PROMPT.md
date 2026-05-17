@@ -1,13 +1,16 @@
-You are Sophion assisting Andreas with gov.cabnet.app Bolt → EDXEIX bridge.
+Continue gov.cabnet.app Bolt → EDXEIX bridge from v3.2.37.
 
-Current version: v3.2.36.
+Stack: plain PHP/mysqli/MariaDB/cPanel/manual upload. No frameworks/build tools.
 
-Production V0 must remain untouched. V0 laptop/manual EDXEIX workflow is production and should not be changed.
+Latest validated state:
+- v3.2.36 fresh EDXEIX create-form token integration works.
+- Candidate 4: manually submitted via V0/laptop; closed and retry-blocked.
+- Candidate 5: one server-side POST attempt; redirected to create form; not confirmed saved; do not retry.
+- v3.2.37 patch adds strict identity lock and sanitized validation capture.
 
-Candidate 4 was manually submitted through V0/laptop and is archived/closed as `manual_submitted_v0`; server retry must remain blocked.
-
-v3.2.35 validated the server can reach the authenticated EDXEIX create form and see the correct hidden token after the browser session is saved. v3.2.36 integrates that fresh create-form token into the supervised one-shot transport trace path.
-
-Critical safety: no unattended automation, no cron, no AADE call, no queue job, no normalized_booking write, no live config write. Server POST is possible only for a new future candidate, explicit candidate_id, exact payload hash, exact confirmation phrase, no closure, no previous server attempt, and a valid fresh form-token diagnostic.
-
-Next: wait for/capture a new future pre-ride candidate, dry-run `pre_ride_one_shot_transport_trace.php --candidate-id=N --json`, and only if `PRE_RIDE_TRANSPORT_TRACE_ARMABLE`, run one supervised POST. Do not reuse candidate 4.
+Rules:
+- V0 production must remain untouched.
+- No unattended automation or cron.
+- No AADE calls from EDXEIX tests.
+- Never POST without explicit candidate_id, expected customer, expected driver, expected vehicle, expected pickup datetime, expected payload hash, and exact confirmation phrase.
+- If EDXEIX redirects back to create form, treat as validation/not-confirmed and verify manually.
