@@ -9,6 +9,7 @@
  * - v3.2.23 adds a diagnostics-only fallback label parser for Maildir bodies whose labels are not line-start normalized.
  * - v3.2.24 adds opt-in safe source diagnostics so empty Maildir parses can be inspected without exposing raw email bodies.
  * - v3.2.25 teaches the diagnostics-only fallback parser to clean <p>/<strong> HTML label rows before extraction.
+ * - v3.2.26 fixes fallback multi-label detection when preg_match_all returns more than one match.
  *
  * Safety contract:
  * - Default mode is dry-run / analysis only.
@@ -517,7 +518,9 @@ if (!function_exists('gov_prc_fallback_extract_label_map')) {
         $escaped = array_map(static fn(string $label): string => preg_quote($label, '/'), array_values(array_unique($allLabels)));
         $pattern = '/(?<![\p{L}0-9])(' . implode('|', $escaped) . ')\s*:\s*/iu';
 
-        if (preg_match_all($pattern, $body, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+        $matchResult = preg_match_all($pattern, $body, $matches, PREG_OFFSET_CAPTURE);
+        if ($matchResult === false || $matchResult < 1) {
+            $diagnostics['fallback_label_hits'] = 0;
             return [];
         }
 

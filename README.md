@@ -1,18 +1,18 @@
 # gov.cabnet.app — Bolt → EDXEIX Integration
 
-Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API → normalized local bookings → EDXEIX preflight/queue/readiness workflow.
+Plain PHP + mysqli/MariaDB project for a safe Bolt Fleet API / pre-ride email → normalized local readiness → EDXEIX diagnostic/preflight workflow.
 
 ## Current safety posture
 
-No unattended live EDXEIX submission is enabled.
+No unattended live EDXEIX submission is enabled. Current work is focused on diagnostic readiness for future pre-ride emails.
 
-Current ASAP automation track:
+## Current ASAP track
 
-- EDXEIX submit diagnostic tracing is installed.
-- Future guard is 30 minutes.
-- Historical/terminal/cancelled/mail receipt-only/test-like rows remain blocked.
-- Pre-ride future candidate diagnostics are installed as a separate path.
-- v3.2.25 adds opt-in redacted source diagnostics for Maildir parser troubleshooting.
+- Server-side future guard: 30 minutes.
+- Existing Bolt API rows remain blocked when historical, terminal, cancelled, lab/test, or not future.
+- `bolt_mail` receipt-only rows remain blocked from EDXEIX.
+- `bolt_pre_ride_email` is a separate diagnostic path.
+- v3.2.26 fixes diagnostics-only fallback parsing for HTML label rows.
 
 ## cPanel layout
 
@@ -21,11 +21,4 @@ Current ASAP automation track:
 /home/cabnet/gov.cabnet.app_app
 /home/cabnet/gov.cabnet.app_config
 /home/cabnet/gov.cabnet.app_sql
-```
-
-## Important commands
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/edxeix_submit_diagnostic.php --json --list-candidates=1 --limit=75
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1
 ```

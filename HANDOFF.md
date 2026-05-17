@@ -1,23 +1,20 @@
-# gov.cabnet.app Handoff — 2026-05-17 v3.2.25 ASAP Automation Track
+# gov.cabnet.app Handoff — 2026-05-17 EDXEIX Pre-Ride Candidate v3.2.26
 
 Current posture:
 
 - Production V0 remains unaffected.
-- EDXEIX live submission remains blocked.
-- Session file is ready, but no eligible real future Bolt candidate exists.
-- Future guard is set to 30 minutes in both server config files.
-- v3.2.22 added pre-ride future candidate diagnostics and optional sanitized metadata capture.
-- v3.2.23 added diagnostics-only fallback parsing, but latest Maildir validation still showed zero primary and fallback fields.
-- v3.2.25 adds opt-in HTML-label fallback extraction to inspect the decoded Maildir body structure without printing/storing raw email content.
+- EDXEIX live submission remains disabled.
+- AADE/myDATA production receipt issuing remains untouched.
+- Future guard is configured at 30 minutes in both server config files.
+- v3.2.22 added a separate `bolt_pre_ride_email` diagnostic candidate path.
+- v3.2.24 proved the latest Maildir email contains expected HTML labels but parser output was empty.
+- v3.2.25 added HTML cleanup but validation showed fallback label hits were still zero because the multi-label match guard rejected normal positive match counts.
+- v3.2.26 fixes that diagnostics-only fallback parser guard.
 
-Next safest step:
+Next action:
 
-Run:
-
-```bash
-php /home/cabnet/gov.cabnet.app_app/cli/pre_ride_candidate_diagnostic.php --json --latest-mail=1 --debug-source=1
-```
-
-Use `source_debug.label_phrase_hit_fields`, `source_debug.label_colon_hit_fields`, and `source_debug.redacted_structure_lines` to decide whether the Maildir loader selected the wrong email, the body is encoded/unexpected, or the parser needs a new label pattern.
-
-Do not enable one-shot transport until a candidate is parsed, future-safe, mapped, and explicitly approved.
+1. Upload v3.2.26.
+2. Run syntax checks.
+3. Run the latest-mail pre-ride diagnostic with `--debug-source=1`.
+4. Confirm fallback label hits are positive and parsed fields populate.
+5. Do not enable EDXEIX transport until a real future mapped candidate is confirmed.
